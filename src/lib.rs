@@ -1,3 +1,3 @@
 mod orders;
 
-pub use orders::Side;
+pub use orders::{Side, TimeInForce};
