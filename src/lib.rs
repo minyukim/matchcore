@@ -1,3 +1,3 @@
 mod orders;
 
-pub use orders::{Side, TimeInForce};
+pub use orders::{PegReference, Side, TimeInForce};
