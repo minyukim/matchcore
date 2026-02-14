@@ -1,13 +1,23 @@
-name: PR Checks
+name: Rust CI
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, ready_for_review, reopened]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "build.rs"
+
+concurrency:
+  group: rust-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  pr-checks:
-    name: PR Checks
+  rust-ci:
+    name: Rust CI
     runs-on: ubuntu-latest
 
     steps:
