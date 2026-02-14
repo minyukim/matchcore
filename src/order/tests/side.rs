@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests_side {
-    use crate::orders::Side;
+    use crate::order::Side;
 
     #[test]
     fn test_side_equality() {
