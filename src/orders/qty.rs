@@ -3,7 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 /// Represents the quantity policy of an order
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum QtyPolicy {
     /// Standard quantity policy
     Standard {
@@ -46,6 +46,13 @@ impl QtyPolicy {
         }
     }
 
+    pub fn update_visible_qty(&mut self, new_visible_qty: u64) {
+        match self {
+            QtyPolicy::Standard { qty } => *qty = new_visible_qty,
+            QtyPolicy::Iceberg { visible_qty, .. } => *visible_qty = new_visible_qty,
+        }
+    }
+
     pub fn replenish(&mut self) -> u64 {
         match self {
             QtyPolicy::Iceberg {
@@ -76,7 +83,7 @@ impl fmt::Display for QtyPolicy {
                 replenish_size,
             } => write!(
                 f,
-                "Iceberg: visible_qty={}, hidden_qty={}, replenish_size={}",
+                "Iceberg: visible_qty={} hidden_qty={} replenish_size={}",
                 visible_qty, hidden_qty, replenish_size
             ),
         }

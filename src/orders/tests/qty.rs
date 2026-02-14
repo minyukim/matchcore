@@ -45,6 +45,30 @@ mod tests_qty_policy {
     }
 
     #[test]
+    fn test_update_visible_qty() {
+        {
+            let mut standard_qty = QtyPolicy::Standard { qty: 100 };
+            standard_qty.update_visible_qty(50);
+
+            assert_eq!(standard_qty.visible_qty(), 50);
+            assert_eq!(standard_qty.hidden_qty(), 0);
+            assert_eq!(standard_qty.replenish_size(), 0);
+        }
+        {
+            let mut iceberg_qty = QtyPolicy::Iceberg {
+                visible_qty: 10,
+                hidden_qty: 50,
+                replenish_size: 10,
+            };
+            iceberg_qty.update_visible_qty(20);
+
+            assert_eq!(iceberg_qty.visible_qty(), 20);
+            assert_eq!(iceberg_qty.hidden_qty(), 50);
+            assert_eq!(iceberg_qty.replenish_size(), 10);
+        }
+    }
+
+    #[test]
     fn test_replenish() {
         {
             let mut standard_qty = QtyPolicy::Standard { qty: 100 };
@@ -159,7 +183,7 @@ mod tests_qty_policy {
                 replenish_size: 10
             }
             .to_string(),
-            "Iceberg: visible_qty=10, hidden_qty=50, replenish_size=10"
+            "Iceberg: visible_qty=10 hidden_qty=50 replenish_size=10"
         );
     }
 }
