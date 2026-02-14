@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests_time_in_force {
-    use crate::orders::TimeInForce;
+    use crate::order::TimeInForce;
 
     #[test]
     fn test_is_immediate() {

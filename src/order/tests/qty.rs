@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests_qty_policy {
-    use crate::orders::QtyPolicy;
+    use crate::order::QtyPolicy;
 
     #[test]
     fn test_visible_qty() {

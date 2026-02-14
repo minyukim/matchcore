@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests_peg_reference {
-    use crate::orders::PegReference;
+    use crate::order::PegReference;
 
     #[test]
     fn test_serialize() {
