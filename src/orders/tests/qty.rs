@@ -159,7 +159,7 @@ mod tests_qty_policy {
                 replenish_size: 10
             }
             .to_string(),
-            "Iceberg: visible_qty=10, hidden_qty=50, replenish_size=10"
+            "Iceberg: visible_qty=10 hidden_qty=50 replenish_size=10"
         );
     }
 }

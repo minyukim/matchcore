@@ -76,7 +76,7 @@ impl fmt::Display for QtyPolicy {
                 replenish_size,
             } => write!(
                 f,
-                "Iceberg: visible_qty={}, hidden_qty={}, replenish_size={}",
+                "Iceberg: visible_qty={} hidden_qty={} replenish_size={}",
                 visible_qty, hidden_qty, replenish_size
             ),
         }
