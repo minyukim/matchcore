@@ -46,6 +46,13 @@ impl QtyPolicy {
         }
     }
 
+    pub fn update_visible_qty(&mut self, new_visible_qty: u64) {
+        match self {
+            QtyPolicy::Standard { qty } => *qty = new_visible_qty,
+            QtyPolicy::Iceberg { visible_qty, .. } => *visible_qty = new_visible_qty,
+        }
+    }
+
     pub fn replenish(&mut self) -> u64 {
         match self {
             QtyPolicy::Iceberg {
