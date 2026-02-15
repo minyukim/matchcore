@@ -19,7 +19,8 @@ pub enum TimeInForce {
     #[serde(rename = "FOK")]
     Fok,
 
-    /// Good 'Til Date - The order remains active until a specified date and time, expressed as a Unix timestamp (seconds since epoch).
+    /// Good 'Til Date - The order remains active until a specified date and time.
+    /// The date and time is expressed as a Unix timestamp (seconds since epoch).
     #[serde(rename = "GTD")]
     Gtd(u64),
 }

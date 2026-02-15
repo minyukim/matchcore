@@ -145,16 +145,14 @@ mod tests_qty_policy {
 
     #[test]
     fn test_round_trip_serialization() {
-        let test_cases = vec![
+        for qty_policy in [
             QtyPolicy::Standard { qty: 100 },
             QtyPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
                 replenish_size: 10,
             },
-        ];
-
-        for qty_policy in test_cases {
+        ] {
             let serialized = serde_json::to_string(&qty_policy).unwrap();
             let deserialized: QtyPolicy = serde_json::from_str(&serialized).unwrap();
             assert_eq!(qty_policy, deserialized);

@@ -1,3 +1,4 @@
+mod limit;
 mod peg;
 mod qty;
 mod side;
@@ -5,6 +6,7 @@ mod time;
 
 mod tests;
 
+pub use limit::Order;
 pub use peg::PegReference;
 pub use qty::QtyPolicy;
 pub use side::Side;
