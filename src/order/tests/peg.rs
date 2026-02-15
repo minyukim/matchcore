@@ -118,15 +118,15 @@ mod tests_peg_order {
     }
 
     #[test]
-    fn test_qty() {
+    fn test_quantity() {
         let mut order = create_pegged_order();
-        assert_eq!(order.qty(), 20);
+        assert_eq!(order.quantity(), 20);
 
-        order.update_qty(30);
-        assert_eq!(order.qty(), 30);
+        order.update_quantity(30);
+        assert_eq!(order.quantity(), 30);
 
-        order.update_qty(10);
-        assert_eq!(order.qty(), 10);
+        order.update_quantity(10);
+        assert_eq!(order.quantity(), 10);
     }
 
     #[test]
@@ -172,22 +172,22 @@ mod tests_peg_order {
     #[test]
     fn test_match_against() {
         let mut order = create_pegged_order();
-        assert_eq!(order.qty(), 20);
+        assert_eq!(order.quantity(), 20);
 
         let (consumed, remaining) = order.match_against(2);
         assert_eq!(consumed, 2);
         assert_eq!(remaining, 0);
-        assert_eq!(order.qty(), 18);
+        assert_eq!(order.quantity(), 18);
 
         let (consumed, remaining) = order.match_against(20);
         assert_eq!(consumed, 18);
         assert_eq!(remaining, 2);
-        assert_eq!(order.qty(), 0);
+        assert_eq!(order.quantity(), 0);
 
         let (consumed, remaining) = order.match_against(10);
         assert_eq!(consumed, 0);
         assert_eq!(remaining, 10);
-        assert_eq!(order.qty(), 0);
+        assert_eq!(order.quantity(), 0);
     }
 
     #[test]
@@ -202,7 +202,7 @@ mod tests_peg_order {
     fn test_display() {
         assert_eq!(
             create_pegged_order().to_string(),
-            "Pegged: id=0 reference=BestBid qty=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
+            "Pegged: id=0 reference=BestBid quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
         );
     }
 }
