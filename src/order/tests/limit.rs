@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests_order {
-    use crate::order::{Order, QtyPolicy, Side, TimeInForce};
+    use crate::order::{Order, QuantityPolicy, Side, TimeInForce};
 
     fn create_standard_order() -> Order {
         Order::new(
             0,
             90,
-            QtyPolicy::Standard { qty: 10 },
+            QuantityPolicy::Standard { qty: 10 },
             Side::Buy,
             true,
             1771180000,
@@ -19,7 +19,7 @@ mod tests_order {
         Order::new(
             1,
             100,
-            QtyPolicy::Iceberg {
+            QuantityPolicy::Iceberg {
                 visible_qty: 20,
                 hidden_qty: 40,
                 replenish_size: 20,
@@ -57,7 +57,7 @@ mod tests_order {
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_size(), 0);
 
-            order.update_qty(QtyPolicy::Iceberg {
+            order.update_qty(QuantityPolicy::Iceberg {
                 visible_qty: 1,
                 hidden_qty: 10,
                 replenish_size: 1,
@@ -73,7 +73,7 @@ mod tests_order {
             assert_eq!(order.hidden_quantity(), 40);
             assert_eq!(order.replenish_size(), 20);
 
-            order.update_qty(QtyPolicy::Standard { qty: 100 });
+            order.update_qty(QuantityPolicy::Standard { qty: 100 });
             assert_eq!(order.visible_quantity(), 100);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_size(), 0);
