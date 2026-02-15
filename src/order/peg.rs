@@ -39,7 +39,7 @@ where
     /// Reference price to track
     reference: PegReference,
     /// The quantity of the order
-    qty: u64,
+    quantity: u64,
     /// The side of the order (buy or sell)
     side: Side,
     /// Whether the order is post-only
@@ -60,7 +60,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     pub fn new(
         id: u64,
         reference: PegReference,
-        qty: u64,
+        quantity: u64,
         side: Side,
         post_only: bool,
         timestamp: u64,
@@ -70,7 +70,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         Self {
             id,
             reference,
-            qty,
+            quantity,
             side,
             post_only,
             timestamp,
@@ -95,13 +95,13 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Get the quantity of the order
-    pub fn qty(&self) -> u64 {
-        self.qty
+    pub fn quantity(&self) -> u64 {
+        self.quantity
     }
 
     /// Update the quantity of the order
-    pub fn update_qty(&mut self, new_qty: u64) {
-        self.qty = new_qty;
+    pub fn update_quantity(&mut self, new_quantity: u64) {
+        self.quantity = new_quantity;
     }
 
     /// Get the order side
@@ -149,12 +149,12 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Returns a tuple containing:
     /// - The quantity consumed from the incoming order
     /// - The remaining quantity of the incoming order
-    pub fn match_against(&mut self, incoming_qty: u64) -> (u64, u64) {
-        let new_qty = self.qty.saturating_sub(incoming_qty);
-        let consumed = self.qty - new_qty;
-        let remaining = incoming_qty - consumed;
+    pub fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64) {
+        let new_quantity = self.quantity.saturating_sub(incoming_quantity);
+        let consumed = self.quantity - new_quantity;
+        let remaining = incoming_quantity - consumed;
 
-        self.qty = new_qty;
+        self.quantity = new_quantity;
         (consumed, remaining)
     }
 
@@ -177,7 +177,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         PeggedOrder::new(
             self.id,
             self.reference,
-            self.qty,
+            self.quantity,
             self.side,
             self.post_only,
             self.timestamp,
@@ -193,10 +193,10 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Pegged: id={} reference={} qty={} side={} post_only={} timestamp={} time_in_force={}",
+            "Pegged: id={} reference={} quantity={} side={} post_only={} timestamp={} time_in_force={}",
             self.id,
             self.reference,
-            self.qty,
+            self.quantity,
             self.side,
             self.post_only,
             self.timestamp,

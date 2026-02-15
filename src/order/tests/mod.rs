@@ -1,5 +1,5 @@
 mod limit;
 mod peg;
-mod qty;
+mod quantity;
 mod side;
 mod time;
