@@ -17,7 +17,7 @@ pub enum QuantityPolicy {
         /// The hidden quantity of the order
         hidden_qty: u64,
         /// The replenish size of the order
-        replenish_size: u64,
+        replenish_qty: u64,
     },
 }
 
@@ -39,9 +39,9 @@ impl QuantityPolicy {
     }
 
     /// Get the replenish size of the order
-    pub fn replenish_size(&self) -> u64 {
+    pub fn replenish_qty(&self) -> u64 {
         match self {
-            QuantityPolicy::Iceberg { replenish_size, .. } => *replenish_size,
+            QuantityPolicy::Iceberg { replenish_qty, .. } => *replenish_qty,
             _ => 0,
         }
     }
@@ -58,9 +58,9 @@ impl QuantityPolicy {
             QuantityPolicy::Iceberg {
                 visible_qty,
                 hidden_qty,
-                replenish_size,
+                replenish_qty,
             } => {
-                let new_hidden = hidden_qty.saturating_sub(*replenish_size);
+                let new_hidden = hidden_qty.saturating_sub(*replenish_qty);
                 let replenished = *hidden_qty - new_hidden;
 
                 *visible_qty = visible_qty.saturating_add(replenished);
@@ -80,11 +80,11 @@ impl fmt::Display for QuantityPolicy {
             QuantityPolicy::Iceberg {
                 visible_qty,
                 hidden_qty,
-                replenish_size,
+                replenish_qty,
             } => write!(
                 f,
-                "Iceberg: visible_qty={} hidden_qty={} replenish_size={}",
-                visible_qty, hidden_qty, replenish_size
+                "Iceberg: visible_qty={} hidden_qty={} replenish_qty={}",
+                visible_qty, hidden_qty, replenish_qty
             ),
         }
     }

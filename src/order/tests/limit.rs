@@ -22,7 +22,7 @@ mod tests_order {
             QuantityPolicy::Iceberg {
                 visible_qty: 20,
                 hidden_qty: 40,
-                replenish_size: 20,
+                replenish_qty: 20,
             },
             Side::Sell,
             false,
@@ -55,28 +55,28 @@ mod tests_order {
             let mut order = create_standard_order();
             assert_eq!(order.visible_quantity(), 10);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 0);
+            assert_eq!(order.replenish_qty(), 0);
 
             order.update_qty(QuantityPolicy::Iceberg {
                 visible_qty: 1,
                 hidden_qty: 10,
-                replenish_size: 1,
+                replenish_qty: 1,
             });
 
             assert_eq!(order.visible_quantity(), 1);
             assert_eq!(order.hidden_quantity(), 10);
-            assert_eq!(order.replenish_size(), 1);
+            assert_eq!(order.replenish_qty(), 1);
         }
         {
             let mut order = create_iceberg_order();
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 40);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             order.update_qty(QuantityPolicy::Standard { qty: 100 });
             assert_eq!(order.visible_quantity(), 100);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 0);
+            assert_eq!(order.replenish_qty(), 0);
         }
     }
 
@@ -129,7 +129,7 @@ mod tests_order {
             let mut order = create_standard_order();
             assert_eq!(order.visible_quantity(), 10);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 0);
+            assert_eq!(order.replenish_qty(), 0);
 
             let (consumed, remaining, replenished) = order.match_against(2);
             assert_eq!(consumed, 2);
@@ -137,7 +137,7 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 8);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 0);
+            assert_eq!(order.replenish_qty(), 0);
 
             let (consumed, remaining, replenished) = order.match_against(10);
             assert_eq!(consumed, 8);
@@ -145,7 +145,7 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 0);
+            assert_eq!(order.replenish_qty(), 0);
 
             let (consumed, remaining, replenished) = order.match_against(10);
             assert_eq!(consumed, 0);
@@ -153,13 +153,13 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 0);
+            assert_eq!(order.replenish_qty(), 0);
         }
         {
             let mut order = create_iceberg_order();
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 40);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             let (consumed, remaining, replenished) = order.match_against(5);
             assert_eq!(consumed, 5);
@@ -167,7 +167,7 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 15);
             assert_eq!(order.hidden_quantity(), 40);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             let (consumed, remaining, replenished) = order.match_against(20);
             assert_eq!(consumed, 15);
@@ -175,7 +175,7 @@ mod tests_order {
             assert_eq!(replenished, 20);
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 20);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             let (consumed, remaining, replenished) = order.match_against(20);
             assert_eq!(consumed, 20);
@@ -183,7 +183,7 @@ mod tests_order {
             assert_eq!(replenished, 20);
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             let (consumed, remaining, replenished) = order.match_against(1);
             assert_eq!(consumed, 1);
@@ -191,7 +191,7 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 19);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             let (consumed, remaining, replenished) = order.match_against(19);
             assert_eq!(consumed, 19);
@@ -199,7 +199,7 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
 
             let (consumed, remaining, replenished) = order.match_against(1);
             assert_eq!(consumed, 0);
@@ -207,7 +207,7 @@ mod tests_order {
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_size(), 20);
+            assert_eq!(order.replenish_qty(), 20);
         }
     }
 
@@ -231,7 +231,7 @@ mod tests_order {
         {
             assert_eq!(
                 create_iceberg_order().to_string(),
-                "Iceberg: id=1 price=100 visible_qty=20 hidden_qty=40 replenish_size=20 side=SELL post_only=false timestamp=1771190000 time_in_force=GTC"
+                "Iceberg: id=1 price=100 visible_qty=20 hidden_qty=40 replenish_qty=20 side=SELL post_only=false timestamp=1771190000 time_in_force=GTC"
             );
         }
     }

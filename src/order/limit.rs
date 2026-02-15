@@ -79,8 +79,8 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Get the replenish size
-    pub fn replenish_size(&self) -> u64 {
-        self.qty.replenish_size()
+    pub fn replenish_qty(&self) -> u64 {
+        self.qty.replenish_qty()
     }
 
     /// Update the quantity of the order
@@ -211,16 +211,16 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             QuantityPolicy::Iceberg {
                 visible_qty,
                 hidden_qty,
-                replenish_size,
+                replenish_qty,
             } => {
                 write!(
                     f,
-                    "Iceberg: id={} price={} visible_qty={} hidden_qty={} replenish_size={} side={} post_only={} timestamp={} time_in_force={}",
+                    "Iceberg: id={} price={} visible_qty={} hidden_qty={} replenish_qty={} side={} post_only={} timestamp={} time_in_force={}",
                     self.id,
                     self.price,
                     visible_qty,
                     hidden_qty,
-                    replenish_size,
+                    replenish_qty,
                     self.side,
                     self.post_only,
                     self.timestamp,

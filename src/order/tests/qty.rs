@@ -9,7 +9,7 @@ mod tests_qty_policy {
             QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10
+                replenish_qty: 10
             }
             .visible_qty(),
             10
@@ -23,7 +23,7 @@ mod tests_qty_policy {
             QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10
+                replenish_qty: 10
             }
             .hidden_qty(),
             50
@@ -31,15 +31,15 @@ mod tests_qty_policy {
     }
 
     #[test]
-    fn test_replenish_size() {
-        assert_eq!(QuantityPolicy::Standard { qty: 100 }.replenish_size(), 0);
+    fn test_replenish_qty() {
+        assert_eq!(QuantityPolicy::Standard { qty: 100 }.replenish_qty(), 0);
         assert_eq!(
             QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10
+                replenish_qty: 10
             }
-            .replenish_size(),
+            .replenish_qty(),
             10
         );
     }
@@ -52,19 +52,19 @@ mod tests_qty_policy {
 
             assert_eq!(standard_qty.visible_qty(), 50);
             assert_eq!(standard_qty.hidden_qty(), 0);
-            assert_eq!(standard_qty.replenish_size(), 0);
+            assert_eq!(standard_qty.replenish_qty(), 0);
         }
         {
             let mut iceberg_qty = QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10,
+                replenish_qty: 10,
             };
             iceberg_qty.update_visible_qty(20);
 
             assert_eq!(iceberg_qty.visible_qty(), 20);
             assert_eq!(iceberg_qty.hidden_qty(), 50);
-            assert_eq!(iceberg_qty.replenish_size(), 10);
+            assert_eq!(iceberg_qty.replenish_qty(), 10);
         }
     }
 
@@ -76,34 +76,34 @@ mod tests_qty_policy {
             assert_eq!(standard_qty.replenish(), 0);
             assert_eq!(standard_qty.visible_qty(), 100);
             assert_eq!(standard_qty.hidden_qty(), 0);
-            assert_eq!(standard_qty.replenish_size(), 0);
+            assert_eq!(standard_qty.replenish_qty(), 0);
         }
         {
             let mut iceberg_qty = QuantityPolicy::Iceberg {
                 visible_qty: 0,
                 hidden_qty: 25,
-                replenish_size: 10,
+                replenish_qty: 10,
             };
 
             assert_eq!(iceberg_qty.replenish(), 10);
             assert_eq!(iceberg_qty.visible_qty(), 10);
             assert_eq!(iceberg_qty.hidden_qty(), 15);
-            assert_eq!(iceberg_qty.replenish_size(), 10);
+            assert_eq!(iceberg_qty.replenish_qty(), 10);
 
             assert_eq!(iceberg_qty.replenish(), 10);
             assert_eq!(iceberg_qty.visible_qty(), 20);
             assert_eq!(iceberg_qty.hidden_qty(), 5);
-            assert_eq!(iceberg_qty.replenish_size(), 10);
+            assert_eq!(iceberg_qty.replenish_qty(), 10);
 
             assert_eq!(iceberg_qty.replenish(), 5);
             assert_eq!(iceberg_qty.visible_qty(), 25);
             assert_eq!(iceberg_qty.hidden_qty(), 0);
-            assert_eq!(iceberg_qty.replenish_size(), 10);
+            assert_eq!(iceberg_qty.replenish_qty(), 10);
 
             assert_eq!(iceberg_qty.replenish(), 0);
             assert_eq!(iceberg_qty.visible_qty(), 25);
             assert_eq!(iceberg_qty.hidden_qty(), 0);
-            assert_eq!(iceberg_qty.replenish_size(), 10);
+            assert_eq!(iceberg_qty.replenish_qty(), 10);
         }
     }
 
@@ -117,10 +117,10 @@ mod tests_qty_policy {
             serde_json::to_string(&QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10
+                replenish_qty: 10
             })
             .unwrap(),
-            "{\"Iceberg\":{\"visible_qty\":10,\"hidden_qty\":50,\"replenish_size\":10}}"
+            "{\"Iceberg\":{\"visible_qty\":10,\"hidden_qty\":50,\"replenish_qty\":10}}"
         );
     }
 
@@ -132,13 +132,13 @@ mod tests_qty_policy {
         );
         assert_eq!(
             serde_json::from_str::<QuantityPolicy>(
-                "{\"Iceberg\":{\"visible_qty\":10,\"hidden_qty\":50,\"replenish_size\":10}}"
+                "{\"Iceberg\":{\"visible_qty\":10,\"hidden_qty\":50,\"replenish_qty\":10}}"
             )
             .unwrap(),
             QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10
+                replenish_qty: 10
             }
         );
     }
@@ -150,7 +150,7 @@ mod tests_qty_policy {
             QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10,
+                replenish_qty: 10,
             },
         ] {
             let serialized = serde_json::to_string(&qty_policy).unwrap();
@@ -166,7 +166,7 @@ mod tests_qty_policy {
             serde_json::from_str::<QuantityPolicy>("{\"Standard\":{\"qty\":\"not_a_number\"}}")
                 .is_err()
         );
-        assert!(serde_json::from_str::<QuantityPolicy>("{\"Iceberg\":{\"visible_qty\":\"not_a_number\",\"hidden_qty\":\"not_a_number\",\"replenish_size\":\"not_a_number\"}}").is_err());
+        assert!(serde_json::from_str::<QuantityPolicy>("{\"Iceberg\":{\"visible_qty\":\"not_a_number\",\"hidden_qty\":\"not_a_number\",\"replenish_qty\":\"not_a_number\"}}").is_err());
     }
 
     #[test]
@@ -179,10 +179,10 @@ mod tests_qty_policy {
             QuantityPolicy::Iceberg {
                 visible_qty: 10,
                 hidden_qty: 50,
-                replenish_size: 10
+                replenish_qty: 10
             }
             .to_string(),
-            "Iceberg: visible_qty=10 hidden_qty=50 replenish_size=10"
+            "Iceberg: visible_qty=10 hidden_qty=50 replenish_qty=10"
         );
     }
 }
