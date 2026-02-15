@@ -19,7 +19,7 @@ impl Side {
     /// # Examples
     ///
     /// ```
-    /// use order_execution_engine::Side;
+    /// use matchcore::Side;
     /// let buy_side = Side::Buy;
     /// let sell_side = buy_side.opposite();
     /// assert_eq!(sell_side, Side::Sell);
