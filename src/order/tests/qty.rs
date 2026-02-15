@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests_qty_policy {
+mod tests_quantity_policy {
     use crate::order::QuantityPolicy;
 
     #[test]
