@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents the quantity policy of an order
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum QtyPolicy {
+pub enum QuantityPolicy {
     /// Standard quantity policy
     Standard {
         /// The quantity of the order
@@ -17,50 +17,50 @@ pub enum QtyPolicy {
         /// The hidden quantity of the order
         hidden_qty: u64,
         /// The replenish size of the order
-        replenish_size: u64,
+        replenish_qty: u64,
     },
 }
 
-impl QtyPolicy {
+impl QuantityPolicy {
     /// Get the quantity of the order
     pub fn visible_qty(&self) -> u64 {
         match self {
-            QtyPolicy::Standard { qty } => *qty,
-            QtyPolicy::Iceberg { visible_qty, .. } => *visible_qty,
+            QuantityPolicy::Standard { qty } => *qty,
+            QuantityPolicy::Iceberg { visible_qty, .. } => *visible_qty,
         }
     }
 
     /// Get the hidden quantity of the order
     pub fn hidden_qty(&self) -> u64 {
         match self {
-            QtyPolicy::Iceberg { hidden_qty, .. } => *hidden_qty,
+            QuantityPolicy::Iceberg { hidden_qty, .. } => *hidden_qty,
             _ => 0,
         }
     }
 
     /// Get the replenish size of the order
-    pub fn replenish_size(&self) -> u64 {
+    pub fn replenish_qty(&self) -> u64 {
         match self {
-            QtyPolicy::Iceberg { replenish_size, .. } => *replenish_size,
+            QuantityPolicy::Iceberg { replenish_qty, .. } => *replenish_qty,
             _ => 0,
         }
     }
 
     pub fn update_visible_qty(&mut self, new_visible_qty: u64) {
         match self {
-            QtyPolicy::Standard { qty } => *qty = new_visible_qty,
-            QtyPolicy::Iceberg { visible_qty, .. } => *visible_qty = new_visible_qty,
+            QuantityPolicy::Standard { qty } => *qty = new_visible_qty,
+            QuantityPolicy::Iceberg { visible_qty, .. } => *visible_qty = new_visible_qty,
         }
     }
 
     pub fn replenish(&mut self) -> u64 {
         match self {
-            QtyPolicy::Iceberg {
+            QuantityPolicy::Iceberg {
                 visible_qty,
                 hidden_qty,
-                replenish_size,
+                replenish_qty,
             } => {
-                let new_hidden = hidden_qty.saturating_sub(*replenish_size);
+                let new_hidden = hidden_qty.saturating_sub(*replenish_qty);
                 let replenished = *hidden_qty - new_hidden;
 
                 *visible_qty = visible_qty.saturating_add(replenished);
@@ -73,18 +73,18 @@ impl QtyPolicy {
     }
 }
 
-impl fmt::Display for QtyPolicy {
+impl fmt::Display for QuantityPolicy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            QtyPolicy::Standard { qty } => write!(f, "Standard: {}", qty),
-            QtyPolicy::Iceberg {
+            QuantityPolicy::Standard { qty } => write!(f, "Standard: {}", qty),
+            QuantityPolicy::Iceberg {
                 visible_qty,
                 hidden_qty,
-                replenish_size,
+                replenish_qty,
             } => write!(
                 f,
-                "Iceberg: visible_qty={} hidden_qty={} replenish_size={}",
-                visible_qty, hidden_qty, replenish_size
+                "Iceberg: visible_qty={} hidden_qty={} replenish_qty={}",
+                visible_qty, hidden_qty, replenish_qty
             ),
         }
     }

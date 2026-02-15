@@ -1,4 +1,4 @@
-use crate::order::{QtyPolicy, Side, TimeInForce};
+use crate::order::{QuantityPolicy, Side, TimeInForce};
 
 use std::fmt;
 
@@ -15,7 +15,7 @@ where
     /// The price of the order
     price: u64,
     /// The quantity policy of the order
-    qty: QtyPolicy,
+    qty: QuantityPolicy,
     /// The side of the order (buy or sell)
     side: Side,
     /// Whether the order is post-only
@@ -34,7 +34,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     pub fn new(
         id: u64,
         price: u64,
-        qty: QtyPolicy,
+        qty: QuantityPolicy,
         side: Side,
         post_only: bool,
         timestamp: u64,
@@ -79,12 +79,12 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Get the replenish size
-    pub fn replenish_size(&self) -> u64 {
-        self.qty.replenish_size()
+    pub fn replenish_qty(&self) -> u64 {
+        self.qty.replenish_qty()
     }
 
     /// Update the quantity of the order
-    pub fn update_qty(&mut self, new_qty: QtyPolicy) {
+    pub fn update_qty(&mut self, new_qty: QuantityPolicy) {
         self.qty = new_qty;
     }
 
@@ -136,7 +136,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// - The quantity that was replenished (for iceberg orders)
     pub fn match_against(&mut self, incoming_qty: u64) -> (u64, u64, u64) {
         match self.qty {
-            QtyPolicy::Standard { qty } => {
+            QuantityPolicy::Standard { qty } => {
                 let new_qty = qty.saturating_sub(incoming_qty);
                 let consumed = qty - new_qty;
                 let remaining = incoming_qty - consumed;
@@ -144,7 +144,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
                 self.qty.update_visible_qty(new_qty);
                 (consumed, remaining, 0)
             }
-            QtyPolicy::Iceberg { visible_qty, .. } => {
+            QuantityPolicy::Iceberg { visible_qty, .. } => {
                 let new_visible = visible_qty.saturating_sub(incoming_qty);
                 let consumed = visible_qty - new_visible;
                 let remaining = incoming_qty - consumed;
@@ -195,7 +195,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.qty {
-            QtyPolicy::Standard { qty } => {
+            QuantityPolicy::Standard { qty } => {
                 write!(
                     f,
                     "Standard: id={} price={} qty={} side={} post_only={} timestamp={} time_in_force={}",
@@ -208,19 +208,19 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
                     self.time_in_force
                 )
             }
-            QtyPolicy::Iceberg {
+            QuantityPolicy::Iceberg {
                 visible_qty,
                 hidden_qty,
-                replenish_size,
+                replenish_qty,
             } => {
                 write!(
                     f,
-                    "Iceberg: id={} price={} visible_qty={} hidden_qty={} replenish_size={} side={} post_only={} timestamp={} time_in_force={}",
+                    "Iceberg: id={} price={} visible_qty={} hidden_qty={} replenish_qty={} side={} post_only={} timestamp={} time_in_force={}",
                     self.id,
                     self.price,
                     visible_qty,
                     hidden_qty,
-                    replenish_size,
+                    replenish_qty,
                     self.side,
                     self.post_only,
                     self.timestamp,

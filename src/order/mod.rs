@@ -8,6 +8,6 @@ mod tests;
 
 pub use limit::Order;
 pub use peg::{PegReference, PeggedOrder};
-pub use qty::QtyPolicy;
+pub use qty::QuantityPolicy;
 pub use side::Side;
 pub use time::TimeInForce;
