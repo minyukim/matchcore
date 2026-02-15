@@ -1,3 +1,3 @@
 mod order;
 
-pub use order::{Order, PegReference, QtyPolicy, Side, TimeInForce};
+pub use order::{Order, PegReference, PeggedOrder, QtyPolicy, Side, TimeInForce};

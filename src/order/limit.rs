@@ -1,8 +1,10 @@
 use crate::order::{QtyPolicy, Side, TimeInForce};
-use serde::{Deserialize, Serialize};
+
 use std::fmt;
 
-/// Represents a generic limit order with additional custom fields
+use serde::{Deserialize, Serialize};
+
+/// Generic limit order with various configuration options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Order<T = ()>
 where

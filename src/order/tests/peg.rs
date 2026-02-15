@@ -76,3 +76,133 @@ mod tests_peg_reference {
         assert_eq!(PegReference::LastTrade.to_string(), "LastTrade");
     }
 }
+
+#[cfg(test)]
+mod tests_peg_order {
+    use crate::order::{PegReference, PeggedOrder, Side, TimeInForce};
+
+    fn create_pegged_order() -> PeggedOrder {
+        PeggedOrder::new(
+            0,
+            PegReference::BestBid,
+            20,
+            Side::Buy,
+            true,
+            1771180000,
+            TimeInForce::Gtc,
+            (),
+        )
+    }
+
+    #[test]
+    fn test_id() {
+        assert_eq!(create_pegged_order().id(), 0);
+    }
+
+    #[test]
+    fn test_reference() {
+        let mut order = create_pegged_order();
+        assert_eq!(order.reference(), PegReference::BestBid);
+
+        order.update_reference(PegReference::BestAsk);
+        assert_eq!(order.reference(), PegReference::BestAsk);
+
+        order.update_reference(PegReference::MidPrice);
+        assert_eq!(order.reference(), PegReference::MidPrice);
+
+        order.update_reference(PegReference::LastTrade);
+        assert_eq!(order.reference(), PegReference::LastTrade);
+
+        order.update_reference(PegReference::BestBid);
+        assert_eq!(order.reference(), PegReference::BestBid);
+    }
+
+    #[test]
+    fn test_qty() {
+        let mut order = create_pegged_order();
+        assert_eq!(order.qty(), 20);
+
+        order.update_qty(30);
+        assert_eq!(order.qty(), 30);
+
+        order.update_qty(10);
+        assert_eq!(order.qty(), 10);
+    }
+
+    #[test]
+    fn test_side() {
+        assert_eq!(create_pegged_order().side(), Side::Buy);
+    }
+
+    #[test]
+    fn test_is_post_only() {
+        assert!(create_pegged_order().is_post_only());
+    }
+
+    #[test]
+    fn test_timestamp() {
+        assert_eq!(create_pegged_order().timestamp(), 1771180000);
+    }
+
+    #[test]
+    fn test_time_in_force() {
+        let mut order = create_pegged_order();
+        assert_eq!(order.time_in_force(), TimeInForce::Gtc);
+        assert!(!order.is_immediate());
+        assert!(!order.has_expiry());
+        assert!(!order.is_expired(1771180000));
+
+        order.update_time_in_force(TimeInForce::Ioc);
+        assert!(order.is_immediate());
+        assert!(!order.has_expiry());
+        assert!(!order.is_expired(1771180000));
+
+        order.update_time_in_force(TimeInForce::Fok);
+        assert!(order.is_immediate());
+        assert!(!order.has_expiry());
+        assert!(!order.is_expired(1771180000));
+
+        order.update_time_in_force(TimeInForce::Gtd(1771180000 + 1000));
+        assert!(!order.is_immediate());
+        assert!(order.has_expiry());
+        assert!(!order.is_expired(1771180000));
+        assert!(order.is_expired(1771180000 + 1000));
+    }
+
+    #[test]
+    fn test_match_against() {
+        let mut order = create_pegged_order();
+        assert_eq!(order.qty(), 20);
+
+        let (consumed, remaining) = order.match_against(2);
+        assert_eq!(consumed, 2);
+        assert_eq!(remaining, 0);
+        assert_eq!(order.qty(), 18);
+
+        let (consumed, remaining) = order.match_against(20);
+        assert_eq!(consumed, 18);
+        assert_eq!(remaining, 2);
+        assert_eq!(order.qty(), 0);
+
+        let (consumed, remaining) = order.match_against(10);
+        assert_eq!(consumed, 0);
+        assert_eq!(remaining, 10);
+        assert_eq!(order.qty(), 0);
+    }
+
+    #[test]
+    fn test_roundtrip_serialization() {
+        let order = create_pegged_order();
+        let serialized = serde_json::to_string(&order).unwrap();
+        let deserialized: PeggedOrder = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(order, deserialized);
+    }
+
+    #[test]
+    fn test_display() {
+        assert_eq!(
+            create_pegged_order().to_string(),
+            "Pegged: id=0 reference=BestBid qty=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
+        );
+    }
+}
