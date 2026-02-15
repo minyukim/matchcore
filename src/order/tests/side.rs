@@ -37,9 +37,7 @@ mod tests_side {
 
     #[test]
     fn test_round_trip_serialization() {
-        let sides = vec![Side::Buy, Side::Sell];
-
-        for side in sides {
+        for side in [Side::Buy, Side::Sell] {
             let serialized = serde_json::to_string(&side).unwrap();
             let deserialized: Side = serde_json::from_str(&serialized).unwrap();
             assert_eq!(side, deserialized);

@@ -67,14 +67,12 @@ mod tests_time_in_force {
 
     #[test]
     fn test_round_trip_serialization() {
-        let test_cases = vec![
+        for tif in [
             TimeInForce::Gtc,
             TimeInForce::Ioc,
             TimeInForce::Fok,
             TimeInForce::Gtd(12345),
-        ];
-
-        for tif in test_cases {
+        ] {
             let serialized = serde_json::to_string(&tif).unwrap();
             let deserialized: TimeInForce = serde_json::from_str(&serialized).unwrap();
             assert_eq!(tif, deserialized);
