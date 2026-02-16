@@ -78,7 +78,7 @@ mod tests_peg_reference {
 }
 
 #[cfg(test)]
-mod tests_peg_order {
+mod tests_pegged_order {
     use crate::order::{PegReference, PeggedOrder, Side, TimeInForce};
 
     fn create_pegged_order() -> PeggedOrder {
