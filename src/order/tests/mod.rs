@@ -1,4 +1,4 @@
-mod limit;
+mod limit_order;
 mod peg;
 mod quantity_policy;
 mod side;
