@@ -1,13 +1,13 @@
-mod limit;
-mod peg;
-mod quantity;
+mod limit_order;
+mod pegged_order;
+mod quantity_policy;
 mod side;
-mod time;
+mod time_in_force;
 
 mod tests;
 
-pub use limit::Order;
-pub use peg::{PegReference, PeggedOrder};
-pub use quantity::QuantityPolicy;
+pub use limit_order::Order;
+pub use pegged_order::{PegReference, PeggedOrder};
+pub use quantity_policy::QuantityPolicy;
 pub use side::Side;
-pub use time::TimeInForce;
+pub use time_in_force::TimeInForce;
