@@ -30,9 +30,9 @@ impl fmt::Display for PegReference {
 
 /// Pegged order that adjusts based on reference price
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PeggedOrder<T = ()>
+pub struct PeggedOrder<E = ()>
 where
-    T: Clone + Copy + Eq + Serialize + core::fmt::Debug,
+    E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
 {
     /// The order ID
     id: u64,
@@ -49,11 +49,11 @@ where
     /// Time-in-force policy
     time_in_force: TimeInForce,
     /// Additional custom fields
-    extra: T,
+    extra: E,
 }
 
-impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    PeggedOrder<T>
+impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
+    PeggedOrder<E>
 {
     /// Create a new pegged order
     #[allow(clippy::too_many_arguments)]
@@ -65,7 +65,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         post_only: bool,
         timestamp: u64,
         time_in_force: TimeInForce,
-        extra: T,
+        extra: E,
     ) -> Self {
         Self {
             id,
@@ -159,20 +159,20 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Get the extra fields
-    pub fn extra(&self) -> &T {
+    pub fn extra(&self) -> &E {
         &self.extra
     }
 
     /// Get mutable reference to extra fields
-    pub fn extra_mut(&mut self) -> &mut T {
+    pub fn extra_mut(&mut self) -> &mut E {
         &mut self.extra
     }
 
     /// Transform the extra fields type using a function
-    pub fn map_extra<U, F>(&self, f: F) -> PeggedOrder<U>
+    pub fn map_extra<G, F>(&self, f: F) -> PeggedOrder<G>
     where
-        F: FnOnce(T) -> U,
-        U: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+        F: FnOnce(E) -> G,
+        G: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
     {
         PeggedOrder::new(
             self.id,
@@ -187,8 +187,8 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 }
 
-impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
-    for PeggedOrder<T>
+impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
+    for PeggedOrder<E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

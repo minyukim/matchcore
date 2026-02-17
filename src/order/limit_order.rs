@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 /// Generic limit order with various configuration options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Order<T = ()>
+pub struct Order<E = ()>
 where
-    T: Clone + Copy + Eq + Serialize + core::fmt::Debug,
+    E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
 {
     /// The order ID
     id: u64,
@@ -25,10 +25,10 @@ where
     /// Time-in-force policy
     time_in_force: TimeInForce,
     /// Additional custom fields
-    extra: T,
+    extra: E,
 }
 
-impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> Order<T> {
+impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> Order<E> {
     /// Create a new order
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -39,7 +39,7 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         post_only: bool,
         timestamp: u64,
         time_in_force: TimeInForce,
-        extra: T,
+        extra: E,
     ) -> Self {
         Self {
             id,
@@ -164,19 +164,19 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Get the extra fields
-    pub fn extra(&self) -> &T {
+    pub fn extra(&self) -> &E {
         &self.extra
     }
 
     /// Get mutable reference to extra fields
-    pub fn extra_mut(&mut self) -> &mut T {
+    pub fn extra_mut(&mut self) -> &mut E {
         &mut self.extra
     }
 
     /// Transform the extra fields type using a function
     pub fn map_extra<U, F>(&self, f: F) -> Order<U>
     where
-        F: FnOnce(T) -> U,
+        F: FnOnce(E) -> U,
         U: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
     {
         Order::new(
@@ -192,8 +192,8 @@ impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 }
 
-impl<T: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
-    for Order<T>
+impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
+    for Order<E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.quantity {
