@@ -8,11 +8,11 @@ mod tests_peg_level {
         assert_eq!(peg_level.peek(), None);
 
         peg_level.push(1);
-        assert_eq!(peg_level.peek(), Some(&1));
-        assert_eq!(peg_level.peek(), Some(&1));
+        assert_eq!(peg_level.peek(), Some(1));
+        assert_eq!(peg_level.peek(), Some(1));
 
         peg_level.push(2);
-        assert_eq!(peg_level.peek(), Some(&1));
+        assert_eq!(peg_level.peek(), Some(1));
     }
 
     #[test]

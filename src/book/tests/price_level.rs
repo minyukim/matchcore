@@ -18,11 +18,11 @@ mod tests_price_level {
         assert_eq!(price_level.peek(), None);
 
         price_level.push(1);
-        assert_eq!(price_level.peek(), Some(&1));
-        assert_eq!(price_level.peek(), Some(&1));
+        assert_eq!(price_level.peek(), Some(1));
+        assert_eq!(price_level.peek(), Some(1));
 
         price_level.push(2);
-        assert_eq!(price_level.peek(), Some(&1));
+        assert_eq!(price_level.peek(), Some(1));
     }
 
     #[test]
