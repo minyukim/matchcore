@@ -38,8 +38,8 @@ impl PegLevel {
     }
 
     /// Attempt to peek the first order ID in the queue without removing it
-    pub fn peek(&self) -> Option<&u64> {
-        self.order_ids.front()
+    pub fn peek(&self) -> Option<u64> {
+        self.order_ids.front().copied()
     }
 
     /// Attempt to pop the first order ID in the queue
