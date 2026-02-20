@@ -1,13 +1,11 @@
 use crate::{
-    LimitOrder, PeggedOrder,
+    LimitOrder, PegReference, PeggedOrder,
     book::{PegLevel, PriceLevel},
 };
 
 use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
-
-const PEG_REFERENCE_COUNT: usize = 4;
 
 /// Order book that manages orders and levels.
 /// It supports adding, updating, cancelling, and matching orders.
@@ -40,10 +38,10 @@ where
     limit_orders: HashMap<u64, LimitOrder<E>>,
 
     /// Pegged bid side levels, one for each reference price type
-    pegged_bids: [PegLevel; PEG_REFERENCE_COUNT],
+    pegged_bids: [PegLevel; PegReference::COUNT],
 
     /// Pegged ask side levels, one for each reference price type
-    pegged_asks: [PegLevel; PEG_REFERENCE_COUNT],
+    pegged_asks: [PegLevel; PegReference::COUNT],
 
     /// Pegged orders indexed by order ID for O(1) lookup
     pegged_orders: HashMap<u64, PeggedOrder<E>>,
