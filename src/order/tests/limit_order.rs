@@ -1,34 +1,24 @@
 #[cfg(test)]
 mod tests_order {
-    use crate::order::{LimitOrder, QuantityPolicy, Side, TimeInForce};
+    use crate::order::{LimitOrder, OrderCore, QuantityPolicy, Side, TimeInForce};
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
-            0,
+            OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
             90,
             QuantityPolicy::Standard { quantity: 10 },
-            Side::Buy,
-            true,
-            1771180000,
-            TimeInForce::Gtc,
-            (),
         )
     }
 
     fn create_iceberg_order() -> LimitOrder {
         LimitOrder::new(
-            1,
+            OrderCore::new(1, Side::Sell, false, 1771190000, TimeInForce::Gtc, ()),
             100,
             QuantityPolicy::Iceberg {
                 visible_quantity: 20,
                 hidden_quantity: 40,
                 replenish_quantity: 20,
             },
-            Side::Sell,
-            false,
-            1771190000,
-            TimeInForce::Gtc,
-            (),
         )
     }
 
@@ -50,14 +40,14 @@ mod tests_order {
     }
 
     #[test]
-    fn test_quantity() {
+    fn test_quantity_policy() {
         {
             let mut order = create_standard_order();
             assert_eq!(order.visible_quantity(), 10);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
 
-            order.update_quantity(QuantityPolicy::Iceberg {
+            order.update_quantity_policy(QuantityPolicy::Iceberg {
                 visible_quantity: 1,
                 hidden_quantity: 10,
                 replenish_quantity: 1,
@@ -73,7 +63,7 @@ mod tests_order {
             assert_eq!(order.hidden_quantity(), 40);
             assert_eq!(order.replenish_quantity(), 20);
 
-            order.update_quantity(QuantityPolicy::Standard { quantity: 100 });
+            order.update_quantity_policy(QuantityPolicy::Standard { quantity: 100 });
             assert_eq!(order.visible_quantity(), 100);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
