@@ -4,4 +4,6 @@ mod order;
 
 pub use book::{OrderBook, PegLevel, PriceLevel};
 pub use execution::{CancelReason, MatchResult, Trade};
-pub use order::{LimitOrder, PegReference, PeggedOrder, QuantityPolicy, Side, TimeInForce};
+pub use order::{
+    LimitOrder, OrderCore, PegReference, PeggedOrder, QuantityPolicy, Side, TimeInForce,
+};
