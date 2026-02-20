@@ -16,21 +16,21 @@ mod tests_pegged_order {
     }
 
     #[test]
-    fn test_reference() {
+    fn test_peg_reference() {
         let mut order = create_pegged_order();
-        assert_eq!(order.reference(), PegReference::BestBid);
+        assert_eq!(order.peg_reference(), PegReference::BestBid);
 
-        order.update_reference(PegReference::BestAsk);
-        assert_eq!(order.reference(), PegReference::BestAsk);
+        order.update_peg_reference(PegReference::BestAsk);
+        assert_eq!(order.peg_reference(), PegReference::BestAsk);
 
-        order.update_reference(PegReference::MidPrice);
-        assert_eq!(order.reference(), PegReference::MidPrice);
+        order.update_peg_reference(PegReference::MidPrice);
+        assert_eq!(order.peg_reference(), PegReference::MidPrice);
 
-        order.update_reference(PegReference::LastTrade);
-        assert_eq!(order.reference(), PegReference::LastTrade);
+        order.update_peg_reference(PegReference::LastTrade);
+        assert_eq!(order.peg_reference(), PegReference::LastTrade);
 
-        order.update_reference(PegReference::BestBid);
-        assert_eq!(order.reference(), PegReference::BestBid);
+        order.update_peg_reference(PegReference::BestBid);
+        assert_eq!(order.peg_reference(), PegReference::BestBid);
     }
 
     #[test]
@@ -118,7 +118,7 @@ mod tests_pegged_order {
     fn test_display() {
         assert_eq!(
             create_pegged_order().to_string(),
-            "Pegged: id=0 reference=BestBid quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
+            "Pegged: id=0 peg_reference=BestBid quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
         );
     }
 }
@@ -178,15 +178,15 @@ mod tests_peg_reference {
     #[test]
     fn test_round_trip_serialization() {
         // Test from_str -> to_string round trip
-        for reference in [
+        for peg_reference in [
             PegReference::BestBid,
             PegReference::BestAsk,
             PegReference::MidPrice,
             PegReference::LastTrade,
         ] {
-            let serialized = serde_json::to_string(&reference).unwrap();
+            let serialized = serde_json::to_string(&peg_reference).unwrap();
             let deserialized: PegReference = serde_json::from_str(&serialized).unwrap();
-            assert_eq!(reference, deserialized);
+            assert_eq!(peg_reference, deserialized);
         }
     }
 

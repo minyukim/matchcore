@@ -13,7 +13,7 @@ where
     /// The core order data
     core: OrderCore<E>,
     /// Reference price to track
-    reference: PegReference,
+    peg_reference: PegReference,
     /// The quantity of the order
     quantity: u64,
 }
@@ -23,10 +23,10 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 {
     /// Create a new pegged order
     #[allow(clippy::too_many_arguments)]
-    pub fn new(core: OrderCore<E>, reference: PegReference, quantity: u64) -> Self {
+    pub fn new(core: OrderCore<E>, peg_reference: PegReference, quantity: u64) -> Self {
         Self {
             core,
-            reference,
+            peg_reference,
             quantity,
         }
     }
@@ -36,14 +36,14 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.core.id()
     }
 
-    /// Get the reference price
-    pub fn reference(&self) -> PegReference {
-        self.reference
+    /// Get the peg reference type
+    pub fn peg_reference(&self) -> PegReference {
+        self.peg_reference
     }
 
-    /// Update the reference price
-    pub fn update_reference(&mut self, new_reference: PegReference) {
-        self.reference = new_reference;
+    /// Update the peg reference type
+    pub fn update_peg_reference(&mut self, new_peg_reference: PegReference) {
+        self.peg_reference = new_peg_reference;
     }
 
     /// Get the quantity of the order
@@ -126,7 +126,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         F: FnOnce(E) -> G,
         G: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
     {
-        PeggedOrder::new(self.core.map_extra(f), self.reference, self.quantity)
+        PeggedOrder::new(self.core.map_extra(f), self.peg_reference, self.quantity)
     }
 }
 
@@ -136,9 +136,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Pegged: id={} reference={} quantity={} side={} post_only={} timestamp={} time_in_force={}",
+            "Pegged: id={} peg_reference={} quantity={} side={} post_only={} timestamp={} time_in_force={}",
             self.core.id(),
-            self.reference,
+            self.peg_reference,
             self.quantity,
             self.core.side(),
             self.core.is_post_only(),
