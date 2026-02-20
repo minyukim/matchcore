@@ -161,6 +161,20 @@ pub enum PegReference {
     LastTrade,
 }
 
+impl PegReference {
+    pub const COUNT: usize = 4;
+
+    #[inline]
+    pub const fn as_index(&self) -> usize {
+        match self {
+            PegReference::BestBid => 0,
+            PegReference::BestAsk => 1,
+            PegReference::MidPrice => 2,
+            PegReference::LastTrade => 3,
+        }
+    }
+}
+
 impl fmt::Display for PegReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

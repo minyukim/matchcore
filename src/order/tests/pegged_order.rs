@@ -128,6 +128,14 @@ mod tests_peg_reference {
     use crate::order::PegReference;
 
     #[test]
+    fn test_as_index() {
+        assert_eq!(PegReference::BestBid.as_index(), 0);
+        assert_eq!(PegReference::BestAsk.as_index(), 1);
+        assert_eq!(PegReference::MidPrice.as_index(), 2);
+        assert_eq!(PegReference::LastTrade.as_index(), 3);
+    }
+
+    #[test]
     fn test_serialize() {
         assert_eq!(
             serde_json::to_string(&PegReference::BestBid).unwrap(),
