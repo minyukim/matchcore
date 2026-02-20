@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests_order {
-    use crate::order::{Order, QuantityPolicy, Side, TimeInForce};
+    use crate::order::{LimitOrder, QuantityPolicy, Side, TimeInForce};
 
-    fn create_standard_order() -> Order {
-        Order::new(
+    fn create_standard_order() -> LimitOrder {
+        LimitOrder::new(
             0,
             90,
             QuantityPolicy::Standard { quantity: 10 },
@@ -15,8 +15,8 @@ mod tests_order {
         )
     }
 
-    fn create_iceberg_order() -> Order {
-        Order::new(
+    fn create_iceberg_order() -> LimitOrder {
+        LimitOrder::new(
             1,
             100,
             QuantityPolicy::Iceberg {
@@ -215,7 +215,7 @@ mod tests_order {
     fn test_roundtrip_serialization() {
         for order in [create_standard_order(), create_iceberg_order()] {
             let serialized = serde_json::to_string(&order).unwrap();
-            let deserialized: Order = serde_json::from_str(&serialized).unwrap();
+            let deserialized: LimitOrder = serde_json::from_str(&serialized).unwrap();
             assert_eq!(order, deserialized);
         }
     }

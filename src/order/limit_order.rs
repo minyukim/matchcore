@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Generic limit order with various configuration options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Order<E = ()>
+pub struct LimitOrder<E = ()>
 where
     E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
 {
@@ -28,7 +28,9 @@ where
     extra: E,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> Order<E> {
+impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
+    LimitOrder<E>
+{
     /// Create a new order
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -174,12 +176,12 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Transform the extra fields type using a function
-    pub fn map_extra<U, F>(&self, f: F) -> Order<U>
+    pub fn map_extra<U, F>(&self, f: F) -> LimitOrder<U>
     where
         F: FnOnce(E) -> U,
         U: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
     {
-        Order::new(
+        LimitOrder::new(
             self.id,
             self.price,
             self.quantity,
@@ -193,7 +195,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 }
 
 impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
-    for Order<E>
+    for LimitOrder<E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.quantity {
