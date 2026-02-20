@@ -1,4 +1,4 @@
-use crate::order::{Side, TimeInForce};
+use crate::order::{OrderCore, Side, TimeInForce};
 
 use std::fmt;
 
@@ -10,22 +10,12 @@ pub struct PeggedOrder<E = ()>
 where
     E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
 {
-    /// The order ID
-    id: u64,
+    /// The core order data
+    core: OrderCore<E>,
     /// Reference price to track
     reference: PegReference,
     /// The quantity of the order
     quantity: u64,
-    /// The side of the order (buy or sell)
-    side: Side,
-    /// Whether the order is post-only
-    post_only: bool,
-    /// When the order was created
-    timestamp: u64,
-    /// Time-in-force policy
-    time_in_force: TimeInForce,
-    /// Additional custom fields
-    extra: E,
 }
 
 impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
@@ -33,31 +23,17 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 {
     /// Create a new pegged order
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: u64,
-        reference: PegReference,
-        quantity: u64,
-        side: Side,
-        post_only: bool,
-        timestamp: u64,
-        time_in_force: TimeInForce,
-        extra: E,
-    ) -> Self {
+    pub fn new(core: OrderCore<E>, reference: PegReference, quantity: u64) -> Self {
         Self {
-            id,
+            core,
             reference,
             quantity,
-            side,
-            post_only,
-            timestamp,
-            time_in_force,
-            extra,
         }
     }
 
     /// Get the order ID
     pub fn id(&self) -> u64 {
-        self.id
+        self.core.id()
     }
 
     /// Get the reference price
@@ -82,42 +58,42 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 
     /// Get the order side
     pub fn side(&self) -> Side {
-        self.side
+        self.core.side()
     }
 
     /// Check if this is a post-only order
     pub fn is_post_only(&self) -> bool {
-        self.post_only
+        self.core.is_post_only()
     }
 
     /// Get the timestamp
     pub fn timestamp(&self) -> u64 {
-        self.timestamp
+        self.core.timestamp()
     }
 
     /// Get the time in force
     pub fn time_in_force(&self) -> TimeInForce {
-        self.time_in_force
+        self.core.time_in_force()
     }
 
     /// Check if the order should be canceled after attempting to match
     pub fn is_immediate(&self) -> bool {
-        self.time_in_force.is_immediate()
+        self.core.is_immediate()
     }
 
     /// Check if the order has an expiry time
     pub fn has_expiry(&self) -> bool {
-        self.time_in_force.has_expiry()
+        self.core.has_expiry()
     }
 
     /// Check if the order is expired at a given timestamp
     pub fn is_expired(&self, timestamp: u64) -> bool {
-        self.time_in_force.is_expired(timestamp)
+        self.core.is_expired(timestamp)
     }
 
     /// Update the time in force
     pub fn update_time_in_force(&mut self, new_time_in_force: TimeInForce) {
-        self.time_in_force = new_time_in_force;
+        self.core.update_time_in_force(new_time_in_force);
     }
 
     /// Matches this order against an incoming quantity
@@ -136,12 +112,12 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 
     /// Get the extra fields
     pub fn extra(&self) -> &E {
-        &self.extra
+        self.core.extra()
     }
 
     /// Get mutable reference to extra fields
     pub fn extra_mut(&mut self) -> &mut E {
-        &mut self.extra
+        self.core.extra_mut()
     }
 
     /// Transform the extra fields type using a function
@@ -150,16 +126,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         F: FnOnce(E) -> G,
         G: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
     {
-        PeggedOrder::new(
-            self.id,
-            self.reference,
-            self.quantity,
-            self.side,
-            self.post_only,
-            self.timestamp,
-            self.time_in_force,
-            f(self.extra),
-        )
+        PeggedOrder::new(self.core.map_extra(f), self.reference, self.quantity)
     }
 }
 
@@ -170,13 +137,13 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         write!(
             f,
             "Pegged: id={} reference={} quantity={} side={} post_only={} timestamp={} time_in_force={}",
-            self.id,
+            self.core.id(),
             self.reference,
             self.quantity,
-            self.side,
-            self.post_only,
-            self.timestamp,
-            self.time_in_force
+            self.core.side(),
+            self.core.is_post_only(),
+            self.core.timestamp(),
+            self.core.time_in_force()
         )
     }
 }

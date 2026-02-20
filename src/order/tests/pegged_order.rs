@@ -1,17 +1,12 @@
 #[cfg(test)]
 mod tests_pegged_order {
-    use crate::order::{PegReference, PeggedOrder, Side, TimeInForce};
+    use crate::order::{OrderCore, PegReference, PeggedOrder, Side, TimeInForce};
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
-            0,
+            OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
             PegReference::BestBid,
             20,
-            Side::Buy,
-            true,
-            1771180000,
-            TimeInForce::Gtc,
-            (),
         )
     }
 
