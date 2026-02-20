@@ -1,5 +1,5 @@
 use crate::{
-    Order, PeggedOrder,
+    LimitOrder, PeggedOrder,
     book::{PegLevel, PriceLevel},
 };
 
@@ -36,8 +36,8 @@ where
     /// Ask side price levels, stored in a ordered map with O(log N) ordering
     asks: BTreeMap<u64, PriceLevel>,
 
-    /// Orders indexed by order ID for O(1) lookup
-    orders: HashMap<u64, Order<E>>,
+    /// Limit orders indexed by order ID for O(1) lookup
+    limit_orders: HashMap<u64, LimitOrder<E>>,
 
     /// Pegged bid side levels, one for each reference price type
     pegged_bids: [PegLevel; PEG_REFERENCE_COUNT],
@@ -59,7 +59,7 @@ impl<E: Clone + Copy + Eq + Serialize + core::fmt::Debug> OrderBook<E> {
             last_trade_price: None,
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
-            orders: HashMap::new(),
+            limit_orders: HashMap::new(),
             pegged_bids: core::array::from_fn(|_| PegLevel::new()),
             pegged_asks: core::array::from_fn(|_| PegLevel::new()),
             pegged_orders: HashMap::new(),
