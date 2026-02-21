@@ -46,6 +46,8 @@ mod tests_order {
             assert_eq!(order.visible_quantity(), 10);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
+            assert_eq!(order.total_quantity(), 10);
+            assert!(!order.is_filled());
 
             order.update_quantity_policy(QuantityPolicy::Iceberg {
                 visible_quantity: 1,
@@ -56,17 +58,23 @@ mod tests_order {
             assert_eq!(order.visible_quantity(), 1);
             assert_eq!(order.hidden_quantity(), 10);
             assert_eq!(order.replenish_quantity(), 1);
+            assert_eq!(order.total_quantity(), 11);
+            assert!(!order.is_filled());
         }
         {
             let mut order = create_iceberg_order();
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 40);
             assert_eq!(order.replenish_quantity(), 20);
+            assert_eq!(order.total_quantity(), 60);
+            assert!(!order.is_filled());
 
             order.update_quantity_policy(QuantityPolicy::Standard { quantity: 100 });
             assert_eq!(order.visible_quantity(), 100);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
+            assert_eq!(order.total_quantity(), 100);
+            assert!(!order.is_filled());
         }
     }
 

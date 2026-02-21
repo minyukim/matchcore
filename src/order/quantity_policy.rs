@@ -52,6 +52,17 @@ impl QuantityPolicy {
         }
     }
 
+    /// Get the total quantity of the order
+    pub fn total_quantity(&self) -> u64 {
+        self.visible_quantity() + self.hidden_quantity()
+    }
+
+    /// Check if the order is filled
+    pub fn is_filled(&self) -> bool {
+        self.total_quantity() == 0
+    }
+
+    /// Update the visible quantity of the order
     pub fn update_visible_quantity(&mut self, new_visible_quantity: u64) {
         match self {
             QuantityPolicy::Standard { quantity } => *quantity = new_visible_quantity,
@@ -61,6 +72,7 @@ impl QuantityPolicy {
         }
     }
 
+    /// Replenish the hidden quantity of the order
     pub fn replenish(&mut self) -> u64 {
         match self {
             QuantityPolicy::Iceberg {

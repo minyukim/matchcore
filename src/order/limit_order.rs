@@ -60,6 +60,16 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.quantity_policy.replenish_quantity()
     }
 
+    /// Get the total quantity of the order
+    pub fn total_quantity(&self) -> u64 {
+        self.quantity_policy.total_quantity()
+    }
+
+    /// Check if the order is filled
+    pub fn is_filled(&self) -> bool {
+        self.quantity_policy.is_filled()
+    }
+
     /// Update the quantity policy of the order
     pub fn update_quantity_policy(&mut self, new_quantity_policy: QuantityPolicy) {
         self.quantity_policy = new_quantity_policy;

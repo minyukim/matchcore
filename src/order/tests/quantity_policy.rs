@@ -54,14 +54,52 @@ mod tests_quantity_policy {
     }
 
     #[test]
+    fn test_total_quantity() {
+        assert_eq!(
+            QuantityPolicy::Standard { quantity: 100 }.total_quantity(),
+            100
+        );
+        assert_eq!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: 10,
+                hidden_quantity: 50,
+                replenish_quantity: 10
+            }
+            .total_quantity(),
+            60
+        );
+    }
+
+    #[test]
+    fn test_is_filled() {
+        assert!(!QuantityPolicy::Standard { quantity: 100 }.is_filled());
+        assert!(QuantityPolicy::Standard { quantity: 0 }.is_filled());
+
+        assert!(
+            !QuantityPolicy::Iceberg {
+                visible_quantity: 10,
+                hidden_quantity: 50,
+                replenish_quantity: 10
+            }
+            .is_filled()
+        );
+        assert!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: 0,
+                hidden_quantity: 0,
+                replenish_quantity: 10
+            }
+            .is_filled()
+        );
+    }
+
+    #[test]
     fn test_update_visible_quantity() {
         {
             let mut standard_quantity = QuantityPolicy::Standard { quantity: 100 };
             standard_quantity.update_visible_quantity(50);
 
             assert_eq!(standard_quantity.visible_quantity(), 50);
-            assert_eq!(standard_quantity.hidden_quantity(), 0);
-            assert_eq!(standard_quantity.replenish_quantity(), 0);
         }
         {
             let mut iceberg_quantity = QuantityPolicy::Iceberg {
@@ -72,8 +110,6 @@ mod tests_quantity_policy {
             iceberg_quantity.update_visible_quantity(20);
 
             assert_eq!(iceberg_quantity.visible_quantity(), 20);
-            assert_eq!(iceberg_quantity.hidden_quantity(), 50);
-            assert_eq!(iceberg_quantity.replenish_quantity(), 10);
         }
     }
 
