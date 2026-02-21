@@ -26,9 +26,6 @@ mod tests_pegged_order {
         order.update_peg_reference(PegReference::MidPrice);
         assert_eq!(order.peg_reference(), PegReference::MidPrice);
 
-        order.update_peg_reference(PegReference::LastTrade);
-        assert_eq!(order.peg_reference(), PegReference::LastTrade);
-
         order.update_peg_reference(PegReference::BestBid);
         assert_eq!(order.peg_reference(), PegReference::BestBid);
     }
@@ -136,7 +133,6 @@ mod tests_peg_reference {
         assert_eq!(PegReference::BestBid.as_index(), 0);
         assert_eq!(PegReference::BestAsk.as_index(), 1);
         assert_eq!(PegReference::MidPrice.as_index(), 2);
-        assert_eq!(PegReference::LastTrade.as_index(), 3);
     }
 
     #[test]
@@ -152,10 +148,6 @@ mod tests_peg_reference {
         assert_eq!(
             serde_json::to_string(&PegReference::MidPrice).unwrap(),
             "\"MidPrice\""
-        );
-        assert_eq!(
-            serde_json::to_string(&PegReference::LastTrade).unwrap(),
-            "\"LastTrade\""
         );
     }
 
@@ -173,10 +165,6 @@ mod tests_peg_reference {
             serde_json::from_str::<PegReference>("\"MidPrice\"").unwrap(),
             PegReference::MidPrice
         );
-        assert_eq!(
-            serde_json::from_str::<PegReference>("\"LastTrade\"").unwrap(),
-            PegReference::LastTrade
-        );
     }
 
     #[test]
@@ -186,7 +174,6 @@ mod tests_peg_reference {
             PegReference::BestBid,
             PegReference::BestAsk,
             PegReference::MidPrice,
-            PegReference::LastTrade,
         ] {
             let serialized = serde_json::to_string(&peg_reference).unwrap();
             let deserialized: PegReference = serde_json::from_str(&serialized).unwrap();
@@ -210,6 +197,5 @@ mod tests_peg_reference {
         assert_eq!(PegReference::BestBid.to_string(), "BestBid");
         assert_eq!(PegReference::BestAsk.to_string(), "BestAsk");
         assert_eq!(PegReference::MidPrice.to_string(), "MidPrice");
-        assert_eq!(PegReference::LastTrade.to_string(), "LastTrade");
     }
 }

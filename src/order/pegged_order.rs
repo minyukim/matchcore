@@ -159,12 +159,11 @@ pub enum PegReference {
     BestAsk,
     /// Pegged to mid price between bid and ask
     MidPrice,
-    /// Pegged to last trade price
-    LastTrade,
+    // TODO: Add last trade price reference
 }
 
 impl PegReference {
-    pub const COUNT: usize = 4;
+    pub const COUNT: usize = 3;
 
     #[inline]
     pub const fn as_index(&self) -> usize {
@@ -172,7 +171,6 @@ impl PegReference {
             PegReference::BestBid => 0,
             PegReference::BestAsk => 1,
             PegReference::MidPrice => 2,
-            PegReference::LastTrade => 3,
         }
     }
 }
@@ -183,7 +181,6 @@ impl fmt::Display for PegReference {
             PegReference::BestBid => write!(f, "BestBid"),
             PegReference::BestAsk => write!(f, "BestAsk"),
             PegReference::MidPrice => write!(f, "MidPrice"),
-            PegReference::LastTrade => write!(f, "LastTrade"),
         }
     }
 }
