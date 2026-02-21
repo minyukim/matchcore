@@ -37,12 +37,19 @@ mod tests_pegged_order {
     fn test_quantity() {
         let mut order = create_pegged_order();
         assert_eq!(order.quantity(), 20);
+        assert!(!order.is_filled());
 
         order.update_quantity(30);
         assert_eq!(order.quantity(), 30);
+        assert!(!order.is_filled());
 
         order.update_quantity(10);
         assert_eq!(order.quantity(), 10);
+        assert!(!order.is_filled());
+
+        order.update_quantity(0);
+        assert_eq!(order.quantity(), 0);
+        assert!(order.is_filled());
     }
 
     #[test]
@@ -90,19 +97,16 @@ mod tests_pegged_order {
         let mut order = create_pegged_order();
         assert_eq!(order.quantity(), 20);
 
-        let (consumed, remaining) = order.match_against(2);
+        let consumed = order.match_against(2);
         assert_eq!(consumed, 2);
-        assert_eq!(remaining, 0);
         assert_eq!(order.quantity(), 18);
 
-        let (consumed, remaining) = order.match_against(20);
+        let consumed = order.match_against(20);
         assert_eq!(consumed, 18);
-        assert_eq!(remaining, 2);
         assert_eq!(order.quantity(), 0);
 
-        let (consumed, remaining) = order.match_against(10);
+        let consumed = order.match_against(10);
         assert_eq!(consumed, 0);
-        assert_eq!(remaining, 10);
         assert_eq!(order.quantity(), 0);
     }
 

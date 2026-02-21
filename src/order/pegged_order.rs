@@ -51,6 +51,11 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.quantity
     }
 
+    /// Check if the order is filled
+    pub fn is_filled(&self) -> bool {
+        self.quantity == 0
+    }
+
     /// Update the quantity of the order
     pub fn update_quantity(&mut self, new_quantity: u64) {
         self.quantity = new_quantity;
@@ -98,16 +103,13 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 
     /// Matches this order against an incoming quantity
     ///
-    /// Returns a tuple containing:
-    /// - The quantity consumed from the incoming order
-    /// - The remaining quantity of the incoming order
-    pub fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64) {
+    /// Returns the quantity consumed from the incoming order
+    pub fn match_against(&mut self, incoming_quantity: u64) -> u64 {
         let new_quantity = self.quantity.saturating_sub(incoming_quantity);
         let consumed = self.quantity - new_quantity;
-        let remaining = incoming_quantity - consumed;
 
         self.quantity = new_quantity;
-        (consumed, remaining)
+        consumed
     }
 
     /// Get the extra fields
