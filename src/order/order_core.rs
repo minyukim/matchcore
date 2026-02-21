@@ -3,7 +3,7 @@ use crate::order::{Side, TimeInForce};
 use serde::{Deserialize, Serialize};
 
 /// Core order data that is common to all order types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrderCore<E = ()>
 where
     E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
