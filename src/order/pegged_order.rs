@@ -5,7 +5,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 /// Pegged order that adjusts based on reference price
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedOrder<E = ()>
 where
     E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
