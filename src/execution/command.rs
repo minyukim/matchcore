@@ -3,7 +3,7 @@ use crate::order::{OrderType, PegReference, QuantityPolicy, Side, TimeInForce};
 use serde::{Deserialize, Serialize};
 
 /// Represents a top-level command for all order types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Command<E = ()> {
     /// The common metadata for all command kinds
     pub meta: CommandMeta,
@@ -21,7 +21,7 @@ pub struct CommandMeta {
 }
 
 /// Represents the kind of command
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandKind<E = ()> {
     /// A command to submit a new order
     Submit(SubmitCmd<E>),
@@ -32,14 +32,14 @@ pub enum CommandKind<E = ()> {
 }
 
 /// Represents a command to submit a new order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmitCmd<E = ()> {
     /// The order to submit
     pub order: NewOrder<E>,
 }
 
 /// Represents a command to amend an existing order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AmendCmd {
     /// The ID of the order to amend
     pub order_id: u64,
@@ -57,7 +57,7 @@ pub struct CancelCmd {
 }
 
 /// Represents a new order for all order types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NewOrder<E = ()> {
     /// A new market order
     Market(NewMarketOrder<E>),
@@ -68,7 +68,7 @@ pub enum NewOrder<E = ()> {
 }
 
 /// Represents the changes to an existing order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AmendChanges {
     /// The changes to a limit order
     Limit(LimitAmend),
@@ -77,7 +77,7 @@ pub enum AmendChanges {
 }
 
 /// Represents a new market order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewMarketOrder<E = ()> {
     /// The quantity of the order
     pub quantity: u64,
@@ -91,7 +91,7 @@ pub struct NewMarketOrder<E = ()> {
 }
 
 /// Represents a new limit order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewLimitOrder<E = ()> {
     /// The core order data
     pub core: NewOrderCore<E>,
@@ -102,7 +102,7 @@ pub struct NewLimitOrder<E = ()> {
 }
 
 /// Represents a new pegged order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewPeggedOrder<E = ()> {
     /// The core order data
     pub core: NewOrderCore<E>,
@@ -113,7 +113,7 @@ pub struct NewPeggedOrder<E = ()> {
 }
 
 /// Represents the core data for a new order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewOrderCore<E = ()> {
     /// The side of the order
     pub side: Side,
@@ -126,7 +126,7 @@ pub struct NewOrderCore<E = ()> {
 }
 
 /// Represents the changes to a limit order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LimitAmend {
     /// The new price of the order
     pub new_price: Option<u64>,
@@ -137,7 +137,7 @@ pub struct LimitAmend {
 }
 
 /// Represents the changes to a pegged order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedAmend {
     /// The new peg reference type
     pub new_peg_reference: Option<PegReference>,
