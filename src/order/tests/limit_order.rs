@@ -129,25 +129,22 @@ mod tests_order {
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
 
-            let (consumed, remaining, replenished) = order.match_against(2);
+            let (consumed, replenished) = order.match_against(2);
             assert_eq!(consumed, 2);
-            assert_eq!(remaining, 0);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 8);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
 
-            let (consumed, remaining, replenished) = order.match_against(10);
+            let (consumed, replenished) = order.match_against(10);
             assert_eq!(consumed, 8);
-            assert_eq!(remaining, 2);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 0);
 
-            let (consumed, remaining, replenished) = order.match_against(10);
+            let (consumed, replenished) = order.match_against(10);
             assert_eq!(consumed, 0);
-            assert_eq!(remaining, 10);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
@@ -159,49 +156,43 @@ mod tests_order {
             assert_eq!(order.hidden_quantity(), 40);
             assert_eq!(order.replenish_quantity(), 20);
 
-            let (consumed, remaining, replenished) = order.match_against(5);
+            let (consumed, replenished) = order.match_against(5);
             assert_eq!(consumed, 5);
-            assert_eq!(remaining, 0);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 15);
             assert_eq!(order.hidden_quantity(), 40);
             assert_eq!(order.replenish_quantity(), 20);
 
-            let (consumed, remaining, replenished) = order.match_against(20);
+            let (consumed, replenished) = order.match_against(20);
             assert_eq!(consumed, 15);
-            assert_eq!(remaining, 5);
             assert_eq!(replenished, 20);
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 20);
             assert_eq!(order.replenish_quantity(), 20);
 
-            let (consumed, remaining, replenished) = order.match_against(20);
+            let (consumed, replenished) = order.match_against(20);
             assert_eq!(consumed, 20);
-            assert_eq!(remaining, 0);
             assert_eq!(replenished, 20);
             assert_eq!(order.visible_quantity(), 20);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 20);
 
-            let (consumed, remaining, replenished) = order.match_against(1);
+            let (consumed, replenished) = order.match_against(1);
             assert_eq!(consumed, 1);
-            assert_eq!(remaining, 0);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 19);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 20);
 
-            let (consumed, remaining, replenished) = order.match_against(19);
+            let (consumed, replenished) = order.match_against(19);
             assert_eq!(consumed, 19);
-            assert_eq!(remaining, 0);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);
             assert_eq!(order.replenish_quantity(), 20);
 
-            let (consumed, remaining, replenished) = order.match_against(1);
+            let (consumed, replenished) = order.match_against(1);
             assert_eq!(consumed, 0);
-            assert_eq!(remaining, 1);
             assert_eq!(replenished, 0);
             assert_eq!(order.visible_quantity(), 0);
             assert_eq!(order.hidden_quantity(), 0);

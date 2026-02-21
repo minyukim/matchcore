@@ -119,32 +119,29 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     ///
     /// Returns a tuple containing:
     /// - The quantity consumed from the incoming order
-    /// - The remaining quantity of the incoming order
     /// - The quantity that was replenished (for iceberg orders)
-    pub fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64, u64) {
+    pub fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64) {
         match self.quantity_policy {
             QuantityPolicy::Standard { quantity } => {
                 let new_quantity = quantity.saturating_sub(incoming_quantity);
                 let consumed = quantity - new_quantity;
-                let remaining = incoming_quantity - consumed;
 
                 self.quantity_policy.update_visible_quantity(new_quantity);
-                (consumed, remaining, 0)
+                (consumed, 0)
             }
             QuantityPolicy::Iceberg {
                 visible_quantity, ..
             } => {
                 let new_visible = visible_quantity.saturating_sub(incoming_quantity);
                 let consumed = visible_quantity - new_visible;
-                let remaining = incoming_quantity - consumed;
 
                 self.quantity_policy.update_visible_quantity(new_visible);
                 if new_visible > 0 {
-                    (consumed, remaining, 0)
+                    (consumed, 0)
                 } else {
                     // Try replenishing the order
                     let replenished = self.quantity_policy.replenish();
-                    (consumed, remaining, replenished)
+                    (consumed, replenished)
                 }
             }
         }
