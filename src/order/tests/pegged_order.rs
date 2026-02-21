@@ -37,12 +37,19 @@ mod tests_pegged_order {
     fn test_quantity() {
         let mut order = create_pegged_order();
         assert_eq!(order.quantity(), 20);
+        assert!(!order.is_filled());
 
         order.update_quantity(30);
         assert_eq!(order.quantity(), 30);
+        assert!(!order.is_filled());
 
         order.update_quantity(10);
         assert_eq!(order.quantity(), 10);
+        assert!(!order.is_filled());
+
+        order.update_quantity(0);
+        assert_eq!(order.quantity(), 0);
+        assert!(order.is_filled());
     }
 
     #[test]
