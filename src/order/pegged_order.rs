@@ -153,11 +153,11 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 /// Reference price type for pegged orders
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PegReference {
-    /// Pegged to best bid price
-    BestBid,
-    /// Pegged to best ask price
-    BestAsk,
-    /// Pegged to mid price between bid and ask
+    /// Pegged to the primary price (same side best price)
+    Primary,
+    /// Pegged to the market price (opposite side best price)
+    Market,
+    /// Pegged to the mid price between the best bid and the best ask
     MidPrice,
     // TODO: Add last trade price reference
 }
@@ -168,8 +168,8 @@ impl PegReference {
     #[inline]
     pub const fn as_index(&self) -> usize {
         match self {
-            PegReference::BestBid => 0,
-            PegReference::BestAsk => 1,
+            PegReference::Primary => 0,
+            PegReference::Market => 1,
             PegReference::MidPrice => 2,
         }
     }
@@ -178,8 +178,8 @@ impl PegReference {
 impl fmt::Display for PegReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PegReference::BestBid => write!(f, "BestBid"),
-            PegReference::BestAsk => write!(f, "BestAsk"),
+            PegReference::Primary => write!(f, "Primary"),
+            PegReference::Market => write!(f, "Market"),
             PegReference::MidPrice => write!(f, "MidPrice"),
         }
     }

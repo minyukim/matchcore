@@ -5,7 +5,7 @@ mod tests_pegged_order {
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
             OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
-            PegReference::BestBid,
+            PegReference::Primary,
             20,
         )
     }
@@ -18,16 +18,16 @@ mod tests_pegged_order {
     #[test]
     fn test_peg_reference() {
         let mut order = create_pegged_order();
-        assert_eq!(order.peg_reference(), PegReference::BestBid);
+        assert_eq!(order.peg_reference(), PegReference::Primary);
 
-        order.update_peg_reference(PegReference::BestAsk);
-        assert_eq!(order.peg_reference(), PegReference::BestAsk);
+        order.update_peg_reference(PegReference::Market);
+        assert_eq!(order.peg_reference(), PegReference::Market);
 
         order.update_peg_reference(PegReference::MidPrice);
         assert_eq!(order.peg_reference(), PegReference::MidPrice);
 
-        order.update_peg_reference(PegReference::BestBid);
-        assert_eq!(order.peg_reference(), PegReference::BestBid);
+        order.update_peg_reference(PegReference::Primary);
+        assert_eq!(order.peg_reference(), PegReference::Primary);
     }
 
     #[test]
@@ -119,7 +119,7 @@ mod tests_pegged_order {
     fn test_display() {
         assert_eq!(
             create_pegged_order().to_string(),
-            "Pegged: id=0 peg_reference=BestBid quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
+            "Pegged: id=0 peg_reference=Primary quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
         );
     }
 }
@@ -130,20 +130,20 @@ mod tests_peg_reference {
 
     #[test]
     fn test_as_index() {
-        assert_eq!(PegReference::BestBid.as_index(), 0);
-        assert_eq!(PegReference::BestAsk.as_index(), 1);
+        assert_eq!(PegReference::Primary.as_index(), 0);
+        assert_eq!(PegReference::Market.as_index(), 1);
         assert_eq!(PegReference::MidPrice.as_index(), 2);
     }
 
     #[test]
     fn test_serialize() {
         assert_eq!(
-            serde_json::to_string(&PegReference::BestBid).unwrap(),
-            "\"BestBid\""
+            serde_json::to_string(&PegReference::Primary).unwrap(),
+            "\"Primary\""
         );
         assert_eq!(
-            serde_json::to_string(&PegReference::BestAsk).unwrap(),
-            "\"BestAsk\""
+            serde_json::to_string(&PegReference::Market).unwrap(),
+            "\"Market\""
         );
         assert_eq!(
             serde_json::to_string(&PegReference::MidPrice).unwrap(),
@@ -154,12 +154,12 @@ mod tests_peg_reference {
     #[test]
     fn test_deserialize() {
         assert_eq!(
-            serde_json::from_str::<PegReference>("\"BestBid\"").unwrap(),
-            PegReference::BestBid
+            serde_json::from_str::<PegReference>("\"Primary\"").unwrap(),
+            PegReference::Primary
         );
         assert_eq!(
-            serde_json::from_str::<PegReference>("\"BestAsk\"").unwrap(),
-            PegReference::BestAsk
+            serde_json::from_str::<PegReference>("\"Market\"").unwrap(),
+            PegReference::Market
         );
         assert_eq!(
             serde_json::from_str::<PegReference>("\"MidPrice\"").unwrap(),
@@ -171,8 +171,8 @@ mod tests_peg_reference {
     fn test_round_trip_serialization() {
         // Test from_str -> to_string round trip
         for peg_reference in [
-            PegReference::BestBid,
-            PegReference::BestAsk,
+            PegReference::Primary,
+            PegReference::Market,
             PegReference::MidPrice,
         ] {
             let serialized = serde_json::to_string(&peg_reference).unwrap();
@@ -194,8 +194,8 @@ mod tests_peg_reference {
 
     #[test]
     fn test_display() {
-        assert_eq!(PegReference::BestBid.to_string(), "BestBid");
-        assert_eq!(PegReference::BestAsk.to_string(), "BestAsk");
+        assert_eq!(PegReference::Primary.to_string(), "Primary");
+        assert_eq!(PegReference::Market.to_string(), "Market");
         assert_eq!(PegReference::MidPrice.to_string(), "MidPrice");
     }
 }
