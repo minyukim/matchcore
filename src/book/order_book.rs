@@ -64,6 +64,11 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         }
     }
 
+    /// Get the symbol for this order book
+    pub fn symbol(&self) -> &str {
+        &self.symbol
+    }
+
     /// Get the last sequence number of the order book
     pub fn last_sequence_number(&self) -> u64 {
         self.last_sequence_number
@@ -74,13 +79,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.last_processed_timestamp
     }
 
+    /// Get the last trade price, `None` if no trade has occurred yet
     pub fn last_trade_price(&self) -> Option<u64> {
         self.last_trade_price
-    }
-
-    /// Get the symbol for this order book
-    pub fn symbol(&self) -> &str {
-        &self.symbol
     }
 
     /// Get the best bid price, if any
