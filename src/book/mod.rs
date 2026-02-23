@@ -1,3 +1,4 @@
+mod matching;
 mod order_book;
 mod peg_level;
 mod price_level;

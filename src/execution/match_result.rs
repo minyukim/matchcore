@@ -1,4 +1,4 @@
-use crate::{Side, execution::CancelReason};
+use crate::Side;
 
 use std::fmt;
 
@@ -15,8 +15,6 @@ pub struct MatchResult {
     executed_quantity: u64,
     /// The total value of the trades made during the match
     executed_value: u64,
-    /// The reason the taker order was cancelled if it was cancelled
-    cancel_reason: Option<CancelReason>,
     /// The trades that were made during the match
     trades: Vec<Trade>,
     /// The IDs of the orders that expired during the match
@@ -31,7 +29,6 @@ impl MatchResult {
             taker_side,
             executed_quantity: 0,
             executed_value: 0,
-            cancel_reason: None,
             trades: Vec::new(),
             expired_order_ids: Vec::new(),
         }
@@ -55,16 +52,6 @@ impl MatchResult {
     /// Get the total value of the trades made during the match
     pub fn executed_value(&self) -> u64 {
         self.executed_value
-    }
-
-    /// Get the reason the taker order was cancelled if it was cancelled
-    pub fn cancel_reason(&self) -> Option<&CancelReason> {
-        self.cancel_reason.as_ref()
-    }
-
-    /// Set the reason the taker order was cancelled
-    pub fn set_cancel_reason(&mut self, cancel_reason: CancelReason) {
-        self.cancel_reason = Some(cancel_reason);
     }
 
     /// Get the trades that were made during the match

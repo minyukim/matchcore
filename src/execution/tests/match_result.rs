@@ -2,7 +2,7 @@
 mod tests_match_result {
     use crate::{
         Side,
-        execution::{CancelReason, MatchResult, Trade},
+        execution::{MatchResult, Trade},
     };
 
     fn create_match_result() -> MatchResult {
@@ -27,19 +27,6 @@ mod tests_match_result {
     #[test]
     fn test_executed_value() {
         assert_eq!(create_match_result().executed_value(), 0);
-    }
-
-    #[test]
-    fn test_cancel_reason() {
-        let mut match_result = create_match_result();
-        assert_eq!(match_result.cancel_reason(), None);
-
-        let reason = CancelReason::InsufficientLiquidity {
-            requested_quantity: 100,
-            available_quantity: 50,
-        };
-        match_result.set_cancel_reason(reason.clone());
-        assert_eq!(match_result.cancel_reason(), Some(&reason));
     }
 
     #[test]

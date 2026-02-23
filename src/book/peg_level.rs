@@ -1,6 +1,14 @@
-use std::collections::VecDeque;
+use crate::{PegReference, PeggedOrder};
+
+use std::collections::{HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
+
+/// Maker side array for primary peg reference price
+pub(super) static MAKER_ARRAY_PRIMARY: [PegReference; 1] = [PegReference::Primary];
+/// Maker side array for primary mid price peg reference price
+pub(super) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
+    [PegReference::Primary, PegReference::MidPrice];
 
 /// Pegged order level that manages the status of the orders with the same pegged reference price.
 /// Pegged orders do not have hidden quantity.
@@ -11,7 +19,7 @@ pub struct PegLevel {
     /// Total quantity at this pegged order level
     pub quantity: u64,
     /// Number of orders at this pegged order level
-    pub order_count: u64,
+    order_count: u64,
     /// Queue of order IDs at this pegged order level
     order_ids: VecDeque<u64>,
 }
@@ -32,18 +40,101 @@ impl PegLevel {
         }
     }
 
+    /// Get the number of orders at this peg level
+    pub fn order_count(&self) -> u64 {
+        self.order_count
+    }
+
+    /// Increment the number of orders at this peg level
+    pub(super) fn increment_order_count(&mut self) {
+        self.order_count += 1;
+    }
+
+    /// Decrement the number of orders at this peg level
+    pub(super) fn decrement_order_count(&mut self) {
+        self.order_count -= 1;
+    }
+}
+
+impl PegLevel {
     /// Push an order ID to the queue
-    pub fn push(&mut self, order_id: u64) {
+    fn _push(&mut self, order_id: u64) {
         self.order_ids.push_back(order_id);
     }
 
     /// Attempt to peek the first order ID in the queue without removing it
-    pub fn peek(&self) -> Option<u64> {
+    fn _peek(&self) -> Option<u64> {
         self.order_ids.front().copied()
     }
 
     /// Attempt to pop the first order ID in the queue
-    pub fn pop(&mut self) -> Option<u64> {
+    fn _pop(&mut self) -> Option<u64> {
         self.order_ids.pop_front()
+    }
+
+    /// Push a pegged order to the peg level and add it to the order book
+    #[allow(unused)]
+    pub(super) fn push<E>(
+        &mut self,
+        pegged_orders: &mut HashMap<u64, PeggedOrder<E>>,
+        pegged_order: PeggedOrder<E>,
+    ) where
+        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+    {
+        self.quantity += pegged_order.quantity();
+
+        self._push(pegged_order.id());
+        self.increment_order_count();
+        pegged_orders.insert(pegged_order.id(), pegged_order);
+    }
+
+    /// Attempt to peek the first order ID in the peg level without removing it
+    /// It cleans up stale order IDs in the peg level
+    /// Returns the order ID if it is found
+    pub(super) fn peek_order_id<E>(
+        &mut self,
+        pegged_orders: &HashMap<u64, PeggedOrder<E>>,
+    ) -> Option<u64>
+    where
+        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+    {
+        loop {
+            let order_id = self._peek()?;
+            if pegged_orders.contains_key(&order_id) {
+                return Some(order_id);
+            }
+
+            // Stale order ID in the price level, remove it
+            self._pop();
+        }
+    }
+
+    /// Attempt to peek the first order in the peg level without removing it
+    /// It cleans up stale order IDs in the peg level
+    /// Returns a mutable reference to the order if it is found
+    #[allow(unused)]
+    pub(super) fn peek<'a, E>(
+        &mut self,
+        pegged_orders: &'a mut HashMap<u64, PeggedOrder<E>>,
+    ) -> Option<&'a mut PeggedOrder<E>>
+    where
+        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+    {
+        let order_id = self.peek_order_id(pegged_orders)?;
+
+        pegged_orders.get_mut(&order_id)
+    }
+
+    /// Pop the first order ID from the peg level and remove it from the order book
+    /// If the peg level is empty, do nothing
+    pub(super) fn remove_head_order<E>(&mut self, pegged_orders: &mut HashMap<u64, PeggedOrder<E>>)
+    where
+        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+    {
+        let Some(order_id) = self._pop() else {
+            return;
+        };
+        pegged_orders.remove(&order_id);
+        self.decrement_order_count();
     }
 }
