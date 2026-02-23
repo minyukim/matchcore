@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 /// Result of a match operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatchResult {
-    /// The ID of the taker order
-    taker_order_id: u64,
     /// The side of the taker order
     taker_side: Side,
     /// The total executed quantity during the match
@@ -23,20 +21,14 @@ pub struct MatchResult {
 
 impl MatchResult {
     /// Create a new match result
-    pub fn new(taker_order_id: u64, taker_side: Side) -> Self {
+    pub fn new(taker_side: Side) -> Self {
         Self {
-            taker_order_id,
             taker_side,
             executed_quantity: 0,
             executed_value: 0,
             trades: Vec::new(),
             expired_order_ids: Vec::new(),
         }
-    }
-
-    /// Get the ID of the taker order
-    pub fn taker_order_id(&self) -> u64 {
-        self.taker_order_id
     }
 
     /// Get the side of the taker order
@@ -59,13 +51,8 @@ impl MatchResult {
         &self.trades
     }
 
-    /// Get the IDs of the orders that expired during the match
-    pub fn expired_order_ids(&self) -> &[u64] {
-        &self.expired_order_ids
-    }
-
     /// Add a trade to the match result
-    pub fn add_trade(&mut self, trade: Trade) {
+    pub(crate) fn add_trade(&mut self, trade: Trade) {
         let price = trade.price();
         let quantity = trade.quantity();
 
@@ -75,8 +62,13 @@ impl MatchResult {
         self.trades.push(trade);
     }
 
+    /// Get the IDs of the orders that expired during the match
+    pub fn expired_order_ids(&self) -> &[u64] {
+        &self.expired_order_ids
+    }
+
     /// Add an expired order ID to the match result
-    pub fn add_expired_order_id(&mut self, order_id: u64) {
+    pub(crate) fn add_expired_order_id(&mut self, order_id: u64) {
         self.expired_order_ids.push(order_id);
     }
 }

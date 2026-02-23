@@ -6,12 +6,7 @@ mod tests_match_result {
     };
 
     fn create_match_result() -> MatchResult {
-        MatchResult::new(1, Side::Buy)
-    }
-
-    #[test]
-    fn test_taker_order_id() {
-        assert_eq!(create_match_result().taker_order_id(), 1);
+        MatchResult::new(Side::Buy)
     }
 
     #[test]
