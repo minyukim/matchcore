@@ -1,4 +1,4 @@
-use crate::order::{OrderType, PegReference, QuantityPolicy, Side, TimeInForce};
+use crate::{OrderType, PegReference, QuantityPolicy, Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 
