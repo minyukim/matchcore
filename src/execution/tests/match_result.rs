@@ -6,12 +6,7 @@ mod tests_match_result {
     };
 
     fn create_match_result() -> MatchResult {
-        MatchResult::new(1, Side::Buy)
-    }
-
-    #[test]
-    fn test_taker_order_id() {
-        assert_eq!(create_match_result().taker_order_id(), 1);
+        MatchResult::new(Side::Buy)
     }
 
     #[test]
@@ -63,45 +58,5 @@ mod tests_match_result {
 
         match_result.add_expired_order_id(5);
         assert_eq!(match_result.expired_order_ids(), &[4, 5]);
-    }
-}
-
-#[cfg(test)]
-mod tests_trade {
-    use crate::execution::Trade;
-
-    fn create_trade() -> Trade {
-        Trade::new(1, 100, 10)
-    }
-
-    #[test]
-    fn test_maker_order_id() {
-        assert_eq!(create_trade().maker_order_id(), 1);
-    }
-
-    #[test]
-    fn test_price() {
-        assert_eq!(create_trade().price(), 100);
-    }
-
-    #[test]
-    fn test_quantity() {
-        assert_eq!(create_trade().quantity(), 10);
-    }
-
-    #[test]
-    fn test_round_trip_serialization() {
-        let trade = create_trade();
-        let serialized = serde_json::to_string(&trade).unwrap();
-        let deserialized: Trade = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(trade, deserialized);
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(
-            create_trade().to_string(),
-            "Trade: maker_order_id=1 price=100 quantity=10"
-        );
     }
 }

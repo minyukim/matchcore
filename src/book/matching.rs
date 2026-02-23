@@ -22,13 +22,12 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     #[allow(unused)]
     pub(super) fn match_order(
         &mut self,
-        taker_order_id: u64,
         taker_side: Side,
         price_limit: Option<u64>,
         quantity: u64,
         timestamp: u64,
     ) -> MatchResult {
-        let mut match_result = MatchResult::new(taker_order_id, taker_side);
+        let mut match_result = MatchResult::new(taker_side);
         let mut remaining_quantity = quantity;
 
         let opposite_side_best_price = match taker_side {
