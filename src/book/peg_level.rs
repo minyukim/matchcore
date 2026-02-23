@@ -46,7 +46,6 @@ impl PegLevel {
     }
 
     /// Increment the number of orders at this peg level
-    #[allow(unused)]
     pub(super) fn increment_order_count(&mut self) {
         self.order_count += 1;
     }
@@ -71,6 +70,22 @@ impl PegLevel {
     /// Attempt to pop the first order ID in the queue
     fn _pop(&mut self) -> Option<u64> {
         self.order_ids.pop_front()
+    }
+
+    /// Push a pegged order to the peg level and add it to the order book
+    #[allow(unused)]
+    pub(super) fn push<E>(
+        &mut self,
+        pegged_orders: &mut HashMap<u64, PeggedOrder<E>>,
+        pegged_order: PeggedOrder<E>,
+    ) where
+        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+    {
+        self.quantity += pegged_order.quantity();
+
+        self._push(pegged_order.id());
+        self.increment_order_count();
+        pegged_orders.insert(pegged_order.id(), pegged_order);
     }
 
     /// Attempt to peek the first order ID in the peg level without removing it
