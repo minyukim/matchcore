@@ -13,31 +13,17 @@ mod tests_price_level {
     }
 
     #[test]
-    fn test_push_and_peek() {
+    fn test_order_count() {
         let mut price_level = PriceLevel::new();
-        assert_eq!(price_level.peek(), None);
+        assert_eq!(price_level.order_count(), 0);
+        assert!(price_level.is_empty());
 
-        price_level.push(1);
-        assert_eq!(price_level.peek(), Some(1));
-        assert_eq!(price_level.peek(), Some(1));
+        price_level.increment_order_count();
+        assert_eq!(price_level.order_count(), 1);
+        assert!(!price_level.is_empty());
 
-        price_level.push(2);
-        assert_eq!(price_level.peek(), Some(1));
-    }
-
-    #[test]
-    fn test_push_and_pop() {
-        let mut price_level = PriceLevel::new();
-        assert_eq!(price_level.pop(), None);
-
-        price_level.push(1);
-        assert_eq!(price_level.pop(), Some(1));
-        assert_eq!(price_level.pop(), None);
-
-        price_level.push(2);
-        price_level.push(3);
-        assert_eq!(price_level.pop(), Some(2));
-        assert_eq!(price_level.pop(), Some(3));
-        assert_eq!(price_level.pop(), None);
+        price_level.decrement_order_count();
+        assert_eq!(price_level.order_count(), 0);
+        assert!(price_level.is_empty());
     }
 }
