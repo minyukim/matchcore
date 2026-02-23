@@ -47,7 +47,6 @@ impl PriceLevel {
     }
 
     /// Increment the number of orders at this price level
-    #[allow(unused)]
     pub(super) fn increment_order_count(&mut self) {
         self.order_count += 1;
     }
@@ -79,21 +78,21 @@ impl PriceLevel {
         self.order_ids.pop_front()
     }
 
-    /// Handle the replenishment of the order
-    /// If the replenishment quantity is 0, do nothing
-    /// Otherwise, add the order back to the price level
-    pub(super) fn handle_replenishment(&mut self, replenished_quantity: u64) {
-        if replenished_quantity == 0 {
-            return;
-        }
+    /// Push a limit order to the price level and add it to the order book
+    #[allow(unused)]
+    pub(super) fn push<E>(
+        &mut self,
+        limit_orders: &mut HashMap<u64, LimitOrder<E>>,
+        limit_order: LimitOrder<E>,
+    ) where
+        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+    {
+        self.visible_quantity += limit_order.visible_quantity();
+        self.hidden_quantity += limit_order.hidden_quantity();
 
-        self.visible_quantity += replenished_quantity;
-        self.hidden_quantity -= replenished_quantity;
-
-        let Some(order_id) = self._pop() else {
-            return;
-        };
-        self._push(order_id);
+        self._push(limit_order.id());
+        self.increment_order_count();
+        limit_orders.insert(limit_order.id(), limit_order);
     }
 
     /// Attempt to peek the first order ID in the price level without removing it
@@ -143,5 +142,22 @@ impl PriceLevel {
         };
         limit_orders.remove(&order_id);
         self.decrement_order_count();
+    }
+
+    /// Handle the replenishment of the order
+    /// If the replenishment quantity is 0, do nothing
+    /// Otherwise, add the order back to the price level
+    pub(super) fn handle_replenishment(&mut self, replenished_quantity: u64) {
+        if replenished_quantity == 0 {
+            return;
+        }
+
+        self.visible_quantity += replenished_quantity;
+        self.hidden_quantity -= replenished_quantity;
+
+        let Some(order_id) = self._pop() else {
+            return;
+        };
+        self._push(order_id);
     }
 }
