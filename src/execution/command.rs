@@ -1,8 +1,8 @@
-use crate::{OrderType, PegReference, QuantityPolicy, Side, TimeInForce};
+use crate::{PegReference, QuantityPolicy, Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 
-/// Represents a top-level command for all order types
+/// Represents a top-level command for all command and order kinds
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Command<E = ()> {
     /// The common metadata for all command kinds
@@ -53,7 +53,7 @@ pub struct CancelCmd {
     /// The ID of the order to cancel
     pub order_id: u64,
     /// The type of the order to cancel
-    pub order_type: OrderType,
+    pub order_kind: OrderKind,
 }
 
 /// Represents a new order for all order types
@@ -145,4 +145,13 @@ pub struct PeggedAmend {
     pub new_quantity: Option<u64>,
     /// The new time in force of the order
     pub new_time_in_force: Option<TimeInForce>,
+}
+
+/// Represents the kind of an order
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OrderKind {
+    /// Limit order
+    Limit,
+    /// Pegged order
+    Pegged,
 }
