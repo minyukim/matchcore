@@ -17,13 +17,14 @@ where
     /// The symbol for this order book
     symbol: String,
 
-    /// The last sequence number of the order book
-    /// This is used to ensure that the incoming orders are processed in the correct order.
-    pub(super) last_sequence_number: u64,
+    /// The last sequence number of the order book, `None` if no command has been processed yet.
+    /// This is used to ensure that the incoming commands are processed in the correct order.
+    pub(super) last_sequence_number: Option<u64>,
 
-    /// The last processed timestamp of the order book, expressed as a Unix timestamp (seconds since epoch).
-    /// This is used to ensure that the timestamps of the incoming orders are non-decreasing.
-    pub(super) last_processed_timestamp: u64,
+    /// The last seen timestamp of the order book, `None` if no command has been processed yet.
+    /// The timestamp is expressed as a Unix timestamp (seconds since epoch).
+    /// This is used to ensure that the timestamps of the incoming commands are non-decreasing.
+    pub(super) last_seen_timestamp: Option<u64>,
 
     /// The last price at which a trade occurred, `None` if no trade has occurred yet
     pub(super) last_trade_price: Option<u64>,
@@ -52,8 +53,8 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     pub fn new(symbol: String) -> Self {
         Self {
             symbol,
-            last_sequence_number: 0,
-            last_processed_timestamp: 0,
+            last_sequence_number: None,
+            last_seen_timestamp: None,
             last_trade_price: None,
             limit_bid_levels: BTreeMap::new(),
             limit_ask_levels: BTreeMap::new(),
@@ -69,14 +70,14 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         &self.symbol
     }
 
-    /// Get the last sequence number of the order book
-    pub fn last_sequence_number(&self) -> u64 {
+    /// Get the last sequence number of the order book, `None` if no command has been processed yet.
+    pub fn last_sequence_number(&self) -> Option<u64> {
         self.last_sequence_number
     }
 
-    /// Get the last processed timestamp of the order book
-    pub fn last_processed_timestamp(&self) -> u64 {
-        self.last_processed_timestamp
+    /// Get the last seen timestamp of the order book, `None` if no command has been processed yet.
+    pub fn last_seen_timestamp(&self) -> Option<u64> {
+        self.last_seen_timestamp
     }
 
     /// Get the last trade price, `None` if no trade has occurred yet
