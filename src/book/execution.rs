@@ -12,9 +12,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             CommandKind::Submit(submit_cmd) => Ok(ExecutionReport::Submit(
                 self.execute_submit(cmd.meta, submit_cmd)?,
             )),
-            CommandKind::Amend(amend_cmd) => {
-                Ok(ExecutionReport::Amend(self.execute_amend(amend_cmd)?))
-            }
+            CommandKind::Amend(amend_cmd) => Ok(ExecutionReport::Amend(
+                self.execute_amend(cmd.meta, amend_cmd)?,
+            )),
             CommandKind::Cancel(cancel_cmd) => {
                 self.execute_cancel(cancel_cmd)?;
                 Ok(ExecutionReport::Cancel)
