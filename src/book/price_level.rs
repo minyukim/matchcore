@@ -205,7 +205,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
             ),
@@ -217,7 +217,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -229,7 +229,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(2, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Iceberg {
                     visible_quantity: 10,
@@ -253,7 +253,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
             ),
@@ -263,7 +263,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -279,7 +279,7 @@ mod tests {
         assert!(price_level.peek(&mut limit_orders).is_none());
 
         let mut order = LimitOrder::new(
-            OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
             100,
             QuantityPolicy::Standard { quantity: 10 },
         );
@@ -289,7 +289,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -307,7 +307,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
             ),
@@ -320,7 +320,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -330,7 +330,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(2, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 30 },
             ),
@@ -357,7 +357,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Iceberg {
                     visible_quantity: 0,
@@ -380,7 +380,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),

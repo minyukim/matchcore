@@ -14,8 +14,6 @@ where
     side: Side,
     /// Whether the order is post-only
     post_only: bool,
-    /// When the order was created, expressed as a Unix timestamp (seconds since epoch).
-    timestamp: u64,
     /// Time-in-force policy
     time_in_force: TimeInForce,
     /// Additional custom fields
@@ -24,19 +22,11 @@ where
 
 impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderCore<E> {
     /// Create a new order core
-    pub fn new(
-        id: u64,
-        side: Side,
-        post_only: bool,
-        timestamp: u64,
-        time_in_force: TimeInForce,
-        extra: E,
-    ) -> Self {
+    pub fn new(id: u64, side: Side, post_only: bool, time_in_force: TimeInForce, extra: E) -> Self {
         Self {
             id,
             side,
             post_only,
-            timestamp,
             time_in_force,
             extra,
         }
@@ -55,11 +45,6 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Check if this is a post-only order
     pub(super) fn is_post_only(&self) -> bool {
         self.post_only
-    }
-
-    /// Get the timestamp
-    pub(super) fn timestamp(&self) -> u64 {
-        self.timestamp
     }
 
     /// Get the time in force
@@ -107,7 +92,6 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             self.id,
             self.side,
             self.post_only,
-            self.timestamp,
             self.time_in_force,
             f(self.extra),
         )
@@ -120,7 +104,7 @@ mod tests {
     use crate::{Side, TimeInForce};
 
     fn create_order_core() -> OrderCore {
-        OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ())
+        OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ())
     }
 
     #[test]
@@ -136,11 +120,6 @@ mod tests {
     #[test]
     fn test_is_post_only() {
         assert!(create_order_core().is_post_only());
-    }
-
-    #[test]
-    fn test_timestamp() {
-        assert_eq!(create_order_core().timestamp(), 1771180000);
     }
 
     #[test]
