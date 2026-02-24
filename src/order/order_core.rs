@@ -1,4 +1,4 @@
-use crate::order::{Side, TimeInForce};
+use crate::{Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 

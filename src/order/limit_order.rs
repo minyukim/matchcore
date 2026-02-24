@@ -1,4 +1,4 @@
-use crate::order::{OrderCore, QuantityPolicy, Side, TimeInForce};
+use crate::{QuantityPolicy, Side, TimeInForce, order::OrderCore};
 
 use std::fmt;
 

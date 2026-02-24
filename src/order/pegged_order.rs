@@ -1,4 +1,4 @@
-use crate::order::{OrderCore, Side, TimeInForce};
+use crate::{PegReference, Side, TimeInForce, order::OrderCore};
 
 use std::fmt;
 
@@ -147,40 +147,5 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             self.core.timestamp(),
             self.core.time_in_force()
         )
-    }
-}
-
-/// Reference price type for pegged orders
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PegReference {
-    /// Pegged to the primary price (same side best price)
-    Primary,
-    /// Pegged to the market price (opposite side best price)
-    Market,
-    /// Pegged to the mid price between the best bid and the best ask
-    MidPrice,
-    // TODO: Add last trade price reference
-}
-
-impl PegReference {
-    pub const COUNT: usize = 3;
-
-    #[inline]
-    pub const fn as_index(&self) -> usize {
-        match self {
-            PegReference::Primary => 0,
-            PegReference::Market => 1,
-            PegReference::MidPrice => 2,
-        }
-    }
-}
-
-impl fmt::Display for PegReference {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PegReference::Primary => write!(f, "Primary"),
-            PegReference::Market => write!(f, "Market"),
-            PegReference::MidPrice => write!(f, "MidPrice"),
-        }
     }
 }

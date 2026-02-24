@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests_order {
-    use crate::order::{LimitOrder, OrderCore, QuantityPolicy, Side, TimeInForce};
+    use crate::{
+        QuantityPolicy, Side, TimeInForce,
+        order::{LimitOrder, OrderCore},
+    };
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(

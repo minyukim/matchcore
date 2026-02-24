@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests_order_core {
-    use crate::order::{OrderCore, Side, TimeInForce};
+    use crate::{Side, TimeInForce, order::OrderCore};
 
     fn create_order_core() -> OrderCore {
         OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ())

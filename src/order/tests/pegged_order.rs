@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests_pegged_order {
-    use crate::order::{OrderCore, PegReference, PeggedOrder, Side, TimeInForce};
+    use crate::{
+        PegReference, Side, TimeInForce,
+        order::{OrderCore, PeggedOrder},
+    };
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
@@ -121,81 +124,5 @@ mod tests_pegged_order {
             create_pegged_order().to_string(),
             "Pegged: id=0 peg_reference=Primary quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
         );
-    }
-}
-
-#[cfg(test)]
-mod tests_peg_reference {
-    use crate::order::PegReference;
-
-    #[test]
-    fn test_as_index() {
-        assert_eq!(PegReference::Primary.as_index(), 0);
-        assert_eq!(PegReference::Market.as_index(), 1);
-        assert_eq!(PegReference::MidPrice.as_index(), 2);
-    }
-
-    #[test]
-    fn test_serialize() {
-        assert_eq!(
-            serde_json::to_string(&PegReference::Primary).unwrap(),
-            "\"Primary\""
-        );
-        assert_eq!(
-            serde_json::to_string(&PegReference::Market).unwrap(),
-            "\"Market\""
-        );
-        assert_eq!(
-            serde_json::to_string(&PegReference::MidPrice).unwrap(),
-            "\"MidPrice\""
-        );
-    }
-
-    #[test]
-    fn test_deserialize() {
-        assert_eq!(
-            serde_json::from_str::<PegReference>("\"Primary\"").unwrap(),
-            PegReference::Primary
-        );
-        assert_eq!(
-            serde_json::from_str::<PegReference>("\"Market\"").unwrap(),
-            PegReference::Market
-        );
-        assert_eq!(
-            serde_json::from_str::<PegReference>("\"MidPrice\"").unwrap(),
-            PegReference::MidPrice
-        );
-    }
-
-    #[test]
-    fn test_round_trip_serialization() {
-        // Test from_str -> to_string round trip
-        for peg_reference in [
-            PegReference::Primary,
-            PegReference::Market,
-            PegReference::MidPrice,
-        ] {
-            let serialized = serde_json::to_string(&peg_reference).unwrap();
-            let deserialized: PegReference = serde_json::from_str(&serialized).unwrap();
-            assert_eq!(peg_reference, deserialized);
-        }
-    }
-
-    #[test]
-    fn test_invalid_deserialization() {
-        assert!(serde_json::from_str::<PegReference>("\"INVALID\"").is_err());
-        assert!(serde_json::from_str::<PegReference>("\"BEST_BID\"").is_err());
-        assert!(serde_json::from_str::<PegReference>("\"BEST_ASK\"").is_err());
-        assert!(serde_json::from_str::<PegReference>("\"MID_PRICE\"").is_err());
-        assert!(serde_json::from_str::<PegReference>("\"LAST_TRADE\"").is_err());
-        assert!(serde_json::from_str::<PegReference>("123").is_err());
-        assert!(serde_json::from_str::<PegReference>("null").is_err());
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(PegReference::Primary.to_string(), "Primary");
-        assert_eq!(PegReference::Market.to_string(), "Market");
-        assert_eq!(PegReference::MidPrice.to_string(), "MidPrice");
     }
 }
