@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
     /// Execute a command against the order book
     /// Returns the execution report for the command
-    pub fn execute(&mut self, command: Command<E>) -> Result<ExecutionReport, ExecutionError> {
-        self.handle_command_meta(&command.meta)?;
+    pub fn execute(&mut self, cmd: &Command<E>) -> Result<ExecutionReport, ExecutionError> {
+        self.handle_command_meta(&cmd.meta)?;
 
-        match command.kind {
+        match &cmd.kind {
             CommandKind::Submit(submit_cmd) => {
                 Ok(ExecutionReport::Submit(self.execute_submit(submit_cmd)?))
             }
