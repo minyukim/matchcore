@@ -9,9 +9,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.handle_command_meta(cmd.meta)?;
 
         match &cmd.kind {
-            CommandKind::Submit(submit_cmd) => {
-                Ok(ExecutionReport::Submit(self.execute_submit(submit_cmd)?))
-            }
+            CommandKind::Submit(submit_cmd) => Ok(ExecutionReport::Submit(
+                self.execute_submit(cmd.meta, submit_cmd)?,
+            )),
             CommandKind::Amend(amend_cmd) => {
                 Ok(ExecutionReport::Amend(self.execute_amend(amend_cmd)?))
             }

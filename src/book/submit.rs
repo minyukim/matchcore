@@ -7,18 +7,20 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Returns the execution report for the command
     pub(super) fn execute_submit(
         &mut self,
+        meta: CommandMeta,
         cmd: &SubmitCmd<E>,
     ) -> Result<SubmitReport, ExecutionError> {
         match &cmd.order {
-            NewOrder::Market(order) => self.submit_market_order(order),
-            NewOrder::Limit(order) => self.submit_limit_order(order),
-            NewOrder::Pegged(order) => self.submit_pegged_order(order),
+            NewOrder::Market(order) => self.submit_market_order(meta, order),
+            NewOrder::Limit(order) => self.submit_limit_order(meta, order),
+            NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         }
     }
 
     /// Submit a market order
     fn submit_market_order(
         &mut self,
+        _meta: CommandMeta,
         _order: &NewMarketOrder<E>,
     ) -> Result<SubmitReport, ExecutionError> {
         todo!()
@@ -27,6 +29,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Submit a limit order
     fn submit_limit_order(
         &mut self,
+        _meta: CommandMeta,
         _order: &NewLimitOrder<E>,
     ) -> Result<SubmitReport, ExecutionError> {
         todo!()
@@ -35,6 +38,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Submit a pegged order
     fn submit_pegged_order(
         &mut self,
+        _meta: CommandMeta,
         _order: &NewPeggedOrder<E>,
     ) -> Result<SubmitReport, ExecutionError> {
         todo!()
