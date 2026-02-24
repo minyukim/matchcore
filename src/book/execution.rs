@@ -6,7 +6,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Execute a command against the order book
     /// Returns the execution report for the command
     pub fn execute(&mut self, cmd: &Command<E>) -> Result<ExecutionReport, ExecutionError> {
-        self.handle_command_meta(&cmd.meta)?;
+        self.handle_command_meta(cmd.meta)?;
 
         match &cmd.kind {
             CommandKind::Submit(submit_cmd) => {
@@ -25,7 +25,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Handle the command metadata
     /// Validates the sequence number and timestamp of the command, and updates
     /// the last sequence number and last seen timestamp if the command is valid.
-    fn handle_command_meta(&mut self, meta: &CommandMeta) -> Result<(), ExecutionError> {
+    fn handle_command_meta(&mut self, meta: CommandMeta) -> Result<(), ExecutionError> {
         self.validate_sequence_number(meta.sequence_number)?;
         self.validate_timestamp(meta.timestamp)?;
 
@@ -75,7 +75,7 @@ mod tests {
         assert!(book.last_seen_timestamp.is_none());
 
         // Expected sequence number is 0
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 1,
             timestamp: 0,
         });
@@ -83,7 +83,7 @@ mod tests {
         assert!(book.last_sequence_number.is_none());
         assert!(book.last_seen_timestamp.is_none());
 
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 0,
             timestamp: 0,
         });
@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(book.last_seen_timestamp, Some(0));
 
         // Expected sequence number is 1
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 0,
             timestamp: 10,
         });
@@ -100,7 +100,7 @@ mod tests {
         assert_eq!(book.last_sequence_number, Some(0));
         assert_eq!(book.last_seen_timestamp, Some(0));
 
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 1,
             timestamp: 10,
         });
@@ -109,7 +109,7 @@ mod tests {
         assert_eq!(book.last_seen_timestamp, Some(10));
 
         // Timestamp is before the last seen timestamp
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 2,
             timestamp: 9,
         });
@@ -118,7 +118,7 @@ mod tests {
         assert_eq!(book.last_seen_timestamp, Some(10));
 
         // Expected sequence number is 2
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 3,
             timestamp: 10,
         });
@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(book.last_sequence_number, Some(1));
         assert_eq!(book.last_seen_timestamp, Some(10));
 
-        let result = book.handle_command_meta(&CommandMeta {
+        let result = book.handle_command_meta(CommandMeta {
             sequence_number: 2,
             timestamp: 10,
         });
