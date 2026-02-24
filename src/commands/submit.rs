@@ -56,7 +56,7 @@ pub struct NewPeggedOrder<E = ()> {
     pub quantity: u64,
 }
 
-/// Represents the core data for a new order
+/// Represents the shared core data for all order types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewOrderCore<E = ()> {
     /// The side of the order

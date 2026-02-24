@@ -23,21 +23,30 @@ pub enum AmendPatch {
 /// Represents the patch to a limit order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LimitPatch {
+    /// The core patch
+    pub core: PatchCore,
     /// The new price of the order
     pub new_price: Option<u64>,
     /// The new quantity policy of the order
     pub new_quantity_policy: Option<QuantityPolicy>,
-    /// The new time in force of the order
-    pub new_time_in_force: Option<TimeInForce>,
 }
 
 /// Represents the patch to a pegged order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedPatch {
+    /// The core patch
+    pub core: PatchCore,
     /// The new peg reference type
     pub new_peg_reference: Option<PegReference>,
     /// The new quantity of the order
     pub new_quantity: Option<u64>,
+}
+
+/// Represents the shared core patch for all order types
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PatchCore {
+    /// The new post-only flag
+    pub new_post_only: Option<bool>,
     /// The new time in force of the order
     pub new_time_in_force: Option<TimeInForce>,
 }
