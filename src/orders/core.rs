@@ -47,6 +47,11 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.post_only
     }
 
+    /// Update the post-only flag
+    pub(super) fn update_post_only(&mut self, new_post_only: bool) {
+        self.post_only = new_post_only;
+    }
+
     /// Get the time in force
     pub(super) fn time_in_force(&self) -> TimeInForce {
         self.time_in_force
