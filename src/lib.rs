@@ -4,7 +4,7 @@ mod execution;
 mod orders;
 mod types;
 
-pub use book::{OrderBook, PegLevel, PriceLevel};
+pub use book::*;
 pub use commands::*;
 pub use execution::*;
 pub use orders::*;
