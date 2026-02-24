@@ -6,9 +6,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     /// Execute an amend command against the order book
     /// Returns the execution report for the command
     pub(super) fn execute_amend(&mut self, cmd: &AmendCmd) -> Result<AmendReport, ExecutionError> {
-        match &cmd.changes {
-            AmendChanges::Limit(amend) => self.amend_limit_order(cmd.order_id, amend),
-            AmendChanges::Pegged(amend) => self.amend_pegged_order(cmd.order_id, amend),
+        match &cmd.patch {
+            AmendPatch::Limit(patch) => self.amend_limit_order(cmd.order_id, patch),
+            AmendPatch::Pegged(patch) => self.amend_pegged_order(cmd.order_id, patch),
         }
     }
 
@@ -16,7 +16,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn amend_limit_order(
         &mut self,
         _order_id: u64,
-        _amend: &LimitAmend,
+        _patch: &LimitPatch,
     ) -> Result<AmendReport, ExecutionError> {
         todo!()
     }
@@ -25,7 +25,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn amend_pegged_order(
         &mut self,
         _order_id: u64,
-        _amend: &PeggedAmend,
+        _patch: &PeggedPatch,
     ) -> Result<AmendReport, ExecutionError> {
         todo!()
     }

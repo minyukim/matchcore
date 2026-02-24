@@ -7,22 +7,22 @@ use serde::{Deserialize, Serialize};
 pub struct AmendCmd {
     /// The ID of the order to amend
     pub order_id: u64,
-    /// The changes to the order
-    pub changes: AmendChanges,
+    /// The patch to apply to the order
+    pub patch: AmendPatch,
 }
 
-/// Represents the changes to an existing order
+/// Represents the patch to an existing order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AmendChanges {
-    /// The changes to a limit order
-    Limit(LimitAmend),
-    /// The changes to a pegged order
-    Pegged(PeggedAmend),
+pub enum AmendPatch {
+    /// The patch to a limit order
+    Limit(LimitPatch),
+    /// The patch to a pegged order
+    Pegged(PeggedPatch),
 }
 
-/// Represents the changes to a limit order
+/// Represents the patch to a limit order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LimitAmend {
+pub struct LimitPatch {
     /// The new price of the order
     pub new_price: Option<u64>,
     /// The new quantity policy of the order
@@ -31,9 +31,9 @@ pub struct LimitAmend {
     pub new_time_in_force: Option<TimeInForce>,
 }
 
-/// Represents the changes to a pegged order
+/// Represents the patch to a pegged order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PeggedAmend {
+pub struct PeggedPatch {
     /// The new peg reference type
     pub new_peg_reference: Option<PegReference>,
     /// The new quantity of the order
