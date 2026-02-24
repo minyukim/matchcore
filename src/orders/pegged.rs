@@ -71,11 +71,6 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.core.is_post_only()
     }
 
-    /// Get the timestamp
-    pub fn timestamp(&self) -> u64 {
-        self.core.timestamp()
-    }
-
     /// Get the time in force
     pub fn time_in_force(&self) -> TimeInForce {
         self.core.time_in_force()
@@ -138,13 +133,12 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Pegged: id={} peg_reference={} quantity={} side={} post_only={} timestamp={} time_in_force={}",
+            "Pegged: id={} peg_reference={} quantity={} side={} post_only={} time_in_force={}",
             self.core.id(),
             self.peg_reference,
             self.quantity,
             self.core.side(),
             self.core.is_post_only(),
-            self.core.timestamp(),
             self.core.time_in_force()
         )
     }
@@ -157,7 +151,7 @@ mod tests {
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
-            OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
             PegReference::Primary,
             20,
         )
@@ -210,11 +204,6 @@ mod tests {
     #[test]
     fn test_is_post_only() {
         assert!(create_pegged_order().is_post_only());
-    }
-
-    #[test]
-    fn test_timestamp() {
-        assert_eq!(create_pegged_order().timestamp(), 1771180000);
     }
 
     #[test]
@@ -272,7 +261,7 @@ mod tests {
     fn test_display() {
         assert_eq!(
             create_pegged_order().to_string(),
-            "Pegged: id=0 peg_reference=Primary quantity=20 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
+            "Pegged: id=0 peg_reference=Primary quantity=20 side=BUY post_only=true time_in_force=GTC"
         );
     }
 }

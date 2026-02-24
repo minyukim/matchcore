@@ -168,7 +168,7 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 10,
             ),
@@ -179,7 +179,7 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 20,
             ),
@@ -190,7 +190,7 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(2, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 30,
             ),
@@ -209,7 +209,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 100,
             ),
@@ -219,7 +219,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 100,
             ),
@@ -235,7 +235,7 @@ mod tests {
         assert!(peg_level.peek(&mut pegged_orders).is_none());
 
         let mut order = PeggedOrder::new(
-            OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
             PegReference::Primary,
             100,
         );
@@ -245,7 +245,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 100,
             ),
@@ -263,7 +263,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 100,
             ),
@@ -276,7 +276,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 100,
             ),
@@ -286,7 +286,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(2, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
                 PegReference::Primary,
                 100,
             ),

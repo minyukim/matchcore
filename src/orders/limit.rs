@@ -86,11 +86,6 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.core.is_post_only()
     }
 
-    /// Get the timestamp
-    pub fn timestamp(&self) -> u64 {
-        self.core.timestamp()
-    }
-
     /// Get the time in force
     pub fn time_in_force(&self) -> TimeInForce {
         self.core.time_in_force()
@@ -176,13 +171,12 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             QuantityPolicy::Standard { quantity } => {
                 write!(
                     f,
-                    "Standard: id={} price={} quantity={} side={} post_only={} timestamp={} time_in_force={}",
+                    "Standard: id={} price={} quantity={} side={} post_only={} time_in_force={}",
                     self.core.id(),
                     self.price,
                     quantity,
                     self.core.side(),
                     self.core.is_post_only(),
-                    self.core.timestamp(),
                     self.core.time_in_force()
                 )
             }
@@ -193,7 +187,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             } => {
                 write!(
                     f,
-                    "Iceberg: id={} price={} visible_quantity={} hidden_quantity={} replenish_quantity={} side={} post_only={} timestamp={} time_in_force={}",
+                    "Iceberg: id={} price={} visible_quantity={} hidden_quantity={} replenish_quantity={} side={} post_only={} time_in_force={}",
                     self.core.id(),
                     self.price,
                     visible_quantity,
@@ -201,7 +195,6 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
                     replenish_quantity,
                     self.core.side(),
                     self.core.is_post_only(),
-                    self.core.timestamp(),
                     self.core.time_in_force()
                 )
             }
@@ -216,7 +209,7 @@ mod tests {
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
-            OrderCore::new(0, Side::Buy, true, 1771180000, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
             90,
             QuantityPolicy::Standard { quantity: 10 },
         )
@@ -224,7 +217,7 @@ mod tests {
 
     fn create_iceberg_order() -> LimitOrder {
         LimitOrder::new(
-            OrderCore::new(1, Side::Sell, false, 1771190000, TimeInForce::Gtc, ()),
+            OrderCore::new(1, Side::Sell, false, TimeInForce::Gtc, ()),
             100,
             QuantityPolicy::Iceberg {
                 visible_quantity: 20,
@@ -300,12 +293,6 @@ mod tests {
     fn test_is_post_only() {
         assert!(create_standard_order().is_post_only());
         assert!(!create_iceberg_order().is_post_only());
-    }
-
-    #[test]
-    fn test_timestamp() {
-        assert_eq!(create_standard_order().timestamp(), 1771180000);
-        assert_eq!(create_iceberg_order().timestamp(), 1771190000);
     }
 
     #[test]
@@ -426,13 +413,13 @@ mod tests {
         {
             assert_eq!(
                 create_standard_order().to_string(),
-                "Standard: id=0 price=90 quantity=10 side=BUY post_only=true timestamp=1771180000 time_in_force=GTC"
+                "Standard: id=0 price=90 quantity=10 side=BUY post_only=true time_in_force=GTC"
             );
         }
         {
             assert_eq!(
                 create_iceberg_order().to_string(),
-                "Iceberg: id=1 price=100 visible_quantity=20 hidden_quantity=40 replenish_quantity=20 side=SELL post_only=false timestamp=1771190000 time_in_force=GTC"
+                "Iceberg: id=1 price=100 visible_quantity=20 hidden_quantity=40 replenish_quantity=20 side=SELL post_only=false time_in_force=GTC"
             );
         }
     }
