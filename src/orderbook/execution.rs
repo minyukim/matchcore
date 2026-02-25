@@ -27,15 +27,21 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     }
 
     /// Handle the command metadata
-    /// Validates the sequence number and timestamp of the command, and updates
-    /// the last sequence number and last seen timestamp if the command is valid.
+    /// Validates the command metadata, and updates the last sequence number and
+    /// the last seen timestamp of the order book if the command is valid.
     fn handle_command_meta(&mut self, meta: CommandMeta) -> Result<(), ExecutionError> {
-        self.validate_sequence_number(meta.sequence_number)?;
-        self.validate_timestamp(meta.timestamp)?;
+        self.validate_command_meta(meta)?;
 
         self.last_sequence_number = Some(meta.sequence_number);
         self.last_seen_timestamp = Some(meta.timestamp);
 
+        Ok(())
+    }
+
+    /// Validate the command metadata
+    fn validate_command_meta(&self, meta: CommandMeta) -> Result<(), ExecutionError> {
+        self.validate_sequence_number(meta.sequence_number)?;
+        self.validate_timestamp(meta.timestamp)?;
         Ok(())
     }
 
@@ -83,7 +89,13 @@ mod tests {
             sequence_number: 1,
             timestamp: 0,
         });
-        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ExecutionError::InvalidSequenceNumber {
+                expected_sequence_number: 0,
+                received_sequence_number: 1,
+            }
+        );
         assert!(book.last_sequence_number.is_none());
         assert!(book.last_seen_timestamp.is_none());
 
@@ -100,7 +112,13 @@ mod tests {
             sequence_number: 0,
             timestamp: 10,
         });
-        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ExecutionError::InvalidSequenceNumber {
+                expected_sequence_number: 1,
+                received_sequence_number: 0,
+            }
+        );
         assert_eq!(book.last_sequence_number, Some(0));
         assert_eq!(book.last_seen_timestamp, Some(0));
 
@@ -117,7 +135,13 @@ mod tests {
             sequence_number: 2,
             timestamp: 9,
         });
-        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ExecutionError::InvalidTimestamp {
+                last_seen_timestamp: 10,
+                received_timestamp: 9,
+            }
+        );
         assert_eq!(book.last_sequence_number, Some(1));
         assert_eq!(book.last_seen_timestamp, Some(10));
 
@@ -126,7 +150,13 @@ mod tests {
             sequence_number: 3,
             timestamp: 10,
         });
-        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ExecutionError::InvalidSequenceNumber {
+                expected_sequence_number: 2,
+                received_sequence_number: 3,
+            }
+        );
         assert_eq!(book.last_sequence_number, Some(1));
         assert_eq!(book.last_seen_timestamp, Some(10));
 

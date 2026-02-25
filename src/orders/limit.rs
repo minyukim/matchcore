@@ -46,6 +46,11 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.price = new_price;
     }
 
+    /// Get the quantity policy
+    pub fn quantity_policy(&self) -> QuantityPolicy {
+        self.quantity_policy
+    }
+
     /// Get the visible quantity
     pub fn visible_quantity(&self) -> u64 {
         self.quantity_policy.visible_quantity()
@@ -415,17 +420,13 @@ mod tests {
 
     #[test]
     fn test_display() {
-        {
-            assert_eq!(
-                create_standard_order().to_string(),
-                "Standard: id=0 price=90 quantity=10 side=BUY post_only=true time_in_force=GTC"
-            );
-        }
-        {
-            assert_eq!(
-                create_iceberg_order().to_string(),
-                "Iceberg: id=1 price=100 visible_quantity=20 hidden_quantity=40 replenish_quantity=20 side=SELL post_only=false time_in_force=GTC"
-            );
-        }
+        assert_eq!(
+            create_standard_order().to_string(),
+            "Standard: id=0 price=90 quantity=10 side=BUY post_only=true time_in_force=GTC"
+        );
+        assert_eq!(
+            create_iceberg_order().to_string(),
+            "Iceberg: id=1 price=100 visible_quantity=20 hidden_quantity=40 replenish_quantity=20 side=SELL post_only=false time_in_force=GTC"
+        );
     }
 }

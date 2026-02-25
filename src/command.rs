@@ -1,9 +1,11 @@
 mod amend;
 mod cancel;
+mod error;
 mod submit;
 
 pub use amend::*;
 pub use cancel::*;
+pub use error::*;
 pub use submit::*;
 
 use serde::{Deserialize, Serialize};
