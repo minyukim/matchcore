@@ -1,6 +1,9 @@
 use crate::{
-    LimitOrder, PegReference, QuantityPolicy, TimeInForce,
-    command::{CommandError, NewOrderCore, validate_limit_order_invariants},
+    LimitOrder, PegReference, PeggedOrder, QuantityPolicy, TimeInForce,
+    command::{
+        CommandError, NewOrderCore, validate_limit_order_invariants,
+        validate_pegged_order_invariants,
+    },
 };
 
 use serde::{Deserialize, Serialize};
@@ -144,6 +147,30 @@ impl PeggedPatch {
     /// Check if the patch is empty
     pub fn is_empty(&self) -> bool {
         self.core.is_empty() && self.new_peg_reference.is_none() && self.new_quantity.is_none()
+    }
+
+    /// Apply the patch to the order if the patch does not conflict with the order
+    #[allow(unused)]
+    pub(crate) fn apply(&self, order: &mut PeggedOrder) -> Result<(), CommandError> {
+        let new_post_only = self.core.new_post_only.unwrap_or(order.is_post_only());
+        let new_time_in_force = self.core.new_time_in_force.unwrap_or(order.time_in_force());
+        let new_peg_reference = self.new_peg_reference.unwrap_or(order.peg_reference());
+        let new_quantity = self.new_quantity.unwrap_or(order.quantity());
+
+        let new_core = NewOrderCore {
+            side: order.side(),
+            post_only: new_post_only,
+            time_in_force: new_time_in_force,
+            extra: (),
+        };
+        validate_pegged_order_invariants(&new_core, new_peg_reference, new_quantity)?;
+
+        order.update_post_only(new_post_only);
+        order.update_time_in_force(new_time_in_force);
+        order.update_peg_reference(new_peg_reference);
+        order.update_quantity(new_quantity);
+
+        Ok(())
     }
 }
 
@@ -662,6 +689,256 @@ mod tests {
             match case.expected {
                 Ok(()) => assert!(patch.validate().is_ok(), "case: {}", case.name),
                 Err(e) => assert_eq!(patch.validate().unwrap_err(), e, "case: {}", case.name),
+            }
+        }
+    }
+
+    #[test]
+    fn test_apply_pegged_patch() {
+        struct Case {
+            name: &'static str,
+            order: PeggedOrder,
+            patch: PeggedPatch,
+            expected: Result<(), CommandError>,
+        }
+
+        let cases = [
+            Case {
+                name: "no-op patch (same peg_reference, same quantity, no core change)",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: Some(PegReference::Market),
+                    new_quantity: Some(10),
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update peg_reference only",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Primary,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: Some(PegReference::Market),
+                    new_quantity: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update quantity only",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: Some(20),
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update post_only via core",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update time_in_force via core",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "invalid: post-only with immediate TIF",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "invalid: zero quantity",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: Some(0),
+                },
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: peg reference Primary + immediate TIF",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    PegReference::Primary,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Err(CommandError::PeggedNonTakerImmediateTif),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order is immediate TIF, patch sets post_only",
+                order: PeggedOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Ioc, ()),
+                    PegReference::Market,
+                    10,
+                ),
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+        ];
+
+        for case in cases {
+            let mut order = case.order.clone();
+            let result = case.patch.apply(&mut order);
+
+            match (&case.expected, &result) {
+                (Ok(()), Ok(())) => {
+                    let expected_peg_reference = case
+                        .patch
+                        .new_peg_reference
+                        .unwrap_or(case.order.peg_reference());
+                    let expected_quantity =
+                        case.patch.new_quantity.unwrap_or(case.order.quantity());
+                    let expected_post_only = case
+                        .patch
+                        .core
+                        .new_post_only
+                        .unwrap_or(case.order.is_post_only());
+                    let expected_time_in_force = case
+                        .patch
+                        .core
+                        .new_time_in_force
+                        .unwrap_or(case.order.time_in_force());
+
+                    assert_eq!(
+                        order.peg_reference(),
+                        expected_peg_reference,
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(order.quantity(), expected_quantity, "case: {}", case.name);
+                    assert_eq!(
+                        order.is_post_only(),
+                        expected_post_only,
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(
+                        order.time_in_force(),
+                        expected_time_in_force,
+                        "case: {}",
+                        case.name
+                    );
+                }
+                (Err(expected_err), Err(actual_err)) => {
+                    assert_eq!(actual_err, expected_err, "case: {}", case.name);
+                    assert_eq!(
+                        order.peg_reference(),
+                        case.order.peg_reference(),
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(
+                        order.quantity(),
+                        case.order.quantity(),
+                        "case: {}",
+                        case.name
+                    );
+                }
+                (expected, actual) => {
+                    panic!(
+                        "case: {}: expected {:?}, got {:?}",
+                        case.name, expected, actual
+                    );
+                }
             }
         }
     }

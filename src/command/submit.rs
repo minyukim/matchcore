@@ -121,17 +121,28 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
-        self.core.validate()?;
-
-        if self.quantity == 0 {
-            return Err(CommandError::ZeroQuantity);
-        }
-
-        if !self.peg_reference.can_be_taker() && self.core.time_in_force.is_immediate() {
-            return Err(CommandError::PeggedNonTakerImmediateTif);
-        }
-        Ok(())
+        validate_pegged_order_invariants(&self.core, self.peg_reference, self.quantity)
     }
+}
+
+/// Validate the invariants of a pegged order
+pub(super) fn validate_pegged_order_invariants<
+    E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+>(
+    core: &NewOrderCore<E>,
+    peg_reference: PegReference,
+    quantity: u64,
+) -> Result<(), CommandError> {
+    core.validate()?;
+
+    if quantity == 0 {
+        return Err(CommandError::ZeroQuantity);
+    }
+
+    if !peg_reference.can_be_taker() && core.time_in_force.is_immediate() {
+        return Err(CommandError::PeggedNonTakerImmediateTif);
+    }
+    Ok(())
 }
 
 /// Represents the shared core data for all order types
