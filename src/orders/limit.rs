@@ -46,6 +46,11 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.price = new_price;
     }
 
+    /// Get the quantity policy
+    pub fn quantity_policy(&self) -> QuantityPolicy {
+        self.quantity_policy
+    }
+
     /// Get the visible quantity
     pub fn visible_quantity(&self) -> u64 {
         self.quantity_policy.visible_quantity()
