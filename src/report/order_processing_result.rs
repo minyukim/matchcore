@@ -1,4 +1,4 @@
-use crate::{CancelReason, execution::MatchResult};
+use crate::{CancelReason, report::MatchResult};
 
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ mod tests {
     use super::*;
     use crate::{
         Side,
-        execution::{CancelReason, MatchResult},
+        report::{CancelReason, MatchResult},
     };
 
     fn create_order_processing_result() -> OrderProcessingResult {
