@@ -18,12 +18,17 @@ impl PegReference {
     pub const COUNT: usize = 3;
 
     #[inline]
-    pub const fn as_index(&self) -> usize {
+    pub const fn as_index(self) -> usize {
         match self {
             PegReference::Primary => 0,
             PegReference::Market => 1,
             PegReference::MidPrice => 2,
         }
+    }
+
+    #[inline]
+    pub const fn can_be_taker(self) -> bool {
+        matches!(self, PegReference::Market)
     }
 }
 
@@ -46,6 +51,13 @@ mod tests {
         assert_eq!(PegReference::Primary.as_index(), 0);
         assert_eq!(PegReference::Market.as_index(), 1);
         assert_eq!(PegReference::MidPrice.as_index(), 2);
+    }
+
+    #[test]
+    fn test_can_be_taker() {
+        assert!(!PegReference::Primary.can_be_taker());
+        assert!(PegReference::Market.can_be_taker());
+        assert!(!PegReference::MidPrice.can_be_taker());
     }
 
     #[test]
