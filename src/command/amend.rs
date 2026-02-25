@@ -1,4 +1,4 @@
-use crate::{PegReference, QuantityPolicy, TimeInForce};
+use crate::{PegReference, QuantityPolicy, TimeInForce, command::CommandError};
 
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +31,48 @@ pub struct LimitPatch {
     pub new_quantity_policy: Option<QuantityPolicy>,
 }
 
+impl LimitPatch {
+    /// Validate the patch
+    pub fn validate(&self) -> Result<(), CommandError> {
+        if self.is_empty() {
+            return Err(CommandError::EmptyPatch);
+        }
+
+        self.core.validate()?;
+
+        if let Some(quantity_policy) = self.new_quantity_policy {
+            match quantity_policy {
+                QuantityPolicy::Standard { quantity } => {
+                    if quantity == 0 {
+                        return Err(CommandError::ZeroQuantity);
+                    }
+                }
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity,
+                    replenish_quantity,
+                } => {
+                    if visible_quantity == 0 {
+                        return Err(CommandError::ZeroQuantity);
+                    }
+                    if hidden_quantity == 0 {
+                        return Err(CommandError::IcebergZeroHiddenQuantity);
+                    }
+                    if replenish_quantity == 0 {
+                        return Err(CommandError::IcebergZeroReplenishQuantity);
+                    }
+                }
+            }
+        };
+        Ok(())
+    }
+
+    /// Check if the patch is empty
+    pub fn is_empty(&self) -> bool {
+        self.core.is_empty() && self.new_price.is_none() && self.new_quantity_policy.is_none()
+    }
+}
+
 /// Represents the patch to a pegged order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedPatch {
@@ -42,6 +84,36 @@ pub struct PeggedPatch {
     pub new_quantity: Option<u64>,
 }
 
+impl PeggedPatch {
+    /// Validate the patch
+    pub fn validate(&self) -> Result<(), CommandError> {
+        if self.is_empty() {
+            return Err(CommandError::EmptyPatch);
+        }
+
+        self.core.validate()?;
+
+        if let Some(quantity) = self.new_quantity
+            && quantity == 0
+        {
+            return Err(CommandError::ZeroQuantity);
+        }
+        if let Some(peg_reference) = self.new_peg_reference
+            && let Some(time_in_force) = self.core.new_time_in_force
+            && !peg_reference.can_be_taker()
+            && time_in_force.is_immediate()
+        {
+            return Err(CommandError::PeggedNonTakerImmediateTif);
+        }
+        Ok(())
+    }
+
+    /// Check if the patch is empty
+    pub fn is_empty(&self) -> bool {
+        self.core.is_empty() && self.new_peg_reference.is_none() && self.new_quantity.is_none()
+    }
+}
+
 /// Represents the shared core patch for all order types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatchCore {
@@ -49,4 +121,256 @@ pub struct PatchCore {
     pub new_post_only: Option<bool>,
     /// The new time in force of the order
     pub new_time_in_force: Option<TimeInForce>,
+}
+
+impl PatchCore {
+    /// Validate the patch core
+    pub fn validate(&self) -> Result<(), CommandError> {
+        if let Some(time_in_force) = self.new_time_in_force
+            && let Some(post_only) = self.new_post_only
+            && time_in_force.is_immediate()
+            && post_only
+        {
+            return Err(CommandError::PostOnlyImmediateTif);
+        }
+        Ok(())
+    }
+
+    /// Check if the patch core is empty
+    pub fn is_empty(&self) -> bool {
+        self.new_post_only.is_none() && self.new_time_in_force.is_none()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_limit_patch() {
+        struct Case {
+            name: &'static str,
+            patch: LimitPatch,
+            expected: Result<(), CommandError>,
+        }
+
+        let cases = [
+            Case {
+                name: "empty limit patch",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::EmptyPatch),
+            },
+            Case {
+                name: "valid limit patch",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(100),
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "zero quantity standard limit patch",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(100),
+                    new_quantity_policy: Some(QuantityPolicy::Standard { quantity: 0 }),
+                },
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "zero hidden quantity",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: Some(QuantityPolicy::Iceberg {
+                        visible_quantity: 10,
+                        hidden_quantity: 0,
+                        replenish_quantity: 10,
+                    }),
+                },
+                expected: Err(CommandError::IcebergZeroHiddenQuantity),
+            },
+            Case {
+                name: "zero replenish quantity",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: Some(QuantityPolicy::Iceberg {
+                        visible_quantity: 10,
+                        hidden_quantity: 10,
+                        replenish_quantity: 0,
+                    }),
+                },
+                expected: Err(CommandError::IcebergZeroReplenishQuantity),
+            },
+            Case {
+                name: "post-only limit patch",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "immediate time in force limit patch",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "post-only immediate time in force limit patch",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+        ];
+
+        for case in cases {
+            let patch = case.patch;
+            match case.expected {
+                Ok(()) => assert!(patch.validate().is_ok(), "case: {}", case.name),
+                Err(e) => assert_eq!(patch.validate().unwrap_err(), e, "case: {}", case.name),
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_pegged_patch() {
+        struct Case {
+            name: &'static str,
+            patch: PeggedPatch,
+            expected: Result<(), CommandError>,
+        }
+
+        let cases = [
+            Case {
+                name: "empty pegged patch",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: None,
+                },
+                expected: Err(CommandError::EmptyPatch),
+            },
+            Case {
+                name: "valid pegged patch",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: Some(PegReference::Market),
+                    new_quantity: Some(100),
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "zero quantity",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: Some(0),
+                },
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "post-only pegged patch",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: None,
+                    },
+                    new_peg_reference: None,
+                    new_quantity: Some(100),
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "immediate time in force pegged order",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: None,
+                    new_quantity: Some(100),
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "post-only immediate time in force",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: None,
+                    new_quantity: Some(100),
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "maker only immediate time in force",
+                patch: PeggedPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_peg_reference: Some(PegReference::Primary),
+                    new_quantity: Some(100),
+                },
+                expected: Err(CommandError::PeggedNonTakerImmediateTif),
+            },
+        ];
+
+        for case in cases {
+            let patch = case.patch;
+            match case.expected {
+                Ok(()) => assert!(patch.validate().is_ok(), "case: {}", case.name),
+                Err(e) => assert_eq!(patch.validate().unwrap_err(), e, "case: {}", case.name),
+            }
+        }
+    }
 }

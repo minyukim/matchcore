@@ -15,6 +15,8 @@ pub enum CommandError {
     PostOnlyImmediateTif,
     /// The pegged order cannot be a taker but has an immediate time in force
     PeggedNonTakerImmediateTif,
+    /// The patch is empty
+    EmptyPatch,
 }
 
 impl fmt::Display for CommandError {
@@ -34,6 +36,7 @@ impl fmt::Display for CommandError {
                     "Pegged order cannot be a taker but has an immediate time in force"
                 )
             }
+            CommandError::EmptyPatch => write!(f, "Patch is empty"),
         }
     }
 }
@@ -61,5 +64,6 @@ mod tests {
             CommandError::PeggedNonTakerImmediateTif.to_string(),
             "Pegged order cannot be a taker but has an immediate time in force"
         );
+        assert_eq!(CommandError::EmptyPatch.to_string(), "Patch is empty");
     }
 }
