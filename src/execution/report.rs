@@ -16,21 +16,32 @@ pub enum ExecutionReport {
 /// Represents a report to submit a new order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitReport {
-    /// The results of processing the orders triggered by the submit command
-    order_processing_results: Vec<OrderProcessingResult>,
+    /// Result for the order explicitly submitted by the command
+    pub submitted_order: OrderProcessingResult,
+    /// Other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
+    pub triggered_orders: Vec<OrderProcessingResult>,
 }
 
 impl SubmitReport {
     /// Create a new submit report
-    pub fn new(order_processing_results: Vec<OrderProcessingResult>) -> Self {
+    pub fn new(
+        submitted_order: OrderProcessingResult,
+        triggered_orders: Vec<OrderProcessingResult>,
+    ) -> Self {
         Self {
-            order_processing_results,
+            submitted_order,
+            triggered_orders,
         }
     }
 
-    /// Get the results of processing the orders triggered by the submit command
-    pub fn order_processing_results(&self) -> &[OrderProcessingResult] {
-        &self.order_processing_results
+    /// Get the result for the order explicitly submitted by the command
+    pub fn submitted_order(&self) -> &OrderProcessingResult {
+        &self.submitted_order
+    }
+
+    /// Get the other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
+    pub fn triggered_orders(&self) -> &[OrderProcessingResult] {
+        &self.triggered_orders
     }
 }
 
@@ -40,19 +51,23 @@ pub struct AmendReport {
     /// The new order ID, if the amend command resulted in an order replacement
     /// caused by losing time-priority due to price change or quantity increase
     new_order_id: Option<u64>,
-    /// The results of processing the orders triggered by the amend command
-    order_processing_results: Vec<OrderProcessingResult>,
+    /// Result for the order explicitly amended by the command
+    amended_order: OrderProcessingResult,
+    /// Other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
+    triggered_orders: Vec<OrderProcessingResult>,
 }
 
 impl AmendReport {
     /// Create a new amend report
     pub fn new(
         new_order_id: Option<u64>,
-        order_processing_results: Vec<OrderProcessingResult>,
+        amended_order: OrderProcessingResult,
+        triggered_orders: Vec<OrderProcessingResult>,
     ) -> Self {
         Self {
             new_order_id,
-            order_processing_results,
+            amended_order,
+            triggered_orders,
         }
     }
 
@@ -62,8 +77,13 @@ impl AmendReport {
         self.new_order_id
     }
 
-    /// Get the results of processing the orders triggered by the amend command
-    pub fn order_processing_results(&self) -> &[OrderProcessingResult] {
-        &self.order_processing_results
+    /// Get the result for the order explicitly amended by the command
+    pub fn amended_order(&self) -> &OrderProcessingResult {
+        &self.amended_order
+    }
+
+    /// Get the other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
+    pub fn triggered_orders(&self) -> &[OrderProcessingResult] {
+        &self.triggered_orders
     }
 }
