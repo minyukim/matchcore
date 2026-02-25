@@ -1,4 +1,4 @@
-use crate::{Side, execution::Trade};
+use crate::{Side, report::Trade};
 
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +74,7 @@ impl MatchResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Side, execution::Trade};
+    use crate::{Side, report::Trade};
 
     fn create_match_result() -> MatchResult {
         MatchResult::new(Side::Buy)
