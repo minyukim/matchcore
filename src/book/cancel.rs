@@ -1,4 +1,7 @@
-use crate::{book::OrderBook, command::*, report::*};
+use crate::{
+    book::{ExecutionError, OrderBook},
+    command::*,
+};
 
 use serde::{Deserialize, Serialize};
 

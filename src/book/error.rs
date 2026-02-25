@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// Error that occurs during the execution of a command
+/// Error that occurs during the execution of a command against the order book
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExecutionError {
     /// The sequence number of the command is invalid
