@@ -1,4 +1,7 @@
-use crate::{PegReference, QuantityPolicy, TimeInForce, command::CommandError};
+use crate::{
+    LimitOrder, PegReference, QuantityPolicy, TimeInForce,
+    command::{CommandError, NewOrderCore, validate_limit_order_invariants},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +80,30 @@ impl LimitPatch {
     pub fn is_empty(&self) -> bool {
         self.core.is_empty() && self.new_price.is_none() && self.new_quantity_policy.is_none()
     }
+
+    /// Apply the patch to the order if the patch does not conflict with the order
+    #[allow(unused)]
+    pub(crate) fn apply(&self, order: &mut LimitOrder) -> Result<(), CommandError> {
+        let new_post_only = self.core.new_post_only.unwrap_or(order.is_post_only());
+        let new_time_in_force = self.core.new_time_in_force.unwrap_or(order.time_in_force());
+        let new_price = self.new_price.unwrap_or(order.price());
+        let new_quantity_policy = self.new_quantity_policy.unwrap_or(order.quantity_policy());
+
+        let new_core = NewOrderCore {
+            side: order.side(),
+            post_only: new_post_only,
+            time_in_force: new_time_in_force,
+            extra: (),
+        };
+        validate_limit_order_invariants(&new_core, new_price, new_quantity_policy)?;
+
+        order.update_post_only(new_post_only);
+        order.update_time_in_force(new_time_in_force);
+        order.update_price(new_price);
+        order.update_quantity_policy(new_quantity_policy);
+
+        Ok(())
+    }
 }
 
 /// Represents the patch to a pegged order
@@ -151,6 +178,7 @@ impl PatchCore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{OrderCore, Side};
 
     #[test]
     fn test_validate_limit_patch() {
@@ -284,6 +312,252 @@ mod tests {
             match case.expected {
                 Ok(()) => assert!(patch.validate().is_ok(), "case: {}", case.name),
                 Err(e) => assert_eq!(patch.validate().unwrap_err(), e, "case: {}", case.name),
+            }
+        }
+    }
+
+    #[test]
+    fn test_apply_limit_patch() {
+        struct Case {
+            name: &'static str,
+            order: LimitOrder,
+            patch: LimitPatch,
+            expected: Result<(), CommandError>,
+        }
+
+        let cases = [
+            Case {
+                name: "no-op patch (same price, no core or quantity change)",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(100),
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update price only",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(200),
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update quantity policy only",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: Some(QuantityPolicy::Standard { quantity: 20 }),
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update post_only via core",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "update time_in_force via core",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Ok(()),
+            },
+            Case {
+                name: "invalid: post-only with immediate TIF",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "invalid: zero price",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(0),
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::ZeroPrice),
+            },
+            Case {
+                name: "invalid: zero quantity",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(100),
+                    new_quantity_policy: Some(QuantityPolicy::Standard { quantity: 0 }),
+                },
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: Some(TimeInForce::Ioc),
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order is immediate TIF, patch sets post_only",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Ioc, ()),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: Some(true),
+                        new_time_in_force: None,
+                    },
+                    new_price: None,
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+        ];
+
+        for case in cases {
+            let mut order = case.order.clone();
+            let result = case.patch.apply(&mut order);
+
+            match (&case.expected, &result) {
+                (Ok(()), Ok(())) => {
+                    // Verify order was updated as expected
+                    let expected_price = case.patch.new_price.unwrap_or(case.order.price());
+                    let expected_quantity_policy = case
+                        .patch
+                        .new_quantity_policy
+                        .unwrap_or(case.order.quantity_policy());
+                    let expected_post_only = case
+                        .patch
+                        .core
+                        .new_post_only
+                        .unwrap_or(case.order.is_post_only());
+                    let expected_time_in_force = case
+                        .patch
+                        .core
+                        .new_time_in_force
+                        .unwrap_or(case.order.time_in_force());
+
+                    assert_eq!(order.price(), expected_price, "case: {}", case.name);
+                    assert_eq!(
+                        order.quantity_policy(),
+                        expected_quantity_policy,
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(
+                        order.is_post_only(),
+                        expected_post_only,
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(
+                        order.time_in_force(),
+                        expected_time_in_force,
+                        "case: {}",
+                        case.name
+                    );
+                }
+                (Err(expected_err), Err(actual_err)) => {
+                    assert_eq!(actual_err, expected_err, "case: {}", case.name);
+                    // Order should be unchanged on error
+                    assert_eq!(order.price(), case.order.price(), "case: {}", case.name);
+                    assert_eq!(
+                        order.quantity_policy(),
+                        case.order.quantity_policy(),
+                        "case: {}",
+                        case.name
+                    );
+                }
+                (expected, actual) => {
+                    panic!(
+                        "case: {}: expected {:?}, got {:?}",
+                        case.name, expected, actual
+                    );
+                }
             }
         }
     }

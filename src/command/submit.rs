@@ -62,36 +62,47 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
-        self.core.validate()?;
-
-        if self.price == 0 {
-            return Err(CommandError::ZeroPrice);
-        }
-
-        match self.quantity_policy {
-            QuantityPolicy::Standard { quantity } => {
-                if quantity == 0 {
-                    return Err(CommandError::ZeroQuantity);
-                }
-            }
-            QuantityPolicy::Iceberg {
-                visible_quantity,
-                hidden_quantity,
-                replenish_quantity,
-            } => {
-                if visible_quantity == 0 {
-                    return Err(CommandError::ZeroQuantity);
-                }
-                if hidden_quantity == 0 {
-                    return Err(CommandError::IcebergZeroHiddenQuantity);
-                }
-                if replenish_quantity == 0 {
-                    return Err(CommandError::IcebergZeroReplenishQuantity);
-                }
-            }
-        }
-        Ok(())
+        validate_limit_order_invariants(&self.core, self.price, self.quantity_policy)
     }
+}
+
+/// Validate the invariants of a limit order
+pub(super) fn validate_limit_order_invariants<
+    E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
+>(
+    core: &NewOrderCore<E>,
+    price: u64,
+    quantity_policy: QuantityPolicy,
+) -> Result<(), CommandError> {
+    core.validate()?;
+
+    if price == 0 {
+        return Err(CommandError::ZeroPrice);
+    }
+
+    match quantity_policy {
+        QuantityPolicy::Standard { quantity } => {
+            if quantity == 0 {
+                return Err(CommandError::ZeroQuantity);
+            }
+        }
+        QuantityPolicy::Iceberg {
+            visible_quantity,
+            hidden_quantity,
+            replenish_quantity,
+        } => {
+            if visible_quantity == 0 {
+                return Err(CommandError::ZeroQuantity);
+            }
+            if hidden_quantity == 0 {
+                return Err(CommandError::IcebergZeroHiddenQuantity);
+            }
+            if replenish_quantity == 0 {
+                return Err(CommandError::IcebergZeroReplenishQuantity);
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Represents a new pegged order
