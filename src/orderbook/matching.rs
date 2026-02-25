@@ -1,6 +1,6 @@
 use crate::{
     MatchResult, PegReference, Side, Trade,
-    book::{
+    orderbook::{
         OrderBook,
         peg_level::{MAKER_ARRAY_PRIMARY, MAKER_ARRAY_PRIMARY_MID_PRICE},
     },
