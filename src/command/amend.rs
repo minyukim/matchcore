@@ -40,6 +40,12 @@ impl LimitPatch {
 
         self.core.validate()?;
 
+        if let Some(price) = self.new_price
+            && price == 0
+        {
+            return Err(CommandError::ZeroPrice);
+        }
+
         if let Some(quantity_policy) = self.new_quantity_policy {
             match quantity_policy {
                 QuantityPolicy::Standard { quantity } => {
@@ -178,6 +184,18 @@ mod tests {
                     new_quantity_policy: None,
                 },
                 expected: Ok(()),
+            },
+            Case {
+                name: "zero price",
+                patch: LimitPatch {
+                    core: PatchCore {
+                        new_post_only: None,
+                        new_time_in_force: None,
+                    },
+                    new_price: Some(0),
+                    new_quantity_policy: None,
+                },
+                expected: Err(CommandError::ZeroPrice),
             },
             Case {
                 name: "zero quantity standard limit patch",

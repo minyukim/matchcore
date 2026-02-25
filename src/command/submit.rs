@@ -64,6 +64,10 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     pub fn validate(&self) -> Result<(), CommandError> {
         self.core.validate()?;
 
+        if self.price == 0 {
+            return Err(CommandError::ZeroPrice);
+        }
+
         match self.quantity_policy {
             QuantityPolicy::Standard { quantity } => {
                 if quantity == 0 {
@@ -212,6 +216,20 @@ mod tests {
                     quantity_policy: QuantityPolicy::Standard { quantity: 10 },
                 },
                 expected: Ok(()),
+            },
+            Case {
+                name: "zero price",
+                order: NewLimitOrder {
+                    core: NewOrderCore {
+                        side: Side::Buy,
+                        post_only: false,
+                        time_in_force: TimeInForce::Gtc,
+                        extra: (),
+                    },
+                    price: 0,
+                    quantity_policy: QuantityPolicy::Standard { quantity: 10 },
+                },
+                expected: Err(CommandError::ZeroPrice),
             },
             Case {
                 name: "standard zero quantity",
