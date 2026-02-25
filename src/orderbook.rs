@@ -1,7 +1,17 @@
-use crate::{
-    LimitOrder, PegReference, PeggedOrder,
-    book::{PegLevel, PriceLevel},
-};
+mod amend;
+mod cancel;
+mod error;
+mod execution;
+mod matching;
+mod peg_level;
+mod price_level;
+mod submit;
+
+pub use error::*;
+pub use peg_level::*;
+pub use price_level::*;
+
+use crate::{LimitOrder, PegReference, PeggedOrder};
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -19,33 +29,33 @@ where
 
     /// The last sequence number of the order book, `None` if no command has been processed yet.
     /// This is used to ensure that the incoming commands are processed in the correct order.
-    pub(super) last_sequence_number: Option<u64>,
+    pub(self) last_sequence_number: Option<u64>,
 
     /// The last seen timestamp of the order book, `None` if no command has been processed yet.
     /// The timestamp is expressed as a Unix timestamp (seconds since epoch).
     /// This is used to ensure that the timestamps of the incoming commands are non-decreasing.
-    pub(super) last_seen_timestamp: Option<u64>,
+    pub(self) last_seen_timestamp: Option<u64>,
 
     /// The last price at which a trade occurred, `None` if no trade has occurred yet
-    pub(super) last_trade_price: Option<u64>,
+    pub(self) last_trade_price: Option<u64>,
 
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
-    pub(super) limit_bid_levels: BTreeMap<u64, PriceLevel>,
+    pub(self) limit_bid_levels: BTreeMap<u64, PriceLevel>,
 
     /// Ask side price levels, stored in a ordered map with O(log N) ordering
-    pub(super) limit_ask_levels: BTreeMap<u64, PriceLevel>,
+    pub(self) limit_ask_levels: BTreeMap<u64, PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(super) limit_orders: HashMap<u64, LimitOrder<E>>,
+    pub(self) limit_orders: HashMap<u64, LimitOrder<E>>,
 
     /// Pegged bid side levels, one for each reference price type
-    pub(super) peg_bid_levels: [PegLevel; PegReference::COUNT],
+    pub(self) peg_bid_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged ask side levels, one for each reference price type
-    pub(super) peg_ask_levels: [PegLevel; PegReference::COUNT],
+    pub(self) peg_ask_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged orders indexed by order ID for O(1) lookup
-    pub(super) pegged_orders: HashMap<u64, PeggedOrder<E>>,
+    pub(self) pegged_orders: HashMap<u64, PeggedOrder<E>>,
 }
 
 impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
