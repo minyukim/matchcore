@@ -11,6 +11,8 @@ pub enum CancelReason {
         /// The quantity of the order that was available to be filled
         available_quantity: u64,
     },
+    /// The maker side of the order book is empty
+    EmptyMakerSide,
 }
 
 impl fmt::Display for CancelReason {
@@ -24,6 +26,7 @@ impl fmt::Display for CancelReason {
                 "Insufficient liquidity: requested={} available={}",
                 requested_quantity, available_quantity
             ),
+            CancelReason::EmptyMakerSide => write!(f, "Maker side is empty"),
         }
     }
 }
@@ -41,6 +44,10 @@ mod tests {
             }
             .to_string(),
             "Insufficient liquidity: requested=100 available=50"
+        );
+        assert_eq!(
+            CancelReason::EmptyMakerSide.to_string(),
+            "Maker side is empty"
         );
     }
 }
