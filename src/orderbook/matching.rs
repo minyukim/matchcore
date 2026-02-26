@@ -28,7 +28,7 @@ impl OrderBook {
         let mut match_result = MatchResult::new(taker_side);
         let mut remaining_quantity = quantity;
 
-        let opposite_side_best_price = match taker_side {
+        let taker_side_best_price = match taker_side {
             Side::Buy => self.best_bid(),
             Side::Sell => self.best_ask(),
         };
@@ -102,12 +102,12 @@ impl OrderBook {
                 Side::Sell => &mut self.peg_bid_levels,
             };
 
-            // Determine the active peg references based on the opposite side best price
+            // Determine the active peg references based on the taker side best price
             // Primary: always active
             // Market: not active
-            // MidPrice: active if the price is within 1 of the opposite side best price
-            let active_peg_references: &[PegReference] = match opposite_side_best_price {
-                Some(opposite_side_best_price) if price.abs_diff(opposite_side_best_price) <= 1 => {
+            // MidPrice: active if the price is within 1 of the taker side best price
+            let active_peg_references: &[PegReference] = match taker_side_best_price {
+                Some(taker_side_best_price) if price.abs_diff(taker_side_best_price) <= 1 => {
                     &MAKER_ARRAY_PRIMARY_MID_PRICE
                 }
                 _ => &MAKER_ARRAY_PRIMARY,
