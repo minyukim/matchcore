@@ -1,21 +1,18 @@
-use crate::{
-    command::*,
-    orderbook::{ExecutionError, OrderBook},
-    report::*,
-};
+use crate::{command::*, orderbook::OrderBook, report::*};
 
 impl OrderBook {
     /// Execute a submit command against the order book
     /// Returns the execution report for the command
-    pub(super) fn execute_submit(
-        &mut self,
-        meta: CommandMeta,
-        cmd: &SubmitCmd,
-    ) -> Result<SubmitReport, ExecutionError> {
-        match &cmd.order {
+    pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
+        let result = match &cmd.order {
             NewOrder::Market(order) => self.submit_market_order(meta, order),
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
+        };
+
+        match result {
+            Ok(report) => CommandOutcome::Applied(CommandReport::Submit(report)),
+            Err(error) => CommandOutcome::Rejected(error),
         }
     }
 
@@ -24,7 +21,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &NewMarketOrder,
-    ) -> Result<SubmitReport, ExecutionError> {
+    ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
 
@@ -33,7 +30,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &NewLimitOrder,
-    ) -> Result<SubmitReport, ExecutionError> {
+    ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
 
@@ -42,7 +39,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &NewPeggedOrder,
-    ) -> Result<SubmitReport, ExecutionError> {
+    ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
 }

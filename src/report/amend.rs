@@ -2,7 +2,7 @@ use crate::report::OrderProcessingResult;
 
 use serde::{Deserialize, Serialize};
 
-/// Represents a report to amend an existing order
+/// Represents the report for the amendment of an existing order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmendReport {
     /// The new order ID, if the amend command resulted in an order replacement

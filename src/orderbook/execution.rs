@@ -7,21 +7,16 @@ use crate::{
 impl OrderBook {
     /// Execute a command against the order book
     /// Returns the execution report for the command
-    pub fn execute(&mut self, cmd: &Command) -> Result<ExecutionReport, ExecutionError> {
+    pub fn execute(&mut self, cmd: &Command) -> Result<CommandExecutionReport, ExecutionError> {
         self.handle_command_meta(cmd.meta)?;
 
-        match &cmd.kind {
-            CommandKind::Submit(submit_cmd) => Ok(ExecutionReport::Submit(
-                self.execute_submit(cmd.meta, submit_cmd)?,
-            )),
-            CommandKind::Amend(amend_cmd) => Ok(ExecutionReport::Amend(
-                self.execute_amend(cmd.meta, amend_cmd)?,
-            )),
-            CommandKind::Cancel(cancel_cmd) => {
-                self.execute_cancel(cancel_cmd)?;
-                Ok(ExecutionReport::Cancel)
-            }
-        }
+        let outcome = match &cmd.kind {
+            CommandKind::Submit(submit_cmd) => self.execute_submit(cmd.meta, submit_cmd),
+            CommandKind::Amend(amend_cmd) => self.execute_amend(cmd.meta, amend_cmd),
+            CommandKind::Cancel(cancel_cmd) => self.execute_cancel(cancel_cmd),
+        };
+
+        Ok(CommandExecutionReport::new(cmd.meta, outcome))
     }
 
     /// Handle the command metadata
