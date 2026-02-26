@@ -50,25 +50,21 @@ mod tests {
 
     #[test]
     fn test_display() {
-        {
-            assert_eq!(
-                ExecutionError::InvalidSequenceNumber {
-                    expected_sequence_number: 1,
-                    received_sequence_number: 2,
-                }
-                .to_string(),
-                "Invalid sequence number: expected 1, received 2"
-            );
-        }
-        {
-            assert_eq!(
-                ExecutionError::InvalidTimestamp {
-                    last_seen_timestamp: 100,
-                    received_timestamp: 10,
-                }
-                .to_string(),
-                "Invalid timestamp: received timestamp 10 is before the last seen timestamp 100"
-            );
-        }
+        assert_eq!(
+            ExecutionError::InvalidSequenceNumber {
+                expected_sequence_number: 1,
+                received_sequence_number: 2,
+            }
+            .to_string(),
+            "Invalid sequence number: expected 1, received 2"
+        );
+        assert_eq!(
+            ExecutionError::InvalidTimestamp {
+                last_seen_timestamp: 100,
+                received_timestamp: 10,
+            }
+            .to_string(),
+            "Invalid timestamp: received timestamp 10 is before the last seen timestamp 100"
+        );
     }
 }
