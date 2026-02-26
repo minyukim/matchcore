@@ -27,7 +27,7 @@ pub enum AmendPatch {
 }
 
 /// Represents the patch to a limit order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LimitPatch {
     /// The core patch
     pub core: PatchCore,
@@ -38,6 +38,35 @@ pub struct LimitPatch {
 }
 
 impl LimitPatch {
+    /// Create a new empty limit patch
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns this limit patch with the price set.
+    pub fn with_price(mut self, v: u64) -> Self {
+        self.new_price = Some(v);
+        self
+    }
+
+    /// Returns this limit patch with the quantity policy set.
+    pub fn with_quantity_policy(mut self, v: QuantityPolicy) -> Self {
+        self.new_quantity_policy = Some(v);
+        self
+    }
+
+    /// Returns this limit patch with the post-only set.
+    pub fn with_post_only(mut self, v: bool) -> Self {
+        self.core.new_post_only = Some(v);
+        self
+    }
+
+    /// Returns this limit patch with the time-in-force set.
+    pub fn with_time_in_force(mut self, v: TimeInForce) -> Self {
+        self.core.new_time_in_force = Some(v);
+        self
+    }
+
     /// Validate the patch
     pub fn validate(&self) -> Result<(), CommandError> {
         if self.is_empty() {
@@ -109,7 +138,7 @@ impl LimitPatch {
 }
 
 /// Represents the patch to a pegged order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PeggedPatch {
     /// The core patch
     pub core: PatchCore,
@@ -120,6 +149,35 @@ pub struct PeggedPatch {
 }
 
 impl PeggedPatch {
+    /// Create a new empty pegged patch
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns this pegged patch with the peg reference set.
+    pub fn with_peg_reference(mut self, v: PegReference) -> Self {
+        self.new_peg_reference = Some(v);
+        self
+    }
+
+    /// Returns this pegged patch with the quantity set.
+    pub fn with_quantity(mut self, v: u64) -> Self {
+        self.new_quantity = Some(v);
+        self
+    }
+
+    /// Returns this pegged patch with the post-only set.
+    pub fn with_post_only(mut self, v: bool) -> Self {
+        self.core.new_post_only = Some(v);
+        self
+    }
+
+    /// Returns this pegged patch with the time-in-force set.
+    pub fn with_time_in_force(mut self, v: TimeInForce) -> Self {
+        self.core.new_time_in_force = Some(v);
+        self
+    }
+
     /// Validate the patch
     pub fn validate(&self) -> Result<(), CommandError> {
         if self.is_empty() {
@@ -173,7 +231,7 @@ impl PeggedPatch {
 }
 
 /// Represents the shared core patch for all order types
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PatchCore {
     /// The new post-only flag
     pub new_post_only: Option<bool>,
@@ -216,118 +274,74 @@ mod tests {
         let cases = [
             Case {
                 name: "empty limit patch",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new(),
                 expected: Err(CommandError::EmptyPatch),
             },
             Case {
                 name: "valid limit patch",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(100),
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_price(100),
                 expected: Ok(()),
             },
             Case {
                 name: "zero price",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(0),
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_price(0),
                 expected: Err(CommandError::ZeroPrice),
             },
             Case {
                 name: "zero quantity standard limit patch",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(100),
-                    new_quantity_policy: Some(QuantityPolicy::Standard { quantity: 0 }),
-                },
+                patch: LimitPatch::new()
+                    .with_price(100)
+                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 0 }),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
-                name: "zero hidden quantity",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
+                name: "zero quantity iceberg limit patch",
+                patch: LimitPatch::new().with_price(100).with_quantity_policy(
+                    QuantityPolicy::Iceberg {
+                        visible_quantity: 0,
+                        hidden_quantity: 10,
+                        replenish_quantity: 10,
                     },
-                    new_price: None,
-                    new_quantity_policy: Some(QuantityPolicy::Iceberg {
+                ),
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "zero hidden quantity iceberg limit patch",
+                patch: LimitPatch::new().with_price(100).with_quantity_policy(
+                    QuantityPolicy::Iceberg {
                         visible_quantity: 10,
                         hidden_quantity: 0,
                         replenish_quantity: 10,
-                    }),
-                },
+                    },
+                ),
                 expected: Err(CommandError::IcebergZeroHiddenQuantity),
             },
             Case {
-                name: "zero replenish quantity",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: None,
-                    new_quantity_policy: Some(QuantityPolicy::Iceberg {
+                name: "zero replenish quantity iceberg limit patch",
+                patch: LimitPatch::new().with_price(100).with_quantity_policy(
+                    QuantityPolicy::Iceberg {
                         visible_quantity: 10,
                         hidden_quantity: 10,
                         replenish_quantity: 0,
-                    }),
-                },
+                    },
+                ),
                 expected: Err(CommandError::IcebergZeroReplenishQuantity),
             },
             Case {
                 name: "post-only limit patch",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: None,
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_post_only(true),
                 expected: Ok(()),
             },
             Case {
                 name: "immediate time in force limit patch",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
             },
             Case {
                 name: "post-only immediate time in force limit patch",
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new()
+                    .with_post_only(true)
+                    .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
         ];
@@ -352,20 +366,15 @@ mod tests {
 
         let cases = [
             Case {
-                name: "no-op patch (same price, no core or quantity change)",
+                name: "no-op patch (same price and quantity policy)",
                 order: LimitOrder::new(
                     OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(100),
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new()
+                    .with_price(100)
+                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 10 }),
                 expected: Ok(()),
             },
             Case {
@@ -375,14 +384,7 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(200),
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_price(200),
                 expected: Ok(()),
             },
             Case {
@@ -392,48 +394,28 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: None,
-                    new_quantity_policy: Some(QuantityPolicy::Standard { quantity: 20 }),
-                },
+                patch: LimitPatch::new()
+                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 20 }),
                 expected: Ok(()),
             },
             Case {
-                name: "update post_only via core",
+                name: "update post_only only",
                 order: LimitOrder::new(
                     OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: None,
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_post_only(true),
                 expected: Ok(()),
             },
             Case {
-                name: "update time_in_force via core",
+                name: "update time_in_force only",
                 order: LimitOrder::new(
                     OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
             },
             Case {
@@ -443,14 +425,9 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new()
+                    .with_post_only(true)
+                    .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -460,14 +437,7 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(0),
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_price(0),
                 expected: Err(CommandError::ZeroPrice),
             },
             Case {
@@ -477,14 +447,9 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_price: Some(100),
-                    new_quantity_policy: Some(QuantityPolicy::Standard { quantity: 0 }),
-                },
+                patch: LimitPatch::new()
+                    .with_price(100)
+                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 0 }),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
@@ -494,14 +459,7 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -511,14 +469,7 @@ mod tests {
                     100,
                     QuantityPolicy::Standard { quantity: 10 },
                 ),
-                patch: LimitPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: None,
-                    },
-                    new_price: None,
-                    new_quantity_policy: None,
-                },
+                patch: LimitPatch::new().with_post_only(true),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
         ];
@@ -598,86 +549,41 @@ mod tests {
         let cases = [
             Case {
                 name: "empty pegged patch",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new(),
                 expected: Err(CommandError::EmptyPatch),
             },
             Case {
                 name: "valid pegged patch",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: Some(PegReference::Market),
-                    new_quantity: Some(100),
-                },
+                patch: PeggedPatch::new().with_quantity(100),
                 expected: Ok(()),
             },
             Case {
                 name: "zero quantity",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: Some(0),
-                },
+                patch: PeggedPatch::new().with_quantity(0),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
                 name: "post-only pegged patch",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: Some(100),
-                },
+                patch: PeggedPatch::new().with_post_only(true),
                 expected: Ok(()),
             },
             Case {
                 name: "immediate time in force pegged order",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: None,
-                    new_quantity: Some(100),
-                },
+                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
             },
             Case {
                 name: "post-only immediate time in force",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: None,
-                    new_quantity: Some(100),
-                },
+                patch: PeggedPatch::new()
+                    .with_post_only(true)
+                    .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
                 name: "maker only immediate time in force",
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: Some(PegReference::Primary),
-                    new_quantity: Some(100),
-                },
+                patch: PeggedPatch::new()
+                    .with_peg_reference(PegReference::Primary)
+                    .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
             },
         ];
@@ -702,20 +608,15 @@ mod tests {
 
         let cases = [
             Case {
-                name: "no-op patch (same peg_reference, same quantity, no core change)",
+                name: "no-op patch (same peg_reference and quantity)",
                 order: PeggedOrder::new(
                     OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: Some(PegReference::Market),
-                    new_quantity: Some(10),
-                },
+                patch: PeggedPatch::new()
+                    .with_peg_reference(PegReference::Market)
+                    .with_quantity(10),
                 expected: Ok(()),
             },
             Case {
@@ -725,14 +626,7 @@ mod tests {
                     PegReference::Primary,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: Some(PegReference::Market),
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new().with_peg_reference(PegReference::Market),
                 expected: Ok(()),
             },
             Case {
@@ -742,48 +636,27 @@ mod tests {
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: Some(20),
-                },
+                patch: PeggedPatch::new().with_quantity(20),
                 expected: Ok(()),
             },
             Case {
-                name: "update post_only via core",
+                name: "update post_only only",
                 order: PeggedOrder::new(
                     OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new().with_post_only(true),
                 expected: Ok(()),
             },
             Case {
-                name: "update time_in_force via core",
+                name: "update time_in_force only",
                 order: PeggedOrder::new(
                     OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
             },
             Case {
@@ -793,14 +666,9 @@ mod tests {
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new()
+                    .with_post_only(true)
+                    .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -810,14 +678,7 @@ mod tests {
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: Some(0),
-                },
+                patch: PeggedPatch::new().with_quantity(0),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
@@ -827,14 +688,9 @@ mod tests {
                     PegReference::Primary,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new()
+                    .with_peg_reference(PegReference::Primary)
+                    .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
             },
             Case {
@@ -844,14 +700,7 @@ mod tests {
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: None,
-                        new_time_in_force: Some(TimeInForce::Ioc),
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -861,14 +710,7 @@ mod tests {
                     PegReference::Market,
                     10,
                 ),
-                patch: PeggedPatch {
-                    core: PatchCore {
-                        new_post_only: Some(true),
-                        new_time_in_force: None,
-                    },
-                    new_peg_reference: None,
-                    new_quantity: None,
-                },
+                patch: PeggedPatch::new().with_post_only(true),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
         ];
