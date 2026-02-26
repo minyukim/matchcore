@@ -6,12 +6,9 @@ use serde::{Deserialize, Serialize};
 
 /// Pegged order that adjusts based on reference price
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PeggedOrder<E = ()>
-where
-    E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
-{
+pub struct PeggedOrder {
     /// The core order data
-    core: OrderCore<E>,
+    core: OrderCore,
     /// Reference price to track
     peg_reference: PegReference,
     /// The quantity of the order
@@ -19,11 +16,9 @@ where
 }
 
 #[allow(unused)]
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    PeggedOrder<E>
-{
+impl PeggedOrder {
     /// Create a new pegged order
-    pub fn new(core: OrderCore<E>, peg_reference: PegReference, quantity: u64) -> Self {
+    pub fn new(core: OrderCore, peg_reference: PegReference, quantity: u64) -> Self {
         Self {
             core,
             peg_reference,
@@ -111,30 +106,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
         self.quantity = new_quantity;
         consumed
     }
-
-    /// Get the extra fields
-    pub fn extra(&self) -> &E {
-        self.core.extra()
-    }
-
-    /// Get mutable reference to extra fields
-    pub fn extra_mut(&mut self) -> &mut E {
-        self.core.extra_mut()
-    }
-
-    /// Transform the extra fields type using a function
-    pub fn map_extra<G, F>(&self, f: F) -> PeggedOrder<G>
-    where
-        F: FnOnce(E) -> G,
-        G: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
-        PeggedOrder::new(self.core.map_extra(f), self.peg_reference, self.quantity)
-    }
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
-    for PeggedOrder<E>
-{
+impl fmt::Display for PeggedOrder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -156,7 +130,7 @@ mod tests {
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
             PegReference::Primary,
             20,
         )

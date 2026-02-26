@@ -4,12 +4,10 @@ use crate::{
     report::*,
 };
 
-use serde::{Deserialize, Serialize};
-
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
+impl OrderBook {
     /// Execute a command against the order book
     /// Returns the execution report for the command
-    pub fn execute(&mut self, cmd: &Command<E>) -> Result<ExecutionReport, ExecutionError> {
+    pub fn execute(&mut self, cmd: &Command) -> Result<ExecutionReport, ExecutionError> {
         self.handle_command_meta(cmd.meta)?;
 
         match &cmd.kind {
@@ -80,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_handle_command_meta() {
-        let mut book: OrderBook<()> = OrderBook::new("TEST".to_string());
+        let mut book: OrderBook = OrderBook::new("TEST".to_string());
         assert!(book.last_sequence_number.is_none());
         assert!(book.last_seen_timestamp.is_none());
 

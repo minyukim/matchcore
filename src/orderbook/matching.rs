@@ -6,9 +6,7 @@ use crate::{
     },
 };
 
-use serde::{Deserialize, Serialize};
-
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
+impl OrderBook {
     /// Match an order against existing orders in the order book.
     ///
     /// It first tries to find the best price level for the order,

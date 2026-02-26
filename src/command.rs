@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 
 /// Represents a top-level command for all command and order kinds
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Command<E = ()> {
+pub struct Command {
     /// The common metadata for all command kinds
     pub meta: CommandMeta,
     /// The kind of command
-    pub kind: CommandKind<E>,
+    pub kind: CommandKind,
 }
 
 /// Represents the common metadata for all command kinds
@@ -30,9 +30,9 @@ pub struct CommandMeta {
 
 /// Represents the kind of command
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CommandKind<E = ()> {
+pub enum CommandKind {
     /// A command to submit a new order
-    Submit(SubmitCmd<E>),
+    Submit(SubmitCmd),
     /// A command to amend an existing order
     Amend(AmendCmd),
     /// A command to cancel an existing order

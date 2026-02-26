@@ -4,15 +4,13 @@ use crate::{
     report::*,
 };
 
-use serde::{Deserialize, Serialize};
-
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
+impl OrderBook {
     /// Execute a submit command against the order book
     /// Returns the execution report for the command
     pub(super) fn execute_submit(
         &mut self,
         meta: CommandMeta,
-        cmd: &SubmitCmd<E>,
+        cmd: &SubmitCmd,
     ) -> Result<SubmitReport, ExecutionError> {
         match &cmd.order {
             NewOrder::Market(order) => self.submit_market_order(meta, order),
@@ -25,7 +23,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn submit_market_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewMarketOrder<E>,
+        _order: &NewMarketOrder,
     ) -> Result<SubmitReport, ExecutionError> {
         todo!()
     }
@@ -34,7 +32,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn submit_limit_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewLimitOrder<E>,
+        _order: &NewLimitOrder,
     ) -> Result<SubmitReport, ExecutionError> {
         todo!()
     }
@@ -43,7 +41,7 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     fn submit_pegged_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewPeggedOrder<E>,
+        _order: &NewPeggedOrder,
     ) -> Result<SubmitReport, ExecutionError> {
         todo!()
     }

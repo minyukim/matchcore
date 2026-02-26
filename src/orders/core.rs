@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Core order data that is common to all order types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrderCore<E = ()>
-where
-    E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
-{
+pub struct OrderCore {
     /// The order ID
     id: u64,
     /// The side of the order (buy or sell)
@@ -16,19 +13,16 @@ where
     post_only: bool,
     /// Time-in-force policy
     time_in_force: TimeInForce,
-    /// Additional custom fields
-    extra: E,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderCore<E> {
+impl OrderCore {
     /// Create a new order core
-    pub fn new(id: u64, side: Side, post_only: bool, time_in_force: TimeInForce, extra: E) -> Self {
+    pub fn new(id: u64, side: Side, post_only: bool, time_in_force: TimeInForce) -> Self {
         Self {
             id,
             side,
             post_only,
             time_in_force,
-            extra,
         }
     }
 
@@ -76,31 +70,6 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
     pub(super) fn update_time_in_force(&mut self, new_time_in_force: TimeInForce) {
         self.time_in_force = new_time_in_force;
     }
-
-    /// Get the extra fields
-    pub(super) fn extra(&self) -> &E {
-        &self.extra
-    }
-
-    /// Get mutable reference to extra fields
-    pub(super) fn extra_mut(&mut self) -> &mut E {
-        &mut self.extra
-    }
-
-    /// Transform the extra fields type using a function
-    pub(super) fn map_extra<U, F>(&self, f: F) -> OrderCore<U>
-    where
-        F: FnOnce(E) -> U,
-        U: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
-        OrderCore::new(
-            self.id,
-            self.side,
-            self.post_only,
-            self.time_in_force,
-            f(self.extra),
-        )
-    }
 }
 
 #[cfg(test)]
@@ -109,7 +78,7 @@ mod tests {
     use crate::{Side, TimeInForce};
 
     fn create_order_core() -> OrderCore {
-        OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ())
+        OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc)
     }
 
     #[test]

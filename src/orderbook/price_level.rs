@@ -80,13 +80,11 @@ impl PriceLevel {
 
     /// Push a limit order to the price level and add it to the order book
     #[allow(unused)]
-    pub(super) fn push<E>(
+    pub(super) fn push(
         &mut self,
-        limit_orders: &mut HashMap<u64, LimitOrder<E>>,
-        limit_order: LimitOrder<E>,
-    ) where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+        limit_orders: &mut HashMap<u64, LimitOrder>,
+        limit_order: LimitOrder,
+    ) {
         self.visible_quantity += limit_order.visible_quantity();
         self.hidden_quantity += limit_order.hidden_quantity();
 
@@ -98,13 +96,7 @@ impl PriceLevel {
     /// Attempt to peek the first order ID in the price level without removing it
     /// It cleans up stale order IDs in the price level
     /// Returns the order ID if it is found
-    pub(super) fn peek_order_id<E>(
-        &mut self,
-        limit_orders: &HashMap<u64, LimitOrder<E>>,
-    ) -> Option<u64>
-    where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+    pub(super) fn peek_order_id(&mut self, limit_orders: &HashMap<u64, LimitOrder>) -> Option<u64> {
         loop {
             let order_id = self._peek()?;
             if limit_orders.contains_key(&order_id) {
@@ -119,13 +111,10 @@ impl PriceLevel {
     /// Attempt to peek the first order in the price level without removing it
     /// It cleans up stale order IDs in the price level
     /// Returns a mutable reference to the order if it is found
-    pub(super) fn peek<'a, E>(
+    pub(super) fn peek<'a>(
         &mut self,
-        limit_orders: &'a mut HashMap<u64, LimitOrder<E>>,
-    ) -> Option<&'a mut LimitOrder<E>>
-    where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+        limit_orders: &'a mut HashMap<u64, LimitOrder>,
+    ) -> Option<&'a mut LimitOrder> {
         let order_id = self.peek_order_id(limit_orders)?;
 
         limit_orders.get_mut(&order_id)
@@ -133,10 +122,7 @@ impl PriceLevel {
 
     /// Pop the first order ID from the price level and remove it from the order book
     /// If the price level is empty, do nothing
-    pub(super) fn remove_head_order<E>(&mut self, limit_orders: &mut HashMap<u64, LimitOrder<E>>)
-    where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+    pub(super) fn remove_head_order(&mut self, limit_orders: &mut HashMap<u64, LimitOrder>) {
         let Some(order_id) = self._pop() else {
             return;
         };
@@ -205,7 +191,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
             ),
@@ -217,7 +203,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -229,7 +215,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Iceberg {
                     visible_quantity: 10,
@@ -253,7 +239,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
             ),
@@ -263,7 +249,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -279,7 +265,7 @@ mod tests {
         assert!(price_level.peek(&mut limit_orders).is_none());
 
         let mut order = LimitOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
             100,
             QuantityPolicy::Standard { quantity: 10 },
         );
@@ -289,7 +275,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -307,7 +293,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
             ),
@@ -320,7 +306,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),
@@ -330,7 +316,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 30 },
             ),
@@ -357,7 +343,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Iceberg {
                     visible_quantity: 0,
@@ -380,7 +366,7 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 100,
                 QuantityPolicy::Standard { quantity: 20 },
             ),

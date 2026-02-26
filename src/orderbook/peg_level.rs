@@ -74,13 +74,11 @@ impl PegLevel {
 
     /// Push a pegged order to the peg level and add it to the order book
     #[allow(unused)]
-    pub(super) fn push<E>(
+    pub(super) fn push(
         &mut self,
-        pegged_orders: &mut HashMap<u64, PeggedOrder<E>>,
-        pegged_order: PeggedOrder<E>,
-    ) where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+        pegged_orders: &mut HashMap<u64, PeggedOrder>,
+        pegged_order: PeggedOrder,
+    ) {
         self.quantity += pegged_order.quantity();
 
         self._push(pegged_order.id());
@@ -91,13 +89,10 @@ impl PegLevel {
     /// Attempt to peek the first order ID in the peg level without removing it
     /// It cleans up stale order IDs in the peg level
     /// Returns the order ID if it is found
-    pub(super) fn peek_order_id<E>(
+    pub(super) fn peek_order_id(
         &mut self,
-        pegged_orders: &HashMap<u64, PeggedOrder<E>>,
-    ) -> Option<u64>
-    where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+        pegged_orders: &HashMap<u64, PeggedOrder>,
+    ) -> Option<u64> {
         loop {
             let order_id = self._peek()?;
             if pegged_orders.contains_key(&order_id) {
@@ -113,13 +108,10 @@ impl PegLevel {
     /// It cleans up stale order IDs in the peg level
     /// Returns a mutable reference to the order if it is found
     #[allow(unused)]
-    pub(super) fn peek<'a, E>(
+    pub(super) fn peek<'a>(
         &mut self,
-        pegged_orders: &'a mut HashMap<u64, PeggedOrder<E>>,
-    ) -> Option<&'a mut PeggedOrder<E>>
-    where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+        pegged_orders: &'a mut HashMap<u64, PeggedOrder>,
+    ) -> Option<&'a mut PeggedOrder> {
         let order_id = self.peek_order_id(pegged_orders)?;
 
         pegged_orders.get_mut(&order_id)
@@ -127,10 +119,7 @@ impl PegLevel {
 
     /// Pop the first order ID from the peg level and remove it from the order book
     /// If the peg level is empty, do nothing
-    pub(super) fn remove_head_order<E>(&mut self, pegged_orders: &mut HashMap<u64, PeggedOrder<E>>)
-    where
-        E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
+    pub(super) fn remove_head_order(&mut self, pegged_orders: &mut HashMap<u64, PeggedOrder>) {
         let Some(order_id) = self._pop() else {
             return;
         };
@@ -168,7 +157,7 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 10,
             ),
@@ -179,7 +168,7 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 20,
             ),
@@ -190,7 +179,7 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 30,
             ),
@@ -209,7 +198,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 100,
             ),
@@ -219,7 +208,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 100,
             ),
@@ -235,7 +224,7 @@ mod tests {
         assert!(peg_level.peek(&mut pegged_orders).is_none());
 
         let mut order = PeggedOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
             PegReference::Primary,
             100,
         );
@@ -245,7 +234,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 100,
             ),
@@ -263,7 +252,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 100,
             ),
@@ -276,7 +265,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 100,
             ),
@@ -286,7 +275,7 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc, ()),
+                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
                 PegReference::Primary,
                 100,
             ),
