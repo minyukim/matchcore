@@ -1,20 +1,17 @@
-use crate::{
-    command::*,
-    orderbook::{ExecutionError, OrderBook},
-    report::*,
-};
+use crate::{command::*, orderbook::OrderBook, report::*};
 
 impl OrderBook {
     /// Execute an amend command against the order book
     /// Returns the execution report for the command
-    pub(super) fn execute_amend(
-        &mut self,
-        meta: CommandMeta,
-        cmd: &AmendCmd,
-    ) -> Result<AmendReport, ExecutionError> {
-        match &cmd.patch {
+    pub(super) fn execute_amend(&mut self, meta: CommandMeta, cmd: &AmendCmd) -> CommandOutcome {
+        let result = match &cmd.patch {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
+        };
+
+        match result {
+            Ok(report) => CommandOutcome::Applied(CommandReport::Amend(report)),
+            Err(error) => CommandOutcome::Rejected(error),
         }
     }
 
@@ -24,7 +21,7 @@ impl OrderBook {
         _meta: CommandMeta,
         _order_id: u64,
         _patch: &LimitPatch,
-    ) -> Result<AmendReport, ExecutionError> {
+    ) -> Result<AmendReport, CommandError> {
         todo!()
     }
 
@@ -34,7 +31,7 @@ impl OrderBook {
         _meta: CommandMeta,
         _order_id: u64,
         _patch: &PeggedPatch,
-    ) -> Result<AmendReport, ExecutionError> {
+    ) -> Result<AmendReport, CommandError> {
         todo!()
     }
 }

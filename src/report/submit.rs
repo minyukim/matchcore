@@ -2,7 +2,7 @@ use crate::report::OrderProcessingResult;
 
 use serde::{Deserialize, Serialize};
 
-/// Represents a report to submit a new order
+/// Represents the report for the submission of a new order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitReport {
     /// Result for the order explicitly submitted by the command
