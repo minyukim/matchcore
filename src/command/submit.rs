@@ -4,25 +4,25 @@ use serde::{Deserialize, Serialize};
 
 /// Represents a command to submit a new order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SubmitCmd<E = ()> {
+pub struct SubmitCmd {
     /// The order to submit
-    pub order: NewOrder<E>,
+    pub order: NewOrder,
 }
 
 /// Represents a new order for all order types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NewOrder<E = ()> {
+pub enum NewOrder {
     /// A new market order
-    Market(NewMarketOrder<E>),
+    Market(NewMarketOrder),
     /// A new limit order
-    Limit(NewLimitOrder<E>),
+    Limit(NewLimitOrder),
     /// A new pegged order
-    Pegged(NewPeggedOrder<E>),
+    Pegged(NewPeggedOrder),
 }
 
 /// Represents a new market order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewMarketOrder<E = ()> {
+pub struct NewMarketOrder {
     /// The quantity of the order
     pub quantity: u64,
     /// The side of the order
@@ -30,13 +30,9 @@ pub struct NewMarketOrder<E = ()> {
     /// Whether to convert the order to a limit order
     /// if it is not filled immediately at the best available price
     pub market_to_limit: bool,
-    /// Additional custom fields
-    pub extra: E,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    NewMarketOrder<E>
-{
+impl NewMarketOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
         if self.quantity == 0 {
@@ -48,18 +44,16 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 
 /// Represents a new limit order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewLimitOrder<E = ()> {
+pub struct NewLimitOrder {
     /// The core order data
-    pub core: NewOrderCore<E>,
+    pub core: NewOrderCore,
     /// The price of the order
     pub price: u64,
     /// The quantity policy of the order
     pub quantity_policy: QuantityPolicy,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    NewLimitOrder<E>
-{
+impl NewLimitOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
         validate_limit_order_invariants(&self.core, self.price, self.quantity_policy)
@@ -67,10 +61,8 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 }
 
 /// Validate the invariants of a limit order
-pub(super) fn validate_limit_order_invariants<
-    E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
->(
-    core: &NewOrderCore<E>,
+pub(super) fn validate_limit_order_invariants(
+    core: &NewOrderCore,
     price: u64,
     quantity_policy: QuantityPolicy,
 ) -> Result<(), CommandError> {
@@ -107,18 +99,16 @@ pub(super) fn validate_limit_order_invariants<
 
 /// Represents a new pegged order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewPeggedOrder<E = ()> {
+pub struct NewPeggedOrder {
     /// The core order data
-    pub core: NewOrderCore<E>,
+    pub core: NewOrderCore,
     /// The peg reference type
     pub peg_reference: PegReference,
     /// The quantity of the order
     pub quantity: u64,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    NewPeggedOrder<E>
-{
+impl NewPeggedOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
         validate_pegged_order_invariants(&self.core, self.peg_reference, self.quantity)
@@ -126,10 +116,8 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
 }
 
 /// Validate the invariants of a pegged order
-pub(super) fn validate_pegged_order_invariants<
-    E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
->(
-    core: &NewOrderCore<E>,
+pub(super) fn validate_pegged_order_invariants(
+    core: &NewOrderCore,
     peg_reference: PegReference,
     quantity: u64,
 ) -> Result<(), CommandError> {
@@ -147,20 +135,16 @@ pub(super) fn validate_pegged_order_invariants<
 
 /// Represents the shared core data for all order types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewOrderCore<E = ()> {
+pub struct NewOrderCore {
     /// The side of the order
     pub side: Side,
     /// Whether the order is post-only
     pub post_only: bool,
     /// The time in force of the order
     pub time_in_force: TimeInForce,
-    /// Additional custom fields
-    pub extra: E,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    NewOrderCore<E>
-{
+impl NewOrderCore {
     /// Validate the order core
     pub fn validate(&self) -> Result<(), CommandError> {
         if self.time_in_force.is_immediate() && self.post_only {
@@ -206,7 +190,6 @@ mod tests {
                 quantity: case.quantity,
                 side: case.side,
                 market_to_limit: case.market_to_limit,
-                extra: (),
             };
 
             match case.expected {
@@ -220,7 +203,7 @@ mod tests {
     fn test_validate_new_limit_order() {
         struct Case {
             name: &'static str,
-            order: NewLimitOrder<()>,
+            order: NewLimitOrder,
             expected: Result<(), CommandError>,
         }
 
@@ -232,7 +215,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Standard { quantity: 10 },
@@ -246,7 +228,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 0,
                     quantity_policy: QuantityPolicy::Standard { quantity: 10 },
@@ -260,7 +241,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Standard { quantity: 0 },
@@ -274,7 +254,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Iceberg {
@@ -292,7 +271,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Iceberg {
@@ -310,7 +288,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Iceberg {
@@ -328,7 +305,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: true,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Standard { quantity: 10 },
@@ -342,7 +318,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Ioc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Standard { quantity: 10 },
@@ -356,7 +331,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: true,
                         time_in_force: TimeInForce::Ioc,
-                        extra: (),
                     },
                     price: 100,
                     quantity_policy: QuantityPolicy::Standard { quantity: 10 },
@@ -378,7 +352,7 @@ mod tests {
     fn test_validate_new_pegged_order() {
         struct Case {
             name: &'static str,
-            order: NewPeggedOrder<()>,
+            order: NewPeggedOrder,
             expected: Result<(), CommandError>,
         }
 
@@ -390,7 +364,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     peg_reference: PegReference::Market,
                     quantity: 100,
@@ -404,7 +377,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     peg_reference: PegReference::Market,
                     quantity: 0,
@@ -418,7 +390,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: true,
                         time_in_force: TimeInForce::Gtc,
-                        extra: (),
                     },
                     peg_reference: PegReference::Market,
                     quantity: 100,
@@ -432,7 +403,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Ioc,
-                        extra: (),
                     },
                     peg_reference: PegReference::Market,
                     quantity: 100,
@@ -446,7 +416,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: true,
                         time_in_force: TimeInForce::Ioc,
-                        extra: (),
                     },
                     peg_reference: PegReference::Market,
                     quantity: 100,
@@ -460,7 +429,6 @@ mod tests {
                         side: Side::Buy,
                         post_only: false,
                         time_in_force: TimeInForce::Ioc,
-                        extra: (),
                     },
                     peg_reference: PegReference::Primary,
                     quantity: 100,

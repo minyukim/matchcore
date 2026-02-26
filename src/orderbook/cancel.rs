@@ -3,9 +3,7 @@ use crate::{
     orderbook::{ExecutionError, OrderBook},
 };
 
-use serde::{Deserialize, Serialize};
-
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
+impl OrderBook {
     /// Execute a cancel command against the order book
     /// Returns the execution report for the command
     pub(super) fn execute_cancel(&mut self, cmd: &CancelCmd) -> Result<(), ExecutionError> {

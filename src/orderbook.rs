@@ -20,10 +20,7 @@ use serde::{Deserialize, Serialize};
 /// Order book that manages orders and levels.
 /// It supports adding, updating, cancelling, and matching orders.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrderBook<E = ()>
-where
-    E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
-{
+pub struct OrderBook {
     /// The symbol for this order book
     symbol: String,
 
@@ -46,7 +43,7 @@ where
     pub(self) limit_ask_levels: BTreeMap<u64, PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(self) limit_orders: HashMap<u64, LimitOrder<E>>,
+    pub(self) limit_orders: HashMap<u64, LimitOrder>,
 
     /// Pegged bid side levels, one for each reference price type
     pub(self) peg_bid_levels: [PegLevel; PegReference::COUNT],
@@ -55,10 +52,10 @@ where
     pub(self) peg_ask_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged orders indexed by order ID for O(1) lookup
-    pub(self) pegged_orders: HashMap<u64, PeggedOrder<E>>,
+    pub(self) pegged_orders: HashMap<u64, PeggedOrder>,
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> OrderBook<E> {
+impl OrderBook {
     /// Create a new order book
     pub fn new(symbol: String) -> Self {
         Self {

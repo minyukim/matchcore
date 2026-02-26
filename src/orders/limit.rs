@@ -6,12 +6,9 @@ use serde::{Deserialize, Serialize};
 
 /// Generic limit order with various configuration options
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LimitOrder<E = ()>
-where
-    E: Clone + Copy + Eq + Serialize + core::fmt::Debug,
-{
+pub struct LimitOrder {
     /// The core order data
-    core: OrderCore<E>,
+    core: OrderCore,
     /// The price of the order
     price: u64,
     /// The quantity policy of the order
@@ -19,11 +16,9 @@ where
 }
 
 #[allow(unused)]
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug>
-    LimitOrder<E>
-{
+impl LimitOrder {
     /// Create a new order
-    pub fn new(core: OrderCore<E>, price: u64, quantity_policy: QuantityPolicy) -> Self {
+    pub fn new(core: OrderCore, price: u64, quantity_policy: QuantityPolicy) -> Self {
         Self {
             core,
             price,
@@ -152,30 +147,9 @@ impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::D
             }
         }
     }
-
-    /// Get the extra fields
-    pub fn extra(&self) -> &E {
-        self.core.extra()
-    }
-
-    /// Get mutable reference to extra fields
-    pub fn extra_mut(&mut self) -> &mut E {
-        self.core.extra_mut()
-    }
-
-    /// Transform the extra fields type using a function
-    pub fn map_extra<U, F>(&self, f: F) -> LimitOrder<U>
-    where
-        F: FnOnce(E) -> U,
-        U: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug,
-    {
-        LimitOrder::new(self.core.map_extra(f), self.price, self.quantity_policy)
-    }
 }
 
-impl<E: Clone + Copy + Eq + Serialize + for<'de> Deserialize<'de> + core::fmt::Debug> fmt::Display
-    for LimitOrder<E>
-{
+impl fmt::Display for LimitOrder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.quantity_policy {
             QuantityPolicy::Standard { quantity } => {
@@ -219,7 +193,7 @@ mod tests {
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc, ()),
+            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
             90,
             QuantityPolicy::Standard { quantity: 10 },
         )
@@ -227,7 +201,7 @@ mod tests {
 
     fn create_iceberg_order() -> LimitOrder {
         LimitOrder::new(
-            OrderCore::new(1, Side::Sell, false, TimeInForce::Gtc, ()),
+            OrderCore::new(1, Side::Sell, false, TimeInForce::Gtc),
             100,
             QuantityPolicy::Iceberg {
                 visible_quantity: 20,
