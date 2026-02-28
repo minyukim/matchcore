@@ -2,6 +2,38 @@ use crate::{CancelReason, report::MatchResult};
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(super) struct OrderProcessingResults {
+    /// Result for the primary order explicitly stated in the command
+    primary_order: OrderProcessingResult,
+    /// Other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
+    triggered_orders: Vec<OrderProcessingResult>,
+}
+
+impl OrderProcessingResults {
+    /// Create a new order processing results
+    pub(super) fn new(primary_order: OrderProcessingResult) -> Self {
+        Self {
+            primary_order,
+            triggered_orders: Vec::new(),
+        }
+    }
+
+    pub(super) fn set_triggered_orders(&mut self, triggered_orders: Vec<OrderProcessingResult>) {
+        self.triggered_orders = triggered_orders;
+    }
+
+    /// Get the result for the primary order explicitly stated in the command
+    pub(super) fn primary_order(&self) -> &OrderProcessingResult {
+        &self.primary_order
+    }
+
+    /// Get the other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
+    pub(super) fn triggered_orders(&self) -> &[OrderProcessingResult] {
+        &self.triggered_orders
+    }
+}
+
 /// Result of processing a taker order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderProcessingResult {
