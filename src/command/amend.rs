@@ -1,7 +1,7 @@
 use crate::{
     LimitOrder, PegReference, PeggedOrder, QuantityPolicy, TimeInForce,
     command::{
-        CommandError, NewOrderCore,
+        CommandError,
         validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
     },
 };
@@ -84,12 +84,12 @@ impl LimitPatch {
         let new_price = self.new_price.unwrap_or(order.price());
         let new_quantity_policy = self.new_quantity_policy.unwrap_or(order.quantity_policy());
 
-        let new_core = NewOrderCore {
-            side: order.side(),
-            post_only: new_post_only,
-            time_in_force: new_time_in_force,
-        };
-        validate_limit_order_invariants(&new_core, new_price, new_quantity_policy)?;
+        validate_limit_order_invariants(
+            new_price,
+            new_quantity_policy,
+            new_post_only,
+            new_time_in_force,
+        )?;
 
         order.update_post_only(new_post_only);
         order.update_time_in_force(new_time_in_force);
@@ -158,12 +158,12 @@ impl PeggedPatch {
         let new_peg_reference = self.new_peg_reference.unwrap_or(order.peg_reference());
         let new_quantity = self.new_quantity.unwrap_or(order.quantity());
 
-        let new_core = NewOrderCore {
-            side: order.side(),
-            post_only: new_post_only,
-            time_in_force: new_time_in_force,
-        };
-        validate_pegged_order_invariants(&new_core, new_peg_reference, new_quantity)?;
+        validate_pegged_order_invariants(
+            new_peg_reference,
+            new_quantity,
+            new_post_only,
+            new_time_in_force,
+        )?;
 
         order.update_post_only(new_post_only);
         order.update_time_in_force(new_time_in_force);

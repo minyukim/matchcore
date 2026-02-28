@@ -1,15 +1,13 @@
-use crate::{
-    PegReference, QuantityPolicy,
-    command::{CommandError, NewOrderCore},
-};
+use crate::{PegReference, QuantityPolicy, TimeInForce, command::CommandError};
 
 /// Validate the invariants of a limit order
 pub(super) fn validate_limit_order_invariants(
-    core: &NewOrderCore,
     price: u64,
     quantity_policy: QuantityPolicy,
+    post_only: bool,
+    time_in_force: TimeInForce,
 ) -> Result<(), CommandError> {
-    core.validate()?;
+    validate_order_core_invariants(post_only, time_in_force)?;
 
     if price == 0 {
         return Err(CommandError::ZeroPrice);
@@ -42,18 +40,30 @@ pub(super) fn validate_limit_order_invariants(
 
 /// Validate the invariants of a pegged order
 pub(super) fn validate_pegged_order_invariants(
-    core: &NewOrderCore,
     peg_reference: PegReference,
     quantity: u64,
+    post_only: bool,
+    time_in_force: TimeInForce,
 ) -> Result<(), CommandError> {
-    core.validate()?;
+    validate_order_core_invariants(post_only, time_in_force)?;
 
     if quantity == 0 {
         return Err(CommandError::ZeroQuantity);
     }
 
-    if !peg_reference.can_be_taker() && core.time_in_force.is_immediate() {
+    if !peg_reference.can_be_taker() && time_in_force.is_immediate() {
         return Err(CommandError::PeggedNonTakerImmediateTif);
+    }
+    Ok(())
+}
+
+/// Validate the invariants of an order core
+fn validate_order_core_invariants(
+    post_only: bool,
+    time_in_force: TimeInForce,
+) -> Result<(), CommandError> {
+    if post_only && time_in_force.is_immediate() {
+        return Err(CommandError::PostOnlyImmediateTif);
     }
     Ok(())
 }

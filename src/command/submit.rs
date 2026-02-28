@@ -62,7 +62,12 @@ pub struct NewLimitOrder {
 impl NewLimitOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
-        validate_limit_order_invariants(&self.core, self.price, self.quantity_policy)
+        validate_limit_order_invariants(
+            self.price,
+            self.quantity_policy,
+            self.core.post_only,
+            self.core.time_in_force,
+        )
     }
 }
 
@@ -80,7 +85,12 @@ pub struct NewPeggedOrder {
 impl NewPeggedOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
-        validate_pegged_order_invariants(&self.core, self.peg_reference, self.quantity)
+        validate_pegged_order_invariants(
+            self.peg_reference,
+            self.quantity,
+            self.core.post_only,
+            self.core.time_in_force,
+        )
     }
 }
 
@@ -93,16 +103,6 @@ pub struct NewOrderCore {
     pub post_only: bool,
     /// The time in force of the order
     pub time_in_force: TimeInForce,
-}
-
-impl NewOrderCore {
-    /// Validate the order core
-    pub fn validate(&self) -> Result<(), CommandError> {
-        if self.time_in_force.is_immediate() && self.post_only {
-            return Err(CommandError::PostOnlyImmediateTif);
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
