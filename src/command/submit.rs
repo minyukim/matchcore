@@ -1,4 +1,10 @@
-use crate::{PegReference, QuantityPolicy, Side, TimeInForce, command::CommandError};
+use crate::{
+    PegReference, QuantityPolicy, Side, TimeInForce,
+    command::{
+        CommandError,
+        validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
+    },
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -56,45 +62,13 @@ pub struct NewLimitOrder {
 impl NewLimitOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
-        validate_limit_order_invariants(&self.core, self.price, self.quantity_policy)
+        validate_limit_order_invariants(
+            self.price,
+            self.quantity_policy,
+            self.core.post_only,
+            self.core.time_in_force,
+        )
     }
-}
-
-/// Validate the invariants of a limit order
-pub(super) fn validate_limit_order_invariants(
-    core: &NewOrderCore,
-    price: u64,
-    quantity_policy: QuantityPolicy,
-) -> Result<(), CommandError> {
-    core.validate()?;
-
-    if price == 0 {
-        return Err(CommandError::ZeroPrice);
-    }
-
-    match quantity_policy {
-        QuantityPolicy::Standard { quantity } => {
-            if quantity == 0 {
-                return Err(CommandError::ZeroQuantity);
-            }
-        }
-        QuantityPolicy::Iceberg {
-            visible_quantity,
-            hidden_quantity,
-            replenish_quantity,
-        } => {
-            if visible_quantity == 0 {
-                return Err(CommandError::ZeroQuantity);
-            }
-            if hidden_quantity == 0 {
-                return Err(CommandError::IcebergZeroHiddenQuantity);
-            }
-            if replenish_quantity == 0 {
-                return Err(CommandError::IcebergZeroReplenishQuantity);
-            }
-        }
-    }
-    Ok(())
 }
 
 /// Represents a new pegged order
@@ -111,26 +85,13 @@ pub struct NewPeggedOrder {
 impl NewPeggedOrder {
     /// Validate the order
     pub fn validate(&self) -> Result<(), CommandError> {
-        validate_pegged_order_invariants(&self.core, self.peg_reference, self.quantity)
+        validate_pegged_order_invariants(
+            self.peg_reference,
+            self.quantity,
+            self.core.post_only,
+            self.core.time_in_force,
+        )
     }
-}
-
-/// Validate the invariants of a pegged order
-pub(super) fn validate_pegged_order_invariants(
-    core: &NewOrderCore,
-    peg_reference: PegReference,
-    quantity: u64,
-) -> Result<(), CommandError> {
-    core.validate()?;
-
-    if quantity == 0 {
-        return Err(CommandError::ZeroQuantity);
-    }
-
-    if !peg_reference.can_be_taker() && core.time_in_force.is_immediate() {
-        return Err(CommandError::PeggedNonTakerImmediateTif);
-    }
-    Ok(())
 }
 
 /// Represents the shared core data for all order types
@@ -142,16 +103,6 @@ pub struct NewOrderCore {
     pub post_only: bool,
     /// The time in force of the order
     pub time_in_force: TimeInForce,
-}
-
-impl NewOrderCore {
-    /// Validate the order core
-    pub fn validate(&self) -> Result<(), CommandError> {
-        if self.time_in_force.is_immediate() && self.post_only {
-            return Err(CommandError::PostOnlyImmediateTif);
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
