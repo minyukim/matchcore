@@ -1,4 +1,4 @@
-use crate::report::OrderProcessingResult;
+use crate::report::{OrderProcessingResult, OrderProcessingResults};
 
 use serde::{Deserialize, Serialize};
 
@@ -8,24 +8,24 @@ pub struct AmendReport {
     /// The new order ID, if the amend command resulted in an order replacement
     /// caused by losing time-priority due to price change or quantity increase
     new_order_id: Option<u64>,
-    /// Result for the order explicitly amended by the command
-    amended_order: OrderProcessingResult,
-    /// Other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
-    triggered_orders: Vec<OrderProcessingResult>,
+    /// The results of the order processing
+    order_processing_results: OrderProcessingResults,
 }
 
 impl AmendReport {
     /// Create a new amend report
-    pub fn new(
-        new_order_id: Option<u64>,
-        amended_order: OrderProcessingResult,
-        triggered_orders: Vec<OrderProcessingResult>,
-    ) -> Self {
+    pub fn new(new_order_id: Option<u64>, amended_order: OrderProcessingResult) -> Self {
         Self {
             new_order_id,
-            amended_order,
-            triggered_orders,
+            order_processing_results: OrderProcessingResults::new(amended_order),
         }
+    }
+
+    /// Return this amend report with the triggered orders set
+    pub fn with_triggered_orders(mut self, triggered_orders: Vec<OrderProcessingResult>) -> Self {
+        self.order_processing_results
+            .set_triggered_orders(triggered_orders);
+        self
     }
 
     /// Get the new order ID, if the amend command resulted in an order replacement
@@ -36,11 +36,11 @@ impl AmendReport {
 
     /// Get the result for the order explicitly amended by the command
     pub fn amended_order(&self) -> &OrderProcessingResult {
-        &self.amended_order
+        self.order_processing_results.primary_order()
     }
 
     /// Get the other orders whose state changed as a consequence (e.g., inactive pegged orders becoming active)
     pub fn triggered_orders(&self) -> &[OrderProcessingResult] {
-        &self.triggered_orders
+        self.order_processing_results.triggered_orders()
     }
 }
