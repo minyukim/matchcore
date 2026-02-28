@@ -13,6 +13,8 @@ pub enum CommandError {
     IcebergZeroHiddenQuantity,
     /// The replenish quantity of the iceberg order is zero
     IcebergZeroReplenishQuantity,
+    /// The iceberg order has an immediate time in force
+    IcebergImmediateTif,
     /// The order is post-only but has an immediate time in force
     PostOnlyImmediateTif,
     /// The pegged order cannot be a taker but has an immediate time in force
@@ -29,6 +31,9 @@ impl fmt::Display for CommandError {
             CommandError::IcebergZeroHiddenQuantity => write!(f, "Iceberg hidden quantity is zero"),
             CommandError::IcebergZeroReplenishQuantity => {
                 write!(f, "Iceberg replenish quantity is zero")
+            }
+            CommandError::IcebergImmediateTif => {
+                write!(f, "Iceberg order has an immediate time in force")
             }
             CommandError::PostOnlyImmediateTif => {
                 write!(f, "Order is post-only but has an immediate time in force")
@@ -59,6 +64,10 @@ mod tests {
         assert_eq!(
             CommandError::IcebergZeroReplenishQuantity.to_string(),
             "Iceberg replenish quantity is zero"
+        );
+        assert_eq!(
+            CommandError::IcebergImmediateTif.to_string(),
+            "Iceberg order has an immediate time in force"
         );
         assert_eq!(
             CommandError::PostOnlyImmediateTif.to_string(),

@@ -315,6 +315,22 @@ mod tests {
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
+                name: "invalid: iceberg with immediate TIF",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                ),
+                patch: LimitPatch::new()
+                    .with_quantity_policy(QuantityPolicy::Iceberg {
+                        visible_quantity: 10,
+                        hidden_quantity: 10,
+                        replenish_quantity: 10,
+                    })
+                    .with_time_in_force(TimeInForce::Ioc),
+                expected: Err(CommandError::IcebergImmediateTif),
+            },
+            Case {
                 name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
                 order: LimitOrder::new(
                     OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
@@ -333,6 +349,20 @@ mod tests {
                 ),
                 patch: LimitPatch::new().with_post_only(true),
                 expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order is iceberg, patch sets immediate TIF",
+                order: LimitOrder::new(
+                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
+                    100,
+                    QuantityPolicy::Iceberg {
+                        visible_quantity: 10,
+                        hidden_quantity: 10,
+                        replenish_quantity: 10,
+                    },
+                ),
+                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
+                expected: Err(CommandError::IcebergImmediateTif),
             },
         ];
 
