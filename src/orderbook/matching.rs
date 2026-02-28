@@ -68,8 +68,6 @@ impl OrderBook {
                 let order_id = order.id();
 
                 if order.is_expired(timestamp) {
-                    match_result.add_expired_order_id(order_id);
-
                     // Remove the order if it is expired
                     price_level.remove_head_order(&mut self.limit_orders);
                     if price_level.is_empty() {
@@ -152,7 +150,6 @@ impl OrderBook {
                 let order = self.pegged_orders.get_mut(&order_id).unwrap();
 
                 if order.is_expired(timestamp) {
-                    match_result.add_expired_order_id(order_id);
                     peg_level.remove_head_order(&mut self.pegged_orders);
                     continue;
                 }
