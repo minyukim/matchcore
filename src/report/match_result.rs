@@ -46,6 +46,11 @@ impl MatchResult {
         &self.trades
     }
 
+    /// Get the price of the last trade made during the match
+    pub fn last_trade_price(&self) -> Option<u64> {
+        self.trades.last().map(|trade| trade.price())
+    }
+
     /// Add a trade to the match result
     pub(crate) fn add_trade(&mut self, trade: Trade) {
         let price = trade.price();
