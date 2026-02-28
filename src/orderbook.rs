@@ -6,6 +6,7 @@ mod matching;
 mod peg_level;
 mod price_level;
 mod submit;
+mod trigger;
 
 pub use error::*;
 pub use peg_level::*;
