@@ -1,8 +1,8 @@
 use crate::{
     LimitOrder, PegReference, PeggedOrder, QuantityPolicy, TimeInForce,
     command::{
-        CommandError, NewOrderCore, validate_limit_order_invariants,
-        validate_pegged_order_invariants,
+        CommandError, NewOrderCore,
+        validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
     },
 };
 
