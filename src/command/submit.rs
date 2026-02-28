@@ -288,6 +288,23 @@ mod tests {
                 },
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
+            Case {
+                name: "iceberg with immediate time in force",
+                order: NewLimitOrder {
+                    core: NewOrderCore {
+                        side: Side::Buy,
+                        post_only: false,
+                        time_in_force: TimeInForce::Ioc,
+                    },
+                    price: 100,
+                    quantity_policy: QuantityPolicy::Iceberg {
+                        visible_quantity: 10,
+                        hidden_quantity: 10,
+                        replenish_quantity: 10,
+                    },
+                },
+                expected: Err(CommandError::IcebergImmediateTif),
+            },
         ];
 
         for case in cases {

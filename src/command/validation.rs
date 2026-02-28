@@ -33,6 +33,10 @@ pub(super) fn validate_limit_order_invariants(
             if replenish_quantity == 0 {
                 return Err(CommandError::IcebergZeroReplenishQuantity);
             }
+
+            if time_in_force.is_immediate() {
+                return Err(CommandError::IcebergImmediateTif);
+            }
         }
     }
     Ok(())
