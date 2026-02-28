@@ -13,6 +13,8 @@ pub enum CancelReason {
     },
     /// The maker side of the order book is empty
     EmptyMakerSide,
+    /// The post-only order would remove liquidity
+    PostOnlyWouldTake,
 }
 
 impl fmt::Display for CancelReason {
@@ -27,6 +29,9 @@ impl fmt::Display for CancelReason {
                 requested_quantity, available_quantity
             ),
             CancelReason::EmptyMakerSide => write!(f, "Maker side is empty"),
+            CancelReason::PostOnlyWouldTake => {
+                write!(f, "Post-only order would remove liquidity")
+            }
         }
     }
 }
@@ -48,6 +53,10 @@ mod tests {
         assert_eq!(
             CancelReason::EmptyMakerSide.to_string(),
             "Maker side is empty"
+        );
+        assert_eq!(
+            CancelReason::PostOnlyWouldTake.to_string(),
+            "Post-only order would remove liquidity"
         );
     }
 }
