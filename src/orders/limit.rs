@@ -15,7 +15,6 @@ pub struct LimitOrder {
     quantity_policy: QuantityPolicy,
 }
 
-#[allow(unused)]
 impl LimitOrder {
     /// Create a new order
     pub fn new(core: OrderCore, price: u64, quantity_policy: QuantityPolicy) -> Self {

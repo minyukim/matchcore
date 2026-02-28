@@ -66,7 +66,6 @@ impl OrderProcessingResult {
     }
 
     /// Return this order processing result with the match result set
-    #[allow(unused)]
     pub(crate) fn with_match_result(mut self, match_result: MatchResult) -> Self {
         self.match_result = Some(match_result);
         self
@@ -78,7 +77,6 @@ impl OrderProcessingResult {
     }
 
     /// Return this order processing result with the reason the order was cancelled set
-    #[allow(unused)]
     pub(crate) fn with_cancel_reason(mut self, cancel_reason: CancelReason) -> Self {
         self.cancel_reason = Some(cancel_reason);
         self

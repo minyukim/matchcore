@@ -15,7 +15,6 @@ pub struct PeggedOrder {
     quantity: u64,
 }
 
-#[allow(unused)]
 impl PeggedOrder {
     /// Create a new pegged order
     pub fn new(core: OrderCore, peg_reference: PegReference, quantity: u64) -> Self {
