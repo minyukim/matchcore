@@ -13,8 +13,6 @@ pub struct MatchResult {
     executed_value: u64,
     /// The trades that were made during the match
     trades: Vec<Trade>,
-    /// The IDs of the orders that expired during the match
-    expired_order_ids: Vec<u64>,
 }
 
 impl MatchResult {
@@ -25,7 +23,6 @@ impl MatchResult {
             executed_quantity: 0,
             executed_value: 0,
             trades: Vec::new(),
-            expired_order_ids: Vec::new(),
         }
     }
 
@@ -58,16 +55,6 @@ impl MatchResult {
         self.executed_value += price * quantity;
 
         self.trades.push(trade);
-    }
-
-    /// Get the IDs of the orders that expired during the match
-    pub fn expired_order_ids(&self) -> &[u64] {
-        &self.expired_order_ids
-    }
-
-    /// Add an expired order ID to the match result
-    pub(crate) fn add_expired_order_id(&mut self, order_id: u64) {
-        self.expired_order_ids.push(order_id);
     }
 }
 
@@ -117,17 +104,5 @@ mod tests {
             assert_eq!(match_result.executed_value(), expected_executed_values[i]);
         }
         assert_eq!(match_result.trades(), &trades);
-    }
-
-    #[test]
-    fn test_expired_order_ids() {
-        let mut match_result = create_match_result();
-        assert_eq!(match_result.expired_order_ids(), &Vec::<u64>::new());
-
-        match_result.add_expired_order_id(4);
-        assert_eq!(match_result.expired_order_ids(), &[4]);
-
-        match_result.add_expired_order_id(5);
-        assert_eq!(match_result.expired_order_ids(), &[4, 5]);
     }
 }
