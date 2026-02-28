@@ -21,7 +21,7 @@ impl OrderBook {
     pub(super) fn match_order(
         &mut self,
         taker_side: Side,
-        price_limit: Option<u64>,
+        limit_price: Option<u64>,
         quantity: u64,
         timestamp: u64,
     ) -> MatchResult {
@@ -50,10 +50,10 @@ impl OrderBook {
                 break;
             };
 
-            if let Some(price_limit) = price_limit {
+            if let Some(limit_price) = limit_price {
                 match taker_side {
-                    Side::Buy if price > price_limit => break,
-                    Side::Sell if price < price_limit => break,
+                    Side::Buy if price > limit_price => break,
+                    Side::Sell if price < limit_price => break,
                     _ => (),
                 }
             }
