@@ -79,7 +79,6 @@ impl PriceLevel {
     }
 
     /// Push a limit order to the price level and add it to the order book
-    #[allow(unused)]
     pub(super) fn push(
         &mut self,
         limit_orders: &mut HashMap<u64, LimitOrder>,

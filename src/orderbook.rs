@@ -6,12 +6,13 @@ mod matching;
 mod peg_level;
 mod price_level;
 mod submit;
+mod trigger;
 
 pub use error::*;
 pub use peg_level::*;
 pub use price_level::*;
 
-use crate::{LimitOrder, PegReference, PeggedOrder};
+use crate::{LimitOrder, PegReference, PeggedOrder, Side};
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -116,5 +117,21 @@ impl OrderBook {
         let best_bid = self.best_bid()?;
         let best_ask = self.best_ask()?;
         Some(best_ask - best_bid)
+    }
+
+    /// Check if the side is empty
+    pub fn is_side_empty(&self, side: Side) -> bool {
+        match side {
+            Side::Buy => self.limit_bid_levels.is_empty(),
+            Side::Sell => self.limit_ask_levels.is_empty(),
+        }
+    }
+
+    /// Check if there is a crossable order at the given limit price
+    pub fn has_crossable_order(&self, taker_side: Side, limit_price: u64) -> bool {
+        match taker_side {
+            Side::Buy => self.best_ask().is_some_and(|ask| limit_price >= ask),
+            Side::Sell => self.best_bid().is_some_and(|bid| limit_price <= bid),
+        }
     }
 }
