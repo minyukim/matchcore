@@ -29,7 +29,7 @@ pub struct CommandExecutionReport {
 
 impl CommandExecutionReport {
     /// Create a new command execution report
-    pub fn new(meta: CommandMeta, outcome: CommandOutcome) -> Self {
+    pub(crate) fn new(meta: CommandMeta, outcome: CommandOutcome) -> Self {
         Self { meta, outcome }
     }
 

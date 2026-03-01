@@ -17,7 +17,7 @@ pub struct MatchResult {
 
 impl MatchResult {
     /// Create a new match result
-    pub fn new(taker_side: Side) -> Self {
+    pub(crate) fn new(taker_side: Side) -> Self {
         Self {
             taker_side,
             executed_quantity: 0,

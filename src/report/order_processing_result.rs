@@ -47,12 +47,24 @@ pub struct OrderProcessingResult {
 
 impl OrderProcessingResult {
     /// Create a new order processing result
-    pub fn new(order_id: u64) -> Self {
+    pub(crate) fn new(order_id: u64) -> Self {
         Self {
             order_id,
             match_result: None,
             cancel_reason: None,
         }
+    }
+
+    /// Return this order processing result with the match result set
+    pub(crate) fn with_match_result(mut self, match_result: MatchResult) -> Self {
+        self.match_result = Some(match_result);
+        self
+    }
+
+    /// Return this order processing result with the reason the order was cancelled set
+    pub(crate) fn with_cancel_reason(mut self, cancel_reason: CancelReason) -> Self {
+        self.cancel_reason = Some(cancel_reason);
+        self
     }
 
     /// Get the ID of the order
@@ -65,21 +77,9 @@ impl OrderProcessingResult {
         self.match_result.as_ref()
     }
 
-    /// Return this order processing result with the match result set
-    pub(crate) fn with_match_result(mut self, match_result: MatchResult) -> Self {
-        self.match_result = Some(match_result);
-        self
-    }
-
     /// Get the reason the order was cancelled, if it was cancelled
     pub fn cancel_reason(&self) -> Option<&CancelReason> {
         self.cancel_reason.as_ref()
-    }
-
-    /// Return this order processing result with the reason the order was cancelled set
-    pub(crate) fn with_cancel_reason(mut self, cancel_reason: CancelReason) -> Self {
-        self.cancel_reason = Some(cancel_reason);
-        self
     }
 }
 
