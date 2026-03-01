@@ -72,6 +72,11 @@ impl LimitOrderPatch {
         self.flags.is_empty() && self.price.is_none() && self.quantity_policy.is_none()
     }
 
+    /// Checks if the patch has expired time in force at a given timestamp
+    pub fn has_expired_time_in_force(&self, timestamp: u64) -> bool {
+        self.flags.has_expired_time_in_force(timestamp)
+    }
+
     /// Apply the patch to the order if the patch does not conflict with the order
     #[allow(unused)]
     pub(crate) fn apply(&self, order: &mut LimitOrder) -> Result<(), CommandError> {
@@ -146,6 +151,11 @@ impl PeggedOrderPatch {
         self.flags.is_empty() && self.peg_reference.is_none() && self.quantity.is_none()
     }
 
+    /// Checks if the patch has expired time in force at a given timestamp
+    pub fn has_expired_time_in_force(&self, timestamp: u64) -> bool {
+        self.flags.has_expired_time_in_force(timestamp)
+    }
+
     /// Apply the patch to the order if the patch does not conflict with the order
     #[allow(unused)]
     pub(crate) fn apply(&self, order: &mut PeggedOrder) -> Result<(), CommandError> {
@@ -187,6 +197,12 @@ impl OrderFlagsPatch {
     /// Check if the patch is empty
     pub fn is_empty(&self) -> bool {
         self.post_only.is_none() && self.time_in_force.is_none()
+    }
+
+    /// Checks if the patch has expired time in force at a given timestamp
+    pub fn has_expired_time_in_force(&self, timestamp: u64) -> bool {
+        self.time_in_force
+            .is_some_and(|time_in_force| time_in_force.is_expired(timestamp))
     }
 }
 
@@ -666,6 +682,75 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_has_expired_time_in_force() {
+        struct Case {
+            name: &'static str,
+            patch: OrderFlagsPatch,
+            timestamp: u64,
+            expected: bool,
+        }
+
+        let cases = [
+            Case {
+                name: "empty patch does not have expired time in force",
+                patch: OrderFlagsPatch::default(),
+                timestamp: 1000,
+                expected: false,
+            },
+            Case {
+                name: "GTC patch does not have expired time in force",
+                patch: OrderFlagsPatch {
+                    post_only: None,
+                    time_in_force: Some(TimeInForce::Gtc),
+                },
+                timestamp: 1000,
+                expected: false,
+            },
+            Case {
+                name: "IOC patch does not have expired time in force",
+                patch: OrderFlagsPatch {
+                    post_only: None,
+                    time_in_force: Some(TimeInForce::Ioc),
+                },
+                timestamp: 1000,
+                expected: false,
+            },
+            Case {
+                name: "FOK patch does not have expired time in force",
+                patch: OrderFlagsPatch {
+                    post_only: None,
+                    time_in_force: Some(TimeInForce::Fok),
+                },
+                timestamp: 1000,
+                expected: false,
+            },
+            Case {
+                name: "GTD patch does not have expired time in force",
+                patch: OrderFlagsPatch {
+                    post_only: None,
+                    time_in_force: Some(TimeInForce::Gtd(1000)),
+                },
+                timestamp: 999,
+                expected: false,
+            },
+            Case {
+                name: "GTD order has expired time in force",
+                patch: OrderFlagsPatch {
+                    post_only: None,
+                    time_in_force: Some(TimeInForce::Gtd(1000)),
+                },
+                timestamp: 1000,
+                expected: true,
+            },
+        ];
+
+        for case in cases {
+            let result = case.patch.has_expired_time_in_force(case.timestamp);
+            assert_eq!(result, case.expected, "case: {}", case.name);
         }
     }
 }
