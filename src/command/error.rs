@@ -21,6 +21,8 @@ pub enum CommandError {
     PeggedNonTakerImmediateTif,
     /// The patch is empty
     EmptyPatch,
+    /// The command has expired
+    Expired,
 }
 
 impl fmt::Display for CommandError {
@@ -45,6 +47,7 @@ impl fmt::Display for CommandError {
                 )
             }
             CommandError::EmptyPatch => write!(f, "Patch is empty"),
+            CommandError::Expired => write!(f, "Command has expired"),
         }
     }
 }
@@ -78,5 +81,6 @@ mod tests {
             "Pegged order cannot be a taker but has an immediate time in force"
         );
         assert_eq!(CommandError::EmptyPatch.to_string(), "Patch is empty");
+        assert_eq!(CommandError::Expired.to_string(), "Command has expired");
     }
 }
