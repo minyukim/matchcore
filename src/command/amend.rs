@@ -79,7 +79,7 @@ impl LimitPatch {
             return Err(CommandError::EmptyPatch);
         }
 
-        let new_post_only = self.core.new_post_only.unwrap_or(order.is_post_only());
+        let new_post_only = self.core.new_post_only.unwrap_or(order.post_only());
         let new_time_in_force = self.core.new_time_in_force.unwrap_or(order.time_in_force());
         let new_price = self.new_price.unwrap_or(order.price());
         let new_quantity_policy = self.new_quantity_policy.unwrap_or(order.quantity_policy());
@@ -153,7 +153,7 @@ impl PeggedPatch {
             return Err(CommandError::EmptyPatch);
         }
 
-        let new_post_only = self.core.new_post_only.unwrap_or(order.is_post_only());
+        let new_post_only = self.core.new_post_only.unwrap_or(order.post_only());
         let new_time_in_force = self.core.new_time_in_force.unwrap_or(order.time_in_force());
         let new_peg_reference = self.new_peg_reference.unwrap_or(order.peg_reference());
         let new_quantity = self.new_quantity.unwrap_or(order.quantity());
@@ -421,7 +421,7 @@ mod tests {
                         .patch
                         .core
                         .new_post_only
-                        .unwrap_or(case.order.is_post_only());
+                        .unwrap_or(case.order.post_only());
                     let expected_time_in_force = case
                         .patch
                         .core
@@ -435,12 +435,7 @@ mod tests {
                         "case: {}",
                         case.name
                     );
-                    assert_eq!(
-                        order.is_post_only(),
-                        expected_post_only,
-                        "case: {}",
-                        case.name
-                    );
+                    assert_eq!(order.post_only(), expected_post_only, "case: {}", case.name);
                     assert_eq!(
                         order.time_in_force(),
                         expected_time_in_force,
@@ -646,7 +641,7 @@ mod tests {
                         .patch
                         .core
                         .new_post_only
-                        .unwrap_or(case.order.is_post_only());
+                        .unwrap_or(case.order.post_only());
                     let expected_time_in_force = case
                         .patch
                         .core
@@ -660,12 +655,7 @@ mod tests {
                         case.name
                     );
                     assert_eq!(order.quantity(), expected_quantity, "case: {}", case.name);
-                    assert_eq!(
-                        order.is_post_only(),
-                        expected_post_only,
-                        "case: {}",
-                        case.name
-                    );
+                    assert_eq!(order.post_only(), expected_post_only, "case: {}", case.name);
                     assert_eq!(
                         order.time_in_force(),
                         expected_time_in_force,

@@ -16,7 +16,7 @@ impl LimitOrderSpec {
         validate_limit_order_invariants(
             self.price(),
             self.quantity_policy(),
-            self.is_post_only(),
+            self.post_only(),
             self.time_in_force(),
         )
     }
@@ -28,7 +28,7 @@ impl PeggedOrderSpec {
         validate_pegged_order_invariants(
             self.peg_reference(),
             self.quantity(),
-            self.is_post_only(),
+            self.post_only(),
             self.time_in_force(),
         )
     }

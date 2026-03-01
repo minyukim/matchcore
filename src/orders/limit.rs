@@ -84,7 +84,7 @@ impl fmt::Display for LimitOrder {
                     self.price,
                     quantity,
                     self.side(),
-                    self.is_post_only(),
+                    self.post_only(),
                     self.time_in_force()
                 )
             }
@@ -102,7 +102,7 @@ impl fmt::Display for LimitOrder {
                     hidden_quantity,
                     replenish_quantity,
                     self.side(),
-                    self.is_post_only(),
+                    self.post_only(),
                     self.time_in_force()
                 )
             }
@@ -283,9 +283,9 @@ mod tests {
     }
 
     #[test]
-    fn test_is_post_only() {
-        assert!(create_standard_order().is_post_only());
-        assert!(!create_iceberg_order().is_post_only());
+    fn test_post_only() {
+        assert!(create_standard_order().post_only());
+        assert!(!create_iceberg_order().post_only());
     }
 
     #[test]

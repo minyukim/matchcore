@@ -61,7 +61,7 @@ impl fmt::Display for PeggedOrder {
             self.peg_reference(),
             self.quantity(),
             self.side(),
-            self.is_post_only(),
+            self.post_only(),
             self.time_in_force()
         )
     }
@@ -188,8 +188,8 @@ mod tests {
     }
 
     #[test]
-    fn test_is_post_only() {
-        assert!(create_pegged_order().is_post_only());
+    fn test_post_only() {
+        assert!(create_pegged_order().post_only());
     }
 
     #[test]

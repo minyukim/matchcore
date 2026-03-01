@@ -28,8 +28,8 @@ impl OrderFlags {
         self.side
     }
 
-    /// Check if this is a post-only order
-    pub fn is_post_only(&self) -> bool {
+    /// Get the post-only flag
+    pub fn post_only(&self) -> bool {
         self.post_only
     }
 
@@ -79,8 +79,8 @@ mod tests {
     }
 
     #[test]
-    fn test_is_post_only() {
-        assert!(create_order_flags().is_post_only());
+    fn test_post_only() {
+        assert!(create_order_flags().post_only());
     }
 
     #[test]
