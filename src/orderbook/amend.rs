@@ -20,7 +20,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order_id: u64,
-        _patch: &LimitPatch,
+        _patch: &LimitOrderPatch,
     ) -> Result<AmendReport, CommandError> {
         todo!()
     }
@@ -30,7 +30,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order_id: u64,
-        _patch: &PeggedPatch,
+        _patch: &PeggedOrderPatch,
     ) -> Result<AmendReport, CommandError> {
         todo!()
     }

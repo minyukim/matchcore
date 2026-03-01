@@ -21,55 +21,55 @@ pub struct AmendCmd {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AmendPatch {
     /// The patch to a limit order
-    Limit(LimitPatch),
+    Limit(LimitOrderPatch),
     /// The patch to a pegged order
-    Pegged(PeggedPatch),
+    Pegged(PeggedOrderPatch),
 }
 
 /// Represents the patch to a limit order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct LimitPatch {
-    /// The core patch
-    pub core: PatchCore,
+pub struct LimitOrderPatch {
     /// The new price of the order
-    pub new_price: Option<u64>,
+    pub price: Option<u64>,
     /// The new quantity policy of the order
-    pub new_quantity_policy: Option<QuantityPolicy>,
+    pub quantity_policy: Option<QuantityPolicy>,
+    /// The flags to update
+    pub flags: OrderFlagsPatch,
 }
 
-impl LimitPatch {
-    /// Create a new empty limit patch
+impl LimitOrderPatch {
+    /// Create a new empty limit order patch
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns this limit patch with the price set.
+    /// Returns this patch with the price set.
     pub fn with_price(mut self, v: u64) -> Self {
-        self.new_price = Some(v);
+        self.price = Some(v);
         self
     }
 
-    /// Returns this limit patch with the quantity policy set.
+    /// Returns this patch with the quantity policy set.
     pub fn with_quantity_policy(mut self, v: QuantityPolicy) -> Self {
-        self.new_quantity_policy = Some(v);
+        self.quantity_policy = Some(v);
         self
     }
 
-    /// Returns this limit patch with the post-only set.
+    /// Returns this patch with the post-only set.
     pub fn with_post_only(mut self, v: bool) -> Self {
-        self.core.new_post_only = Some(v);
+        self.flags.post_only = Some(v);
         self
     }
 
-    /// Returns this limit patch with the time-in-force set.
+    /// Returns this patch with the time-in-force set.
     pub fn with_time_in_force(mut self, v: TimeInForce) -> Self {
-        self.core.new_time_in_force = Some(v);
+        self.flags.time_in_force = Some(v);
         self
     }
 
     /// Check if the patch is empty
     pub fn is_empty(&self) -> bool {
-        self.core.is_empty() && self.new_price.is_none() && self.new_quantity_policy.is_none()
+        self.flags.is_empty() && self.price.is_none() && self.quantity_policy.is_none()
     }
 
     /// Apply the patch to the order if the patch does not conflict with the order
@@ -79,10 +79,10 @@ impl LimitPatch {
             return Err(CommandError::EmptyPatch);
         }
 
-        let new_post_only = self.core.new_post_only.unwrap_or(order.post_only());
-        let new_time_in_force = self.core.new_time_in_force.unwrap_or(order.time_in_force());
-        let new_price = self.new_price.unwrap_or(order.price());
-        let new_quantity_policy = self.new_quantity_policy.unwrap_or(order.quantity_policy());
+        let new_price = self.price.unwrap_or(order.price());
+        let new_quantity_policy = self.quantity_policy.unwrap_or(order.quantity_policy());
+        let new_post_only = self.flags.post_only.unwrap_or(order.post_only());
+        let new_time_in_force = self.flags.time_in_force.unwrap_or(order.time_in_force());
 
         validate_limit_order_invariants(
             new_price,
@@ -91,10 +91,10 @@ impl LimitPatch {
             new_time_in_force,
         )?;
 
-        order.update_post_only(new_post_only);
-        order.update_time_in_force(new_time_in_force);
         order.update_price(new_price);
         order.update_quantity_policy(new_quantity_policy);
+        order.update_post_only(new_post_only);
+        order.update_time_in_force(new_time_in_force);
 
         Ok(())
     }
@@ -102,48 +102,48 @@ impl LimitPatch {
 
 /// Represents the patch to a pegged order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct PeggedPatch {
-    /// The core patch
-    pub core: PatchCore,
+pub struct PeggedOrderPatch {
     /// The new peg reference type
-    pub new_peg_reference: Option<PegReference>,
+    pub peg_reference: Option<PegReference>,
     /// The new quantity of the order
-    pub new_quantity: Option<u64>,
+    pub quantity: Option<u64>,
+    /// The flags to update
+    pub flags: OrderFlagsPatch,
 }
 
-impl PeggedPatch {
-    /// Create a new empty pegged patch
+impl PeggedOrderPatch {
+    /// Create a new empty pegged order patch
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns this pegged patch with the peg reference set.
+    /// Returns this patch with the peg reference set.
     pub fn with_peg_reference(mut self, v: PegReference) -> Self {
-        self.new_peg_reference = Some(v);
+        self.peg_reference = Some(v);
         self
     }
 
-    /// Returns this pegged patch with the quantity set.
+    /// Returns this patch with the quantity set.
     pub fn with_quantity(mut self, v: u64) -> Self {
-        self.new_quantity = Some(v);
+        self.quantity = Some(v);
         self
     }
 
-    /// Returns this pegged patch with the post-only set.
+    /// Returns this patch with the post-only set.
     pub fn with_post_only(mut self, v: bool) -> Self {
-        self.core.new_post_only = Some(v);
+        self.flags.post_only = Some(v);
         self
     }
 
-    /// Returns this pegged patch with the time-in-force set.
+    /// Returns this patch with the time-in-force set.
     pub fn with_time_in_force(mut self, v: TimeInForce) -> Self {
-        self.core.new_time_in_force = Some(v);
+        self.flags.time_in_force = Some(v);
         self
     }
 
     /// Check if the patch is empty
     pub fn is_empty(&self) -> bool {
-        self.core.is_empty() && self.new_peg_reference.is_none() && self.new_quantity.is_none()
+        self.flags.is_empty() && self.peg_reference.is_none() && self.quantity.is_none()
     }
 
     /// Apply the patch to the order if the patch does not conflict with the order
@@ -153,10 +153,10 @@ impl PeggedPatch {
             return Err(CommandError::EmptyPatch);
         }
 
-        let new_post_only = self.core.new_post_only.unwrap_or(order.post_only());
-        let new_time_in_force = self.core.new_time_in_force.unwrap_or(order.time_in_force());
-        let new_peg_reference = self.new_peg_reference.unwrap_or(order.peg_reference());
-        let new_quantity = self.new_quantity.unwrap_or(order.quantity());
+        let new_peg_reference = self.peg_reference.unwrap_or(order.peg_reference());
+        let new_quantity = self.quantity.unwrap_or(order.quantity());
+        let new_post_only = self.flags.post_only.unwrap_or(order.post_only());
+        let new_time_in_force = self.flags.time_in_force.unwrap_or(order.time_in_force());
 
         validate_pegged_order_invariants(
             new_peg_reference,
@@ -165,40 +165,28 @@ impl PeggedPatch {
             new_time_in_force,
         )?;
 
-        order.update_post_only(new_post_only);
-        order.update_time_in_force(new_time_in_force);
         order.update_peg_reference(new_peg_reference);
         order.update_quantity(new_quantity);
+        order.update_post_only(new_post_only);
+        order.update_time_in_force(new_time_in_force);
 
         Ok(())
     }
 }
 
-/// Represents the shared core patch for all order types
+/// Represents the patch to the flags of an order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct PatchCore {
+pub struct OrderFlagsPatch {
     /// The new post-only flag
-    pub new_post_only: Option<bool>,
+    pub post_only: Option<bool>,
     /// The new time in force of the order
-    pub new_time_in_force: Option<TimeInForce>,
+    pub time_in_force: Option<TimeInForce>,
 }
 
-impl PatchCore {
-    /// Validate the patch core
-    pub fn validate(&self) -> Result<(), CommandError> {
-        if let Some(time_in_force) = self.new_time_in_force
-            && let Some(post_only) = self.new_post_only
-            && time_in_force.is_immediate()
-            && post_only
-        {
-            return Err(CommandError::PostOnlyImmediateTif);
-        }
-        Ok(())
-    }
-
-    /// Check if the patch core is empty
+impl OrderFlagsPatch {
+    /// Check if the patch is empty
     pub fn is_empty(&self) -> bool {
-        self.new_post_only.is_none() && self.new_time_in_force.is_none()
+        self.post_only.is_none() && self.time_in_force.is_none()
     }
 }
 
@@ -212,7 +200,7 @@ mod tests {
         struct Case {
             name: &'static str,
             order: LimitOrder,
-            patch: LimitPatch,
+            patch: LimitOrderPatch,
             expected: Result<(), CommandError>,
         }
 
@@ -227,7 +215,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new()
+                patch: LimitOrderPatch::new()
                     .with_price(100)
                     .with_quantity_policy(QuantityPolicy::Standard { quantity: 10 }),
                 expected: Ok(()),
@@ -242,7 +230,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new().with_price(200),
+                patch: LimitOrderPatch::new().with_price(200),
                 expected: Ok(()),
             },
             Case {
@@ -255,7 +243,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new()
+                patch: LimitOrderPatch::new()
                     .with_quantity_policy(QuantityPolicy::Standard { quantity: 20 }),
                 expected: Ok(()),
             },
@@ -269,7 +257,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new().with_post_only(true),
+                patch: LimitOrderPatch::new().with_post_only(true),
                 expected: Ok(()),
             },
             Case {
@@ -282,7 +270,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
             },
             Case {
@@ -295,7 +283,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new(),
+                patch: LimitOrderPatch::new(),
                 expected: Err(CommandError::EmptyPatch),
             },
             Case {
@@ -308,7 +296,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new()
+                patch: LimitOrderPatch::new()
                     .with_post_only(true)
                     .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
@@ -323,7 +311,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new().with_price(0),
+                patch: LimitOrderPatch::new().with_price(0),
                 expected: Err(CommandError::ZeroPrice),
             },
             Case {
@@ -336,7 +324,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new()
+                patch: LimitOrderPatch::new()
                     .with_price(100)
                     .with_quantity_policy(QuantityPolicy::Standard { quantity: 0 }),
                 expected: Err(CommandError::ZeroQuantity),
@@ -351,7 +339,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new()
+                patch: LimitOrderPatch::new()
                     .with_quantity_policy(QuantityPolicy::Iceberg {
                         visible_quantity: 10,
                         hidden_quantity: 10,
@@ -370,7 +358,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -383,7 +371,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
                     ),
                 ),
-                patch: LimitPatch::new().with_post_only(true),
+                patch: LimitOrderPatch::new().with_post_only(true),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -400,7 +388,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::IcebergImmediateTif),
             },
         ];
@@ -412,20 +400,17 @@ mod tests {
             match (&case.expected, &result) {
                 (Ok(()), Ok(())) => {
                     // Verify order was updated as expected
-                    let expected_price = case.patch.new_price.unwrap_or(case.order.price());
+                    let expected_price = case.patch.price.unwrap_or(case.order.price());
                     let expected_quantity_policy = case
                         .patch
-                        .new_quantity_policy
+                        .quantity_policy
                         .unwrap_or(case.order.quantity_policy());
-                    let expected_post_only = case
-                        .patch
-                        .core
-                        .new_post_only
-                        .unwrap_or(case.order.post_only());
+                    let expected_post_only =
+                        case.patch.flags.post_only.unwrap_or(case.order.post_only());
                     let expected_time_in_force = case
                         .patch
-                        .core
-                        .new_time_in_force
+                        .flags
+                        .time_in_force
                         .unwrap_or(case.order.time_in_force());
 
                     assert_eq!(order.price(), expected_price, "case: {}", case.name);
@@ -469,7 +454,7 @@ mod tests {
         struct Case {
             name: &'static str,
             order: PeggedOrder,
-            patch: PeggedPatch,
+            patch: PeggedOrderPatch,
             expected: Result<(), CommandError>,
         }
 
@@ -484,7 +469,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new()
+                patch: PeggedOrderPatch::new()
                     .with_peg_reference(PegReference::Market)
                     .with_quantity(10),
                 expected: Ok(()),
@@ -499,7 +484,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_peg_reference(PegReference::Market),
+                patch: PeggedOrderPatch::new().with_peg_reference(PegReference::Market),
                 expected: Ok(()),
             },
             Case {
@@ -512,7 +497,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_quantity(20),
+                patch: PeggedOrderPatch::new().with_quantity(20),
                 expected: Ok(()),
             },
             Case {
@@ -525,7 +510,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_post_only(true),
+                patch: PeggedOrderPatch::new().with_post_only(true),
                 expected: Ok(()),
             },
             Case {
@@ -538,7 +523,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
             },
             Case {
@@ -551,7 +536,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new(),
+                patch: PeggedOrderPatch::new(),
                 expected: Err(CommandError::EmptyPatch),
             },
             Case {
@@ -564,7 +549,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new()
+                patch: PeggedOrderPatch::new()
                     .with_post_only(true)
                     .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
@@ -579,7 +564,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_quantity(0),
+                patch: PeggedOrderPatch::new().with_quantity(0),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
@@ -592,7 +577,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new()
+                patch: PeggedOrderPatch::new()
                     .with_peg_reference(PegReference::Primary)
                     .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
@@ -607,7 +592,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
@@ -620,7 +605,7 @@ mod tests {
                         OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
                     ),
                 ),
-                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
             },
         ];
@@ -633,19 +618,15 @@ mod tests {
                 (Ok(()), Ok(())) => {
                     let expected_peg_reference = case
                         .patch
-                        .new_peg_reference
+                        .peg_reference
                         .unwrap_or(case.order.peg_reference());
-                    let expected_quantity =
-                        case.patch.new_quantity.unwrap_or(case.order.quantity());
-                    let expected_post_only = case
-                        .patch
-                        .core
-                        .new_post_only
-                        .unwrap_or(case.order.post_only());
+                    let expected_quantity = case.patch.quantity.unwrap_or(case.order.quantity());
+                    let expected_post_only =
+                        case.patch.flags.post_only.unwrap_or(case.order.post_only());
                     let expected_time_in_force = case
                         .patch
-                        .core
-                        .new_time_in_force
+                        .flags
+                        .time_in_force
                         .unwrap_or(case.order.time_in_force());
 
                     assert_eq!(
