@@ -1,9 +1,6 @@
 use crate::{
-    PegReference, QuantityPolicy, Side, TimeInForce,
-    command::{
-        CommandError,
-        validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
-    },
+    PegReference, Side, TimeInForce,
+    command::{CommandError, validation::validate_pegged_order_invariants},
     orders::*,
 };
 
@@ -22,32 +19,9 @@ pub enum NewOrder {
     /// A new market order
     Market(MarketOrderSpec),
     /// A new limit order
-    Limit(NewLimitOrder),
+    Limit(LimitOrderSpec),
     /// A new pegged order
     Pegged(NewPeggedOrder),
-}
-
-/// Represents a new limit order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewLimitOrder {
-    /// The core order data
-    pub core: NewOrderCore,
-    /// The price of the order
-    pub price: u64,
-    /// The quantity policy of the order
-    pub quantity_policy: QuantityPolicy,
-}
-
-impl NewLimitOrder {
-    /// Validate the order
-    pub fn validate(&self) -> Result<(), CommandError> {
-        validate_limit_order_invariants(
-            self.price,
-            self.quantity_policy,
-            self.core.post_only,
-            self.core.time_in_force,
-        )
-    }
 }
 
 /// Represents a new pegged order
@@ -87,172 +61,6 @@ pub struct NewOrderCore {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_validate_new_limit_order() {
-        struct Case {
-            name: &'static str,
-            order: NewLimitOrder,
-            expected: Result<(), CommandError>,
-        }
-
-        let cases = [
-            Case {
-                name: "valid standard order",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Standard { quantity: 10 },
-                },
-                expected: Ok(()),
-            },
-            Case {
-                name: "zero price",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 0,
-                    quantity_policy: QuantityPolicy::Standard { quantity: 10 },
-                },
-                expected: Err(CommandError::ZeroPrice),
-            },
-            Case {
-                name: "standard zero quantity",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Standard { quantity: 0 },
-                },
-                expected: Err(CommandError::ZeroQuantity),
-            },
-            Case {
-                name: "iceberg zero visible quantity",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Iceberg {
-                        visible_quantity: 0,
-                        hidden_quantity: 10,
-                        replenish_quantity: 10,
-                    },
-                },
-                expected: Err(CommandError::ZeroQuantity),
-            },
-            Case {
-                name: "iceberg zero hidden quantity",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Iceberg {
-                        visible_quantity: 10,
-                        hidden_quantity: 0,
-                        replenish_quantity: 10,
-                    },
-                },
-                expected: Err(CommandError::IcebergZeroHiddenQuantity),
-            },
-            Case {
-                name: "iceberg zero replenish quantity",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Iceberg {
-                        visible_quantity: 10,
-                        hidden_quantity: 10,
-                        replenish_quantity: 0,
-                    },
-                },
-                expected: Err(CommandError::IcebergZeroReplenishQuantity),
-            },
-            Case {
-                name: "post-only standard order",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: true,
-                        time_in_force: TimeInForce::Gtc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Standard { quantity: 10 },
-                },
-                expected: Ok(()),
-            },
-            Case {
-                name: "immediate time in force standard order",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Ioc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Standard { quantity: 10 },
-                },
-                expected: Ok(()),
-            },
-            Case {
-                name: "post-only immediate time in force",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: true,
-                        time_in_force: TimeInForce::Ioc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Standard { quantity: 10 },
-                },
-                expected: Err(CommandError::PostOnlyImmediateTif),
-            },
-            Case {
-                name: "iceberg with immediate time in force",
-                order: NewLimitOrder {
-                    core: NewOrderCore {
-                        side: Side::Buy,
-                        post_only: false,
-                        time_in_force: TimeInForce::Ioc,
-                    },
-                    price: 100,
-                    quantity_policy: QuantityPolicy::Iceberg {
-                        visible_quantity: 10,
-                        hidden_quantity: 10,
-                        replenish_quantity: 10,
-                    },
-                },
-                expected: Err(CommandError::IcebergImmediateTif),
-            },
-        ];
-
-        for case in cases {
-            let order = case.order;
-            match case.expected {
-                Ok(()) => assert!(order.validate().is_ok(), "case: {}", case.name),
-                Err(e) => assert_eq!(order.validate().unwrap_err(), e, "case: {}", case.name),
-            }
-        }
-    }
 
     #[test]
     fn test_validate_new_pegged_order() {

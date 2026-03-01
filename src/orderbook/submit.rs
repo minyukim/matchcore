@@ -99,7 +99,7 @@ impl OrderBook {
     fn submit_limit_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewLimitOrder,
+        _order: &LimitOrderSpec,
     ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
