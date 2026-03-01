@@ -61,7 +61,7 @@ impl OrderBook {
                 (
                     order.quantity(),
                     order.is_expired(timestamp),
-                    order.is_post_only(),
+                    order.post_only(),
                 )
             };
 

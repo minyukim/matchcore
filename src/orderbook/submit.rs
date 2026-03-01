@@ -1,7 +1,7 @@
 use crate::{
-    LimitOrder, LimitOrderSpec, OrderFlags,
     command::*,
     orderbook::{OrderBook, PriceLevel},
+    orders::*,
     report::*,
     types::*,
 };
@@ -26,23 +26,23 @@ impl OrderBook {
     fn submit_market_order(
         &mut self,
         meta: CommandMeta,
-        order: &NewMarketOrder,
+        order: &MarketOrderSpec,
     ) -> Result<SubmitReport, CommandError> {
         order.validate()?;
 
         let order_id = meta.sequence_number;
 
-        if self.is_side_empty(order.side.opposite()) {
+        if self.is_side_empty(order.side().opposite()) {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id)
                     .with_cancel_reason(CancelReason::EmptyMakerSide),
             ));
         }
 
-        let result = self.match_order(order.side, None, order.quantity, meta.timestamp);
+        let result = self.match_order(order.side(), None, order.quantity(), meta.timestamp);
 
         let executed_quantity = result.executed_quantity();
-        let remaining_quantity = order.quantity - executed_quantity;
+        let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity == 0 {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
@@ -51,7 +51,7 @@ impl OrderBook {
 
         // If the order is a market to limit order and there is a remaining quantity,
         // convert it to a limit order at the last trade price
-        if order.market_to_limit {
+        if order.market_to_limit() {
             // The last trade price is guaranteed to exist because the order was matched
             let price = self.last_trade_price.unwrap();
 
@@ -65,19 +65,19 @@ impl OrderBook {
                         QuantityPolicy::Standard {
                             quantity: remaining_quantity,
                         },
-                        OrderFlags::new(order.side, false, TimeInForce::Gtc),
+                        OrderFlags::new(order.side(), false, TimeInForce::Gtc),
                     ),
                 ),
             );
 
-            let price_levels = match order.side {
+            let price_levels = match order.side() {
                 Side::Buy => &mut self.limit_bid_levels,
                 Side::Sell => &mut self.limit_ask_levels,
             };
             price_levels.insert(price, price_level);
 
             let triggered_orders =
-                self.trigger_opposite_side_takers(order.side.opposite(), meta.timestamp);
+                self.trigger_opposite_side_takers(order.side().opposite(), meta.timestamp);
 
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
@@ -89,7 +89,7 @@ impl OrderBook {
             OrderProcessingResult::new(order_id)
                 .with_match_result(result)
                 .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                    requested_quantity: order.quantity,
+                    requested_quantity: order.quantity(),
                     available_quantity: executed_quantity,
                 }),
         ))
@@ -99,7 +99,7 @@ impl OrderBook {
     fn submit_limit_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewLimitOrder,
+        _order: &LimitOrderSpec,
     ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
@@ -108,7 +108,7 @@ impl OrderBook {
     fn submit_pegged_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewPeggedOrder,
+        _order: &PeggedOrderSpec,
     ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
