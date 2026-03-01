@@ -15,7 +15,7 @@ pub struct Trade {
 
 impl Trade {
     /// Create a new trade
-    pub fn new(maker_order_id: u64, price: u64, quantity: u64) -> Self {
+    pub(crate) fn new(maker_order_id: u64, price: u64, quantity: u64) -> Self {
         Self {
             maker_order_id,
             price,

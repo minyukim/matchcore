@@ -12,9 +12,10 @@ pub struct AmendReport {
     order_processing_results: OrderProcessingResults,
 }
 
+#[allow(unused)]
 impl AmendReport {
     /// Create a new amend report
-    pub fn new(new_order_id: Option<u64>, amended_order: OrderProcessingResult) -> Self {
+    pub(crate) fn new(new_order_id: Option<u64>, amended_order: OrderProcessingResult) -> Self {
         Self {
             new_order_id,
             order_processing_results: OrderProcessingResults::new(amended_order),
@@ -22,7 +23,10 @@ impl AmendReport {
     }
 
     /// Return this amend report with the triggered orders set
-    pub fn with_triggered_orders(mut self, triggered_orders: Vec<OrderProcessingResult>) -> Self {
+    pub(crate) fn with_triggered_orders(
+        mut self,
+        triggered_orders: Vec<OrderProcessingResult>,
+    ) -> Self {
         self.order_processing_results
             .set_triggered_orders(triggered_orders);
         self

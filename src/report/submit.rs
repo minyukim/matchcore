@@ -11,14 +11,17 @@ pub struct SubmitReport {
 
 impl SubmitReport {
     /// Create a new submit report
-    pub fn new(submitted_order: OrderProcessingResult) -> Self {
+    pub(crate) fn new(submitted_order: OrderProcessingResult) -> Self {
         Self {
             order_processing_results: OrderProcessingResults::new(submitted_order),
         }
     }
 
     /// Return this submit report with the triggered orders set
-    pub fn with_triggered_orders(mut self, triggered_orders: Vec<OrderProcessingResult>) -> Self {
+    pub(crate) fn with_triggered_orders(
+        mut self,
+        triggered_orders: Vec<OrderProcessingResult>,
+    ) -> Self {
         self.order_processing_results
             .set_triggered_orders(triggered_orders);
         self
