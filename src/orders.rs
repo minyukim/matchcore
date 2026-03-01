@@ -1,7 +1,7 @@
-mod core;
+mod flags;
 mod limit;
 mod pegged;
 
-pub use core::*;
+pub use flags::*;
 pub use limit::*;
 pub use pegged::*;

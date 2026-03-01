@@ -1,33 +1,91 @@
-use crate::{PegReference, Side, TimeInForce, orders::OrderCore};
+use crate::{PegReference, orders::OrderFlags};
 
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 use serde::{Deserialize, Serialize};
 
 /// Pegged order that adjusts based on reference price
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedOrder {
-    /// The core order data
-    core: OrderCore,
-    /// Reference price to track
-    peg_reference: PegReference,
-    /// The quantity of the order
-    quantity: u64,
+    /// The ID of the order
+    id: u64,
+    /// The specification of the order
+    spec: PeggedOrderSpec,
 }
 
 impl PeggedOrder {
     /// Create a new pegged order
-    pub fn new(core: OrderCore, peg_reference: PegReference, quantity: u64) -> Self {
-        Self {
-            core,
-            peg_reference,
-            quantity,
-        }
+    pub fn new(id: u64, spec: PeggedOrderSpec) -> Self {
+        Self { id, spec }
     }
 
     /// Get the order ID
     pub fn id(&self) -> u64 {
-        self.core.id()
+        self.id
+    }
+
+    /// Matches this order against an incoming quantity
+    ///
+    /// Returns the quantity consumed from the incoming order
+    pub(crate) fn match_against(&mut self, incoming_quantity: u64) -> u64 {
+        let new_quantity = self.quantity.saturating_sub(incoming_quantity);
+        let consumed = self.quantity - new_quantity;
+
+        self.quantity = new_quantity;
+        consumed
+    }
+}
+
+impl Deref for PeggedOrder {
+    type Target = PeggedOrderSpec;
+
+    fn deref(&self) -> &Self::Target {
+        &self.spec
+    }
+}
+impl DerefMut for PeggedOrder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.spec
+    }
+}
+
+impl fmt::Display for PeggedOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Pegged: id={} peg_reference={} quantity={} side={} post_only={} time_in_force={}",
+            self.id(),
+            self.peg_reference(),
+            self.quantity(),
+            self.side(),
+            self.is_post_only(),
+            self.time_in_force()
+        )
+    }
+}
+
+/// Specification of a pegged order
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PeggedOrderSpec {
+    /// Reference price to track
+    peg_reference: PegReference,
+    /// The quantity of the order
+    quantity: u64,
+    /// The flags of the order
+    flags: OrderFlags,
+}
+
+impl PeggedOrderSpec {
+    /// Create a new pegged order specification
+    pub fn new(peg_reference: PegReference, quantity: u64, flags: OrderFlags) -> Self {
+        Self {
+            peg_reference,
+            quantity,
+            flags,
+        }
     }
 
     /// Get the peg reference type
@@ -54,84 +112,34 @@ impl PeggedOrder {
     pub(crate) fn update_quantity(&mut self, new_quantity: u64) {
         self.quantity = new_quantity;
     }
-
-    /// Get the order side
-    pub fn side(&self) -> Side {
-        self.core.side()
-    }
-
-    /// Check if this is a post-only order
-    pub fn is_post_only(&self) -> bool {
-        self.core.is_post_only()
-    }
-
-    /// Update the post-only flag
-    pub(crate) fn update_post_only(&mut self, new_post_only: bool) {
-        self.core.update_post_only(new_post_only);
-    }
-
-    /// Get the time in force
-    pub fn time_in_force(&self) -> TimeInForce {
-        self.core.time_in_force()
-    }
-
-    /// Check if the order should be canceled after attempting to match
-    pub fn is_immediate(&self) -> bool {
-        self.core.is_immediate()
-    }
-
-    /// Check if the order has an expiry time
-    pub fn has_expiry(&self) -> bool {
-        self.core.has_expiry()
-    }
-
-    /// Check if the order is expired at a given timestamp
-    pub fn is_expired(&self, timestamp: u64) -> bool {
-        self.core.is_expired(timestamp)
-    }
-
-    /// Update the time in force
-    pub(crate) fn update_time_in_force(&mut self, new_time_in_force: TimeInForce) {
-        self.core.update_time_in_force(new_time_in_force);
-    }
-
-    /// Matches this order against an incoming quantity
-    ///
-    /// Returns the quantity consumed from the incoming order
-    pub(crate) fn match_against(&mut self, incoming_quantity: u64) -> u64 {
-        let new_quantity = self.quantity.saturating_sub(incoming_quantity);
-        let consumed = self.quantity - new_quantity;
-
-        self.quantity = new_quantity;
-        consumed
-    }
 }
 
-impl fmt::Display for PeggedOrder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Pegged: id={} peg_reference={} quantity={} side={} post_only={} time_in_force={}",
-            self.core.id(),
-            self.peg_reference,
-            self.quantity,
-            self.core.side(),
-            self.core.is_post_only(),
-            self.core.time_in_force()
-        )
+impl Deref for PeggedOrderSpec {
+    type Target = OrderFlags;
+
+    fn deref(&self) -> &Self::Target {
+        &self.flags
+    }
+}
+impl DerefMut for PeggedOrderSpec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.flags
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{PegReference, Side, TimeInForce, orders::OrderCore};
+    use crate::{PegReference, Side, TimeInForce, orders::OrderFlags};
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-            PegReference::Primary,
-            20,
+            0,
+            PeggedOrderSpec::new(
+                PegReference::Primary,
+                20,
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            ),
         )
     }
 

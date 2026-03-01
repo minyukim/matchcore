@@ -205,7 +205,7 @@ impl PatchCore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{OrderCore, Side};
+    use crate::{LimitOrderSpec, OrderFlags, PeggedOrderSpec, Side};
 
     #[test]
     fn test_apply_limit_patch() {
@@ -220,9 +220,12 @@ mod tests {
             Case {
                 name: "no-op patch (same price and quantity policy)",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new()
                     .with_price(100)
@@ -232,9 +235,12 @@ mod tests {
             Case {
                 name: "update price only",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_price(200),
                 expected: Ok(()),
@@ -242,9 +248,12 @@ mod tests {
             Case {
                 name: "update quantity policy only",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new()
                     .with_quantity_policy(QuantityPolicy::Standard { quantity: 20 }),
@@ -253,9 +262,12 @@ mod tests {
             Case {
                 name: "update post_only only",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_post_only(true),
                 expected: Ok(()),
@@ -263,9 +275,12 @@ mod tests {
             Case {
                 name: "update time_in_force only",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
@@ -273,9 +288,12 @@ mod tests {
             Case {
                 name: "invalid: empty patch",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new(),
                 expected: Err(CommandError::EmptyPatch),
@@ -283,9 +301,12 @@ mod tests {
             Case {
                 name: "invalid: post-only with immediate TIF",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new()
                     .with_post_only(true)
@@ -295,9 +316,12 @@ mod tests {
             Case {
                 name: "invalid: zero price",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_price(0),
                 expected: Err(CommandError::ZeroPrice),
@@ -305,9 +329,12 @@ mod tests {
             Case {
                 name: "invalid: zero quantity",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new()
                     .with_price(100)
@@ -317,9 +344,12 @@ mod tests {
             Case {
                 name: "invalid: iceberg with immediate TIF",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new()
                     .with_quantity_policy(QuantityPolicy::Iceberg {
@@ -333,9 +363,12 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
@@ -343,9 +376,12 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is immediate TIF, patch sets post_only",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Ioc),
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Standard { quantity: 10 },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_post_only(true),
                 expected: Err(CommandError::PostOnlyImmediateTif),
@@ -353,13 +389,16 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is iceberg, patch sets immediate TIF",
                 order: LimitOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    100,
-                    QuantityPolicy::Iceberg {
-                        visible_quantity: 10,
-                        hidden_quantity: 10,
-                        replenish_quantity: 10,
-                    },
+                    1,
+                    LimitOrderSpec::new(
+                        100,
+                        QuantityPolicy::Iceberg {
+                            visible_quantity: 10,
+                            hidden_quantity: 10,
+                            replenish_quantity: 10,
+                        },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: LimitPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::IcebergImmediateTif),
@@ -443,9 +482,12 @@ mod tests {
             Case {
                 name: "no-op patch (same peg_reference and quantity)",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new()
                     .with_peg_reference(PegReference::Market)
@@ -455,9 +497,12 @@ mod tests {
             Case {
                 name: "update peg_reference only",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Primary,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Primary,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new().with_peg_reference(PegReference::Market),
                 expected: Ok(()),
@@ -465,9 +510,12 @@ mod tests {
             Case {
                 name: "update quantity only",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new().with_quantity(20),
                 expected: Ok(()),
@@ -475,9 +523,12 @@ mod tests {
             Case {
                 name: "update post_only only",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new().with_post_only(true),
                 expected: Ok(()),
@@ -485,9 +536,12 @@ mod tests {
             Case {
                 name: "update time_in_force only",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
@@ -495,9 +549,12 @@ mod tests {
             Case {
                 name: "invalid: empty patch",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new(),
                 expected: Err(CommandError::EmptyPatch),
@@ -505,9 +562,12 @@ mod tests {
             Case {
                 name: "invalid: post-only with immediate TIF",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new()
                     .with_post_only(true)
@@ -517,19 +577,25 @@ mod tests {
             Case {
                 name: "invalid: zero quantity",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new().with_quantity(0),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
-                name: "valid patch + valid order → invalid: peg reference Primary + immediate TIF",
+                name: "invalid: peg reference Primary + immediate TIF",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Gtc),
-                    PegReference::Primary,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Market,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new()
                     .with_peg_reference(PegReference::Primary)
@@ -539,22 +605,28 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Primary,
+                        10,
+                        OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                    ),
                 ),
                 patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
-                name: "valid patch + valid order → invalid: order is immediate TIF, patch sets post_only",
+                name: "valid patch + valid order → invalid: order is Primary, patch sets immediate TIF",
                 order: PeggedOrder::new(
-                    OrderCore::new(1, Side::Buy, false, TimeInForce::Ioc),
-                    PegReference::Market,
-                    10,
+                    1,
+                    PeggedOrderSpec::new(
+                        PegReference::Primary,
+                        10,
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
+                    ),
                 ),
-                patch: PeggedPatch::new().with_post_only(true),
-                expected: Err(CommandError::PostOnlyImmediateTif),
+                patch: PeggedPatch::new().with_time_in_force(TimeInForce::Ioc),
+                expected: Err(CommandError::PeggedNonTakerImmediateTif),
             },
         ];
 
