@@ -4,6 +4,7 @@ use crate::{
         CommandError,
         validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
     },
+    orders::*,
 };
 
 use serde::{Deserialize, Serialize};
@@ -19,33 +20,11 @@ pub struct SubmitCmd {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NewOrder {
     /// A new market order
-    Market(NewMarketOrder),
+    Market(MarketOrderSpec),
     /// A new limit order
     Limit(NewLimitOrder),
     /// A new pegged order
     Pegged(NewPeggedOrder),
-}
-
-/// Represents a new market order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewMarketOrder {
-    /// The quantity of the order
-    pub quantity: u64,
-    /// The side of the order
-    pub side: Side,
-    /// Whether to convert the order to a limit order
-    /// if it is not filled immediately at the best available price
-    pub market_to_limit: bool,
-}
-
-impl NewMarketOrder {
-    /// Validate the order
-    pub fn validate(&self) -> Result<(), CommandError> {
-        if self.quantity == 0 {
-            return Err(CommandError::ZeroQuantity);
-        }
-        Ok(())
-    }
 }
 
 /// Represents a new limit order
@@ -108,47 +87,6 @@ pub struct NewOrderCore {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_validate_new_market_order() {
-        struct Case {
-            name: &'static str,
-            quantity: u64,
-            side: Side,
-            market_to_limit: bool,
-            expected: Result<(), CommandError>,
-        }
-
-        let cases = [
-            Case {
-                name: "valid market order",
-                quantity: 100,
-                side: Side::Buy,
-                market_to_limit: true,
-                expected: Ok(()),
-            },
-            Case {
-                name: "zero quantity",
-                quantity: 0,
-                side: Side::Buy,
-                market_to_limit: true,
-                expected: Err(CommandError::ZeroQuantity),
-            },
-        ];
-
-        for case in cases {
-            let order = NewMarketOrder {
-                quantity: case.quantity,
-                side: case.side,
-                market_to_limit: case.market_to_limit,
-            };
-
-            match case.expected {
-                Ok(()) => assert!(order.validate().is_ok(), "case: {}", case.name),
-                Err(e) => assert_eq!(order.validate().unwrap_err(), e, "case: {}", case.name),
-            }
-        }
-    }
 
     #[test]
     fn test_validate_new_limit_order() {

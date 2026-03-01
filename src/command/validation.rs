@@ -1,4 +1,14 @@
-use crate::{PegReference, QuantityPolicy, TimeInForce, command::CommandError};
+use crate::{PegReference, QuantityPolicy, TimeInForce, command::CommandError, orders::*};
+
+impl MarketOrderSpec {
+    /// Validate the order
+    pub fn validate(&self) -> Result<(), CommandError> {
+        if self.quantity() == 0 {
+            return Err(CommandError::ZeroQuantity);
+        }
+        Ok(())
+    }
+}
 
 /// Validate the invariants of a limit order
 pub(super) fn validate_limit_order_invariants(
@@ -70,4 +80,39 @@ fn validate_order_core_invariants(
         return Err(CommandError::PostOnlyImmediateTif);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Side;
+
+    #[test]
+    fn test_validate_market_order_spec() {
+        struct Case {
+            name: &'static str,
+            spec: MarketOrderSpec,
+            expected: Result<(), CommandError>,
+        }
+
+        let cases = [
+            Case {
+                name: "valid market order",
+                spec: MarketOrderSpec::new(100, Side::Buy, true),
+                expected: Ok(()),
+            },
+            Case {
+                name: "zero quantity",
+                spec: MarketOrderSpec::new(0, Side::Buy, true),
+                expected: Err(CommandError::ZeroQuantity),
+            },
+        ];
+
+        for case in cases {
+            match case.expected {
+                Ok(()) => assert!(case.spec.validate().is_ok(), "case: {}", case.name),
+                Err(e) => assert_eq!(case.spec.validate().unwrap_err(), e, "case: {}", case.name),
+            }
+        }
+    }
 }
