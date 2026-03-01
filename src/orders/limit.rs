@@ -1,35 +1,135 @@
-use crate::{QuantityPolicy, Side, TimeInForce, orders::OrderCore};
+use crate::{QuantityPolicy, orders::OrderFlags};
 
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 use serde::{Deserialize, Serialize};
 
 /// Generic limit order with various configuration options
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LimitOrder {
-    /// The core order data
-    core: OrderCore,
-    /// The price of the order
-    price: u64,
-    /// The quantity policy of the order
-    quantity_policy: QuantityPolicy,
+    /// The ID of the order
+    id: u64,
+    /// The specification of the order
+    spec: LimitOrderSpec,
 }
 
 impl LimitOrder {
-    /// Create a new order
-    pub fn new(core: OrderCore, price: u64, quantity_policy: QuantityPolicy) -> Self {
-        Self {
-            core,
-            price,
-            quantity_policy,
-        }
+    /// Create a new limit order
+    pub fn new(id: u64, spec: LimitOrderSpec) -> Self {
+        Self { id, spec }
     }
 
     /// Get the order ID
     pub fn id(&self) -> u64 {
-        self.core.id()
+        self.id
     }
 
+    /// Matches this order against an incoming quantity
+    ///
+    /// Returns a tuple containing:
+    /// - The quantity consumed from the incoming order
+    /// - The quantity that was replenished (for iceberg orders)
+    pub(crate) fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64) {
+        match self.quantity_policy {
+            QuantityPolicy::Standard { quantity } => {
+                let new_quantity = quantity.saturating_sub(incoming_quantity);
+                let consumed = quantity - new_quantity;
+
+                self.quantity_policy.update_visible_quantity(new_quantity);
+                (consumed, 0)
+            }
+            QuantityPolicy::Iceberg {
+                visible_quantity, ..
+            } => {
+                let new_visible = visible_quantity.saturating_sub(incoming_quantity);
+                let consumed = visible_quantity - new_visible;
+
+                self.quantity_policy.update_visible_quantity(new_visible);
+                if new_visible > 0 {
+                    (consumed, 0)
+                } else {
+                    // Try replenishing the order
+                    let replenished = self.quantity_policy.replenish();
+                    (consumed, replenished)
+                }
+            }
+        }
+    }
+}
+
+impl Deref for LimitOrder {
+    type Target = LimitOrderSpec;
+
+    fn deref(&self) -> &Self::Target {
+        &self.spec
+    }
+}
+impl DerefMut for LimitOrder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.spec
+    }
+}
+
+impl fmt::Display for LimitOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.quantity_policy {
+            QuantityPolicy::Standard { quantity } => {
+                write!(
+                    f,
+                    "Standard: id={} price={} quantity={} side={} post_only={} time_in_force={}",
+                    self.id(),
+                    self.price,
+                    quantity,
+                    self.side(),
+                    self.is_post_only(),
+                    self.time_in_force()
+                )
+            }
+            QuantityPolicy::Iceberg {
+                visible_quantity,
+                hidden_quantity,
+                replenish_quantity,
+            } => {
+                write!(
+                    f,
+                    "Iceberg: id={} price={} visible_quantity={} hidden_quantity={} replenish_quantity={} side={} post_only={} time_in_force={}",
+                    self.id(),
+                    self.price,
+                    visible_quantity,
+                    hidden_quantity,
+                    replenish_quantity,
+                    self.side(),
+                    self.is_post_only(),
+                    self.time_in_force()
+                )
+            }
+        }
+    }
+}
+
+/// Specification of a limit order
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LimitOrderSpec {
+    /// The price of the order
+    price: u64,
+    /// The quantity policy of the order
+    quantity_policy: QuantityPolicy,
+    /// The flags of the order
+    flags: OrderFlags,
+}
+
+impl LimitOrderSpec {
+    /// Create a new limit order specification
+    pub fn new(price: u64, quantity_policy: QuantityPolicy, flags: OrderFlags) -> Self {
+        Self {
+            price,
+            quantity_policy,
+            flags,
+        }
+    }
     /// Get the price
     pub fn price(&self) -> u64 {
         self.price
@@ -74,139 +174,49 @@ impl LimitOrder {
     pub(crate) fn update_quantity_policy(&mut self, new_quantity_policy: QuantityPolicy) {
         self.quantity_policy = new_quantity_policy;
     }
-
-    /// Get the order side
-    pub fn side(&self) -> Side {
-        self.core.side()
-    }
-
-    /// Check if this is a post-only order
-    pub fn is_post_only(&self) -> bool {
-        self.core.is_post_only()
-    }
-
-    /// Update the post-only flag
-    pub(crate) fn update_post_only(&mut self, new_post_only: bool) {
-        self.core.update_post_only(new_post_only);
-    }
-
-    /// Get the time in force
-    pub fn time_in_force(&self) -> TimeInForce {
-        self.core.time_in_force()
-    }
-
-    /// Check if the order should be canceled after attempting to match
-    pub fn is_immediate(&self) -> bool {
-        self.core.is_immediate()
-    }
-
-    /// Check if the order has an expiry time
-    pub fn has_expiry(&self) -> bool {
-        self.core.has_expiry()
-    }
-
-    /// Check if the order is expired at a given timestamp
-    pub fn is_expired(&self, timestamp: u64) -> bool {
-        self.core.is_expired(timestamp)
-    }
-
-    /// Update the time in force
-    pub(crate) fn update_time_in_force(&mut self, new_time_in_force: TimeInForce) {
-        self.core.update_time_in_force(new_time_in_force);
-    }
-
-    /// Matches this order against an incoming quantity
-    ///
-    /// Returns a tuple containing:
-    /// - The quantity consumed from the incoming order
-    /// - The quantity that was replenished (for iceberg orders)
-    pub(crate) fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64) {
-        match self.quantity_policy {
-            QuantityPolicy::Standard { quantity } => {
-                let new_quantity = quantity.saturating_sub(incoming_quantity);
-                let consumed = quantity - new_quantity;
-
-                self.quantity_policy.update_visible_quantity(new_quantity);
-                (consumed, 0)
-            }
-            QuantityPolicy::Iceberg {
-                visible_quantity, ..
-            } => {
-                let new_visible = visible_quantity.saturating_sub(incoming_quantity);
-                let consumed = visible_quantity - new_visible;
-
-                self.quantity_policy.update_visible_quantity(new_visible);
-                if new_visible > 0 {
-                    (consumed, 0)
-                } else {
-                    // Try replenishing the order
-                    let replenished = self.quantity_policy.replenish();
-                    (consumed, replenished)
-                }
-            }
-        }
-    }
 }
 
-impl fmt::Display for LimitOrder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.quantity_policy {
-            QuantityPolicy::Standard { quantity } => {
-                write!(
-                    f,
-                    "Standard: id={} price={} quantity={} side={} post_only={} time_in_force={}",
-                    self.core.id(),
-                    self.price,
-                    quantity,
-                    self.core.side(),
-                    self.core.is_post_only(),
-                    self.core.time_in_force()
-                )
-            }
-            QuantityPolicy::Iceberg {
-                visible_quantity,
-                hidden_quantity,
-                replenish_quantity,
-            } => {
-                write!(
-                    f,
-                    "Iceberg: id={} price={} visible_quantity={} hidden_quantity={} replenish_quantity={} side={} post_only={} time_in_force={}",
-                    self.core.id(),
-                    self.price,
-                    visible_quantity,
-                    hidden_quantity,
-                    replenish_quantity,
-                    self.core.side(),
-                    self.core.is_post_only(),
-                    self.core.time_in_force()
-                )
-            }
-        }
+impl Deref for LimitOrderSpec {
+    type Target = OrderFlags;
+
+    fn deref(&self) -> &Self::Target {
+        &self.flags
+    }
+}
+impl DerefMut for LimitOrderSpec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.flags
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{QuantityPolicy, Side, TimeInForce, orders::OrderCore};
+    use crate::{QuantityPolicy, Side, TimeInForce, orders::OrderFlags};
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-            90,
-            QuantityPolicy::Standard { quantity: 10 },
+            0,
+            LimitOrderSpec::new(
+                90,
+                QuantityPolicy::Standard { quantity: 10 },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            ),
         )
     }
 
     fn create_iceberg_order() -> LimitOrder {
         LimitOrder::new(
-            OrderCore::new(1, Side::Sell, false, TimeInForce::Gtc),
-            100,
-            QuantityPolicy::Iceberg {
-                visible_quantity: 20,
-                hidden_quantity: 40,
-                replenish_quantity: 20,
-            },
+            1,
+            LimitOrderSpec::new(
+                100,
+                QuantityPolicy::Iceberg {
+                    visible_quantity: 20,
+                    hidden_quantity: 40,
+                    replenish_quantity: 20,
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
         )
     }
 

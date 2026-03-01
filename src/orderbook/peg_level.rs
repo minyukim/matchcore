@@ -131,7 +131,7 @@ impl PegLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{OrderCore, PegReference, PeggedOrder, Side, TimeInForce};
+    use crate::{OrderFlags, PegReference, PeggedOrder, PeggedOrderSpec, Side, TimeInForce};
 
     use std::collections::HashMap;
 
@@ -157,9 +157,12 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                10,
+                0,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    10,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.quantity, 10);
@@ -168,9 +171,12 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                20,
+                1,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    20,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.quantity, 30);
@@ -179,9 +185,12 @@ mod tests {
         peg_level.push(
             &mut limit_orders,
             PeggedOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                30,
+                2,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    30,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.quantity, 60);
@@ -198,9 +207,12 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                100,
+                0,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    100,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(0));
@@ -208,9 +220,12 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                100,
+                1,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    100,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(0));
@@ -224,9 +239,12 @@ mod tests {
         assert!(peg_level.peek(&mut pegged_orders).is_none());
 
         let mut order = PeggedOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-            PegReference::Primary,
-            100,
+            0,
+            PeggedOrderSpec::new(
+                PegReference::Primary,
+                100,
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            ),
         );
         peg_level.push(&mut pegged_orders, order.clone());
         assert_eq!(peg_level.peek(&mut pegged_orders), Some(&mut order));
@@ -234,9 +252,12 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                100,
+                1,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    100,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.peek(&mut pegged_orders), Some(&mut order));
@@ -252,9 +273,12 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                100,
+                0,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    100,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(0));
@@ -265,9 +289,12 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                100,
+                1,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    100,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(1));
@@ -275,9 +302,12 @@ mod tests {
         peg_level.push(
             &mut pegged_orders,
             PeggedOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
-                PegReference::Primary,
-                100,
+                2,
+                PeggedOrderSpec::new(
+                    PegReference::Primary,
+                    100,
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(1));

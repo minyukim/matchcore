@@ -150,7 +150,7 @@ impl PriceLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LimitOrder, OrderCore, QuantityPolicy, Side, TimeInForce};
+    use crate::{LimitOrder, LimitOrderSpec, OrderFlags, QuantityPolicy, Side, TimeInForce};
 
     use std::collections::HashMap;
 
@@ -190,9 +190,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 10 },
+                0,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.visible_quantity, 10);
@@ -202,9 +205,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 20 },
+                1,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 20 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.visible_quantity, 30);
@@ -214,13 +220,16 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Iceberg {
-                    visible_quantity: 10,
-                    hidden_quantity: 20,
-                    replenish_quantity: 10,
-                },
+                2,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Iceberg {
+                        visible_quantity: 10,
+                        hidden_quantity: 20,
+                        replenish_quantity: 10,
+                    },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.visible_quantity, 40);
@@ -238,9 +247,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 10 },
+                0,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(0));
@@ -248,9 +260,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 20 },
+                1,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 20 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(0));
@@ -264,9 +279,12 @@ mod tests {
         assert!(price_level.peek(&mut limit_orders).is_none());
 
         let mut order = LimitOrder::new(
-            OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-            100,
-            QuantityPolicy::Standard { quantity: 10 },
+            0,
+            LimitOrderSpec::new(
+                100,
+                QuantityPolicy::Standard { quantity: 10 },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            ),
         );
         price_level.push(&mut limit_orders, order.clone());
         assert_eq!(price_level.peek(&mut limit_orders), Some(&mut order));
@@ -274,9 +292,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 20 },
+                1,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 20 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.peek(&mut limit_orders), Some(&mut order));
@@ -292,9 +313,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 10 },
+                0,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 10 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(0));
@@ -305,9 +329,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 20 },
+                1,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 20 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(1));
@@ -315,9 +342,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(2, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 30 },
+                2,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 30 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(1));
@@ -342,13 +372,16 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(0, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Iceberg {
-                    visible_quantity: 0,
-                    hidden_quantity: 100,
-                    replenish_quantity: 10,
-                },
+                0,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Iceberg {
+                        visible_quantity: 0,
+                        hidden_quantity: 100,
+                        replenish_quantity: 10,
+                    },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.visible_quantity, 0);
@@ -365,9 +398,12 @@ mod tests {
         price_level.push(
             &mut limit_orders,
             LimitOrder::new(
-                OrderCore::new(1, Side::Buy, true, TimeInForce::Gtc),
-                100,
-                QuantityPolicy::Standard { quantity: 20 },
+                1,
+                LimitOrderSpec::new(
+                    100,
+                    QuantityPolicy::Standard { quantity: 20 },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
         assert_eq!(price_level.visible_quantity, 30);

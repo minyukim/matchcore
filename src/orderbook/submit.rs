@@ -1,5 +1,5 @@
 use crate::{
-    LimitOrder, OrderCore,
+    LimitOrder, LimitOrderSpec, OrderFlags,
     command::*,
     orderbook::{OrderBook, PriceLevel},
     report::*,
@@ -59,11 +59,14 @@ impl OrderBook {
             price_level.push(
                 &mut self.limit_orders,
                 LimitOrder::new(
-                    OrderCore::new(order_id, order.side, false, TimeInForce::Gtc),
-                    price,
-                    QuantityPolicy::Standard {
-                        quantity: remaining_quantity,
-                    },
+                    order_id,
+                    LimitOrderSpec::new(
+                        price,
+                        QuantityPolicy::Standard {
+                            quantity: remaining_quantity,
+                        },
+                        OrderFlags::new(order.side, false, TimeInForce::Gtc),
+                    ),
                 ),
             );
 
