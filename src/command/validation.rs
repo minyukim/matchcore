@@ -22,6 +22,18 @@ impl LimitOrderSpec {
     }
 }
 
+impl PeggedOrderSpec {
+    /// Validate the order specification
+    pub fn validate(&self) -> Result<(), CommandError> {
+        validate_pegged_order_invariants(
+            self.peg_reference(),
+            self.quantity(),
+            self.is_post_only(),
+            self.time_in_force(),
+        )
+    }
+}
+
 /// Validate the invariants of a limit order
 pub(super) fn validate_limit_order_invariants(
     price: u64,
@@ -255,6 +267,96 @@ mod tests {
                     validate_limit_order_invariants(
                         case.price,
                         case.quantity_policy,
+                        case.post_only,
+                        case.time_in_force
+                    )
+                    .unwrap_err(),
+                    e,
+                    "case: {}",
+                    case.name
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_pegged_order_invariants() {
+        struct Case {
+            name: &'static str,
+            peg_reference: PegReference,
+            quantity: u64,
+            post_only: bool,
+            time_in_force: TimeInForce,
+            expected: Result<(), CommandError>,
+        }
+        let cases = [
+            Case {
+                name: "valid pegged order",
+                peg_reference: PegReference::Market,
+                quantity: 100,
+                post_only: false,
+                time_in_force: TimeInForce::Gtc,
+                expected: Ok(()),
+            },
+            Case {
+                name: "zero quantity",
+                peg_reference: PegReference::Market,
+                quantity: 0,
+                post_only: false,
+                time_in_force: TimeInForce::Gtc,
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "post-only pegged order",
+                peg_reference: PegReference::Market,
+                quantity: 100,
+                post_only: true,
+                time_in_force: TimeInForce::Gtc,
+                expected: Ok(()),
+            },
+            Case {
+                name: "immediate time in force pegged order",
+                peg_reference: PegReference::Market,
+                quantity: 100,
+                post_only: false,
+                time_in_force: TimeInForce::Ioc,
+                expected: Ok(()),
+            },
+            Case {
+                name: "post-only immediate time in force",
+                peg_reference: PegReference::Market,
+                quantity: 100,
+                post_only: true,
+                time_in_force: TimeInForce::Ioc,
+                expected: Err(CommandError::PostOnlyImmediateTif),
+            },
+            Case {
+                name: "maker only immediate time in force",
+                peg_reference: PegReference::Primary,
+                quantity: 100,
+                post_only: false,
+                time_in_force: TimeInForce::Ioc,
+                expected: Err(CommandError::PeggedNonTakerImmediateTif),
+            },
+        ];
+
+        for case in cases {
+            match case.expected {
+                Ok(()) => assert!(
+                    validate_pegged_order_invariants(
+                        case.peg_reference,
+                        case.quantity,
+                        case.post_only,
+                        case.time_in_force
+                    )
+                    .is_ok(),
+                    "case: {}",
+                    case.name
+                ),
+                Err(e) => assert_eq!(
+                    validate_pegged_order_invariants(
+                        case.peg_reference,
+                        case.quantity,
                         case.post_only,
                         case.time_in_force
                     )

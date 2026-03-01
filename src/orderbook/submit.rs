@@ -1,7 +1,7 @@
 use crate::{
-    LimitOrder, LimitOrderSpec, MarketOrderSpec, OrderFlags,
     command::*,
     orderbook::{OrderBook, PriceLevel},
+    orders::*,
     report::*,
     types::*,
 };
@@ -108,7 +108,7 @@ impl OrderBook {
     fn submit_pegged_order(
         &mut self,
         _meta: CommandMeta,
-        _order: &NewPeggedOrder,
+        _order: &PeggedOrderSpec,
     ) -> Result<SubmitReport, CommandError> {
         todo!()
     }
