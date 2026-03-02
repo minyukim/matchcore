@@ -1,16 +1,14 @@
 mod amend;
 mod command;
-mod match_result;
-mod order_processing_result;
 mod reasons;
+mod results;
 mod submit;
 mod trade;
 
 pub use amend::*;
 pub use command::*;
-pub use match_result::*;
-pub use order_processing_result::*;
 pub use reasons::*;
+pub use results::*;
 pub use submit::*;
 pub use trade::*;
 
