@@ -119,7 +119,7 @@ pub(super) fn match_order(
             let (consumed, replenished) = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
 
-            price_level.visible_quantity -= consumed;
+            price_level.consume(consumed);
             price_level.handle_replenishment(replenished);
 
             match_result.add_trade(Trade::new(order_id, price, consumed));
@@ -192,7 +192,7 @@ pub(super) fn match_order(
             let consumed = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
 
-            peg_level.quantity -= consumed;
+            peg_level.consume(consumed);
 
             match_result.add_trade(Trade::new(order_id, price, consumed));
 

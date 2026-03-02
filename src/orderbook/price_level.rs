@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level
-    pub visible_quantity: u64,
+    visible_quantity: u64,
     /// Total hidden quantity at this price level
-    pub hidden_quantity: u64,
+    hidden_quantity: u64,
     /// Number of orders at this price level
     order_count: u64,
     /// Queue of order IDs at this price level
@@ -34,6 +34,21 @@ impl PriceLevel {
             order_count: 0,
             order_ids: VecDeque::new(),
         }
+    }
+
+    /// Get the visible quantity at this price level
+    pub fn visible_quantity(&self) -> u64 {
+        self.visible_quantity
+    }
+
+    /// Consume the quantity at this price level
+    pub(super) fn consume(&mut self, quantity: u64) {
+        self.visible_quantity = self.visible_quantity.saturating_sub(quantity);
+    }
+
+    /// Get the hidden quantity at this price level
+    pub fn hidden_quantity(&self) -> u64 {
+        self.hidden_quantity
     }
 
     /// Get the total quantity at this price level (visible + hidden)

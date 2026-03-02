@@ -17,7 +17,7 @@ pub(super) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
     /// Total quantity at this pegged order level
-    pub quantity: u64,
+    quantity: u64,
     /// Number of orders at this pegged order level
     order_count: u64,
     /// Queue of order IDs at this pegged order level
@@ -38,6 +38,16 @@ impl PegLevel {
             order_count: 0,
             order_ids: VecDeque::new(),
         }
+    }
+
+    /// Get the quantity at this peg level
+    pub fn quantity(&self) -> u64 {
+        self.quantity
+    }
+
+    /// Consume the quantity at this peg level
+    pub(super) fn consume(&mut self, quantity: u64) {
+        self.quantity = self.quantity.saturating_sub(quantity);
     }
 
     /// Get the number of orders at this peg level
