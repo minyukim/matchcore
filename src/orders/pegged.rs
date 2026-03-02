@@ -27,6 +27,11 @@ impl PeggedOrder {
         self.id
     }
 
+    /// Get the specification of the order
+    pub fn spec(&self) -> &PeggedOrderSpec {
+        &self.spec
+    }
+
     /// Matches this order against an incoming quantity
     ///
     /// Returns the quantity consumed from the incoming order
@@ -111,6 +116,11 @@ impl PeggedOrderSpec {
     /// Update the quantity of the order
     pub(crate) fn update_quantity(&mut self, new_quantity: u64) {
         self.quantity = new_quantity;
+    }
+
+    /// Get the flags of the order
+    pub fn flags(&self) -> &OrderFlags {
+        &self.flags
     }
 }
 
