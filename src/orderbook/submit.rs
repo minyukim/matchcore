@@ -18,7 +18,7 @@ impl OrderBook {
 
         match result {
             Ok(report) => CommandOutcome::Applied(CommandReport::Submit(report)),
-            Err(error) => CommandOutcome::Rejected(error),
+            Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
 
@@ -27,8 +27,8 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &MarketOrderSpec,
-    ) -> Result<SubmitReport, CommandError> {
-        order.validate()?;
+    ) -> Result<SubmitReport, RejectReason> {
+        order.validate().map_err(RejectReason::CommandError)?;
 
         let order_id = meta.sequence_number;
 
@@ -100,7 +100,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &LimitOrderSpec,
-    ) -> Result<SubmitReport, CommandError> {
+    ) -> Result<SubmitReport, RejectReason> {
         todo!()
     }
 
@@ -109,7 +109,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &PeggedOrderSpec,
-    ) -> Result<SubmitReport, CommandError> {
+    ) -> Result<SubmitReport, RejectReason> {
         todo!()
     }
 }

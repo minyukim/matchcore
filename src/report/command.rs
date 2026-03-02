@@ -1,5 +1,5 @@
 use crate::{
-    CommandError,
+    RejectReason,
     report::{AmendReport, SubmitReport},
 };
 
@@ -11,7 +11,7 @@ pub enum CommandOutcome {
     /// The command was applied successfully
     Applied(CommandReport),
     /// The command was rejected due to an error
-    Rejected(CommandError),
+    Rejected(RejectReason),
 }
 
 /// Represents the report of the execution of a command

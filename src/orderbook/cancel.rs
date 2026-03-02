@@ -11,17 +11,17 @@ impl OrderBook {
 
         match result {
             Ok(_) => CommandOutcome::Applied(CommandReport::Cancel),
-            Err(error) => CommandOutcome::Rejected(error),
+            Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
 
     /// Cancel a limit order
-    fn cancel_limit_order(&mut self, _order_id: u64) -> Result<(), CommandError> {
+    fn cancel_limit_order(&mut self, _order_id: u64) -> Result<(), RejectReason> {
         todo!()
     }
 
     /// Cancel a pegged order
-    fn cancel_pegged_order(&mut self, _order_id: u64) -> Result<(), CommandError> {
+    fn cancel_pegged_order(&mut self, _order_id: u64) -> Result<(), RejectReason> {
         todo!()
     }
 }
