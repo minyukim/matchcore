@@ -6,6 +6,8 @@ use crate::{
     types::*,
 };
 
+use std::collections::btree_map::Entry;
+
 impl OrderBook {
     /// Execute a submit command against the order book
     /// Returns the execution report for the command
@@ -188,7 +190,28 @@ impl OrderBook {
             return Err(RejectReason::NoLiquidity);
         }
 
-        todo!()
+        let order_id = meta.sequence_number;
+
+        let orders = &mut self.limit_orders;
+
+        let levels = match spec.side() {
+            Side::Buy => &mut self.limit_bid_levels,
+            Side::Sell => &mut self.limit_ask_levels,
+        };
+
+        match levels.entry(spec.price()) {
+            Entry::Occupied(mut e) => {
+                e.get_mut()
+                    .push(orders, LimitOrder::new(order_id, spec.clone()));
+            }
+            Entry::Vacant(e) => {
+                let mut price_level = PriceLevel::new();
+                price_level.push(orders, LimitOrder::new(order_id, spec.clone()));
+                e.insert(price_level);
+            }
+        }
+
+        Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }
 
     /// Submit a pegged order
