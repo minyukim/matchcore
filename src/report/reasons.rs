@@ -1,6 +1,22 @@
+use crate::CommandError;
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RejectReason {
+    /// The command is invalid
+    CommandError(CommandError),
+}
+
+impl fmt::Display for RejectReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RejectReason::CommandError(e) => write!(f, "Command error: {e}"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelReason {
@@ -41,7 +57,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_display() {
+    fn test_display_reject_reason() {
+        assert_eq!(
+            RejectReason::CommandError(CommandError::ZeroPrice).to_string(),
+            "Command error: Price is zero"
+        );
+    }
+
+    #[test]
+    fn test_display_cancel_reason() {
         assert_eq!(
             CancelReason::InsufficientLiquidity {
                 requested_quantity: 100,
