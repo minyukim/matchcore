@@ -18,7 +18,7 @@ impl OrderBook {
 
         match result {
             Ok(report) => CommandOutcome::Applied(CommandReport::Submit(report)),
-            Err(error) => CommandOutcome::Rejected(error),
+            Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
 
@@ -27,17 +27,14 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &MarketOrderSpec,
-    ) -> Result<SubmitReport, CommandError> {
-        order.validate()?;
-
-        let order_id = meta.sequence_number;
+    ) -> Result<SubmitReport, RejectReason> {
+        order.validate().map_err(RejectReason::CommandError)?;
 
         if self.is_side_empty(order.side().opposite()) {
-            return Ok(SubmitReport::new(
-                OrderProcessingResult::new(order_id)
-                    .with_cancel_reason(CancelReason::EmptyMakerSide),
-            ));
+            return Err(RejectReason::NoLiquidity);
         }
+
+        let order_id = meta.sequence_number;
 
         let result = self.match_order(order.side(), None, order.quantity(), meta.timestamp);
 
@@ -100,7 +97,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &LimitOrderSpec,
-    ) -> Result<SubmitReport, CommandError> {
+    ) -> Result<SubmitReport, RejectReason> {
         todo!()
     }
 
@@ -109,7 +106,7 @@ impl OrderBook {
         &mut self,
         _meta: CommandMeta,
         _order: &PeggedOrderSpec,
-    ) -> Result<SubmitReport, CommandError> {
+    ) -> Result<SubmitReport, RejectReason> {
         todo!()
     }
 }

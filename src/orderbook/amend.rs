@@ -11,7 +11,7 @@ impl OrderBook {
 
         match result {
             Ok(report) => CommandOutcome::Applied(CommandReport::Amend(report)),
-            Err(error) => CommandOutcome::Rejected(error),
+            Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
 
@@ -21,7 +21,7 @@ impl OrderBook {
         _meta: CommandMeta,
         _order_id: u64,
         _patch: &LimitOrderPatch,
-    ) -> Result<AmendReport, CommandError> {
+    ) -> Result<AmendReport, RejectReason> {
         todo!()
     }
 
@@ -31,7 +31,7 @@ impl OrderBook {
         _meta: CommandMeta,
         _order_id: u64,
         _patch: &PeggedOrderPatch,
-    ) -> Result<AmendReport, CommandError> {
+    ) -> Result<AmendReport, RejectReason> {
         todo!()
     }
 }
