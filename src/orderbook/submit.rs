@@ -30,14 +30,11 @@ impl OrderBook {
     ) -> Result<SubmitReport, RejectReason> {
         order.validate().map_err(RejectReason::CommandError)?;
 
-        let order_id = meta.sequence_number;
-
         if self.is_side_empty(order.side().opposite()) {
-            return Ok(SubmitReport::new(
-                OrderProcessingResult::new(order_id)
-                    .with_cancel_reason(CancelReason::EmptyMakerSide),
-            ));
+            return Err(RejectReason::NoLiquidity);
         }
+
+        let order_id = meta.sequence_number;
 
         let result = self.match_order(order.side(), None, order.quantity(), meta.timestamp);
 

@@ -8,12 +8,17 @@ use serde::{Deserialize, Serialize};
 pub enum RejectReason {
     /// The command is invalid
     CommandError(CommandError),
+    /// No liquidity available to fill the immediate order
+    NoLiquidity,
 }
 
 impl fmt::Display for RejectReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RejectReason::CommandError(e) => write!(f, "Command error: {e}"),
+            RejectReason::NoLiquidity => {
+                write!(f, "No liquidity available to fill the immediate order")
+            }
         }
     }
 }
@@ -27,8 +32,6 @@ pub enum CancelReason {
         /// The quantity of the order that was available to be filled
         available_quantity: u64,
     },
-    /// The maker side of the order book is empty
-    EmptyMakerSide,
     /// The post-only order would remove liquidity
     PostOnlyWouldTake,
 }
@@ -44,7 +47,6 @@ impl fmt::Display for CancelReason {
                 "Insufficient liquidity: requested={} available={}",
                 requested_quantity, available_quantity
             ),
-            CancelReason::EmptyMakerSide => write!(f, "Maker side is empty"),
             CancelReason::PostOnlyWouldTake => {
                 write!(f, "Post-only order would remove liquidity")
             }
@@ -62,6 +64,10 @@ mod tests {
             RejectReason::CommandError(CommandError::ZeroPrice).to_string(),
             "Command error: Price is zero"
         );
+        assert_eq!(
+            RejectReason::NoLiquidity.to_string(),
+            "No liquidity available to fill the immediate order"
+        );
     }
 
     #[test]
@@ -73,10 +79,6 @@ mod tests {
             }
             .to_string(),
             "Insufficient liquidity: requested=100 available=50"
-        );
-        assert_eq!(
-            CancelReason::EmptyMakerSide.to_string(),
-            "Maker side is empty"
         );
         assert_eq!(
             CancelReason::PostOnlyWouldTake.to_string(),
