@@ -120,6 +120,20 @@ impl OrderBook {
             return Err(RejectReason::PostOnlyWouldTake);
         }
 
+        if spec.time_in_force() == TimeInForce::Fok {
+            let executable_quantity = self.max_executable_quantity_unchecked(
+                spec.side(),
+                spec.price(),
+                spec.total_quantity(),
+            );
+            if executable_quantity < spec.total_quantity() {
+                return Err(RejectReason::InsufficientLiquidity {
+                    requested_quantity: spec.total_quantity(),
+                    available_quantity: executable_quantity,
+                });
+            }
+        }
+
         todo!()
     }
 
