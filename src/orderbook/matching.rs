@@ -51,6 +51,87 @@ impl OrderBook {
 
         result
     }
+
+    /// Computes the immediately executable quantity against the current book,
+    /// capped at `requested_quantity`, without mutating state.
+    ///
+    /// Preconditions:
+    /// - `requested_quantity` > 0
+    /// - has crossable order at `limit_price`
+    ///
+    /// Returns `requested_quantity` if fully executable; otherwise returns the
+    /// available executable quantity.
+    pub(super) fn max_executable_quantity_unchecked(
+        &self,
+        taker_side: Side,
+        limit_price: u64,
+        requested_quantity: u64,
+    ) -> u64 {
+        debug_assert!(requested_quantity > 0);
+        debug_assert!(self.has_crossable_order(taker_side, limit_price));
+
+        let mut remaining: u64 = requested_quantity;
+
+        // MidPrice peg level is active if the spread is less than or equal to 1
+        let mid_active = self.spread().is_some_and(|spread| spread <= 1);
+
+        match taker_side {
+            Side::Buy => {
+                // Iterate over the limit ask price levels up to the limit price
+                for (price, level) in self.limit_ask_levels.iter() {
+                    if *price > limit_price {
+                        break;
+                    }
+                    remaining = remaining.saturating_sub(level.total_quantity());
+                    if remaining == 0 {
+                        return requested_quantity;
+                    }
+                }
+                // Primary peg level is always active
+                remaining = remaining.saturating_sub(
+                    self.peg_ask_levels[PegReference::Primary.as_index()].quantity(),
+                );
+                if remaining == 0 {
+                    return requested_quantity;
+                }
+                if mid_active {
+                    remaining = remaining.saturating_sub(
+                        self.peg_ask_levels[PegReference::MidPrice.as_index()].quantity(),
+                    );
+                    if remaining == 0 {
+                        return requested_quantity;
+                    }
+                }
+            }
+            Side::Sell => {
+                // Iterate over the limit bid price levels up to the limit price
+                for (price, level) in self.limit_bid_levels.iter().rev() {
+                    if *price < limit_price {
+                        break;
+                    }
+                    remaining = remaining.saturating_sub(level.total_quantity());
+                    if remaining == 0 {
+                        return requested_quantity;
+                    }
+                }
+                // Primary peg level is always active
+                remaining = remaining.saturating_sub(
+                    self.peg_bid_levels[PegReference::Primary.as_index()].quantity(),
+                );
+                // MidPrice peg level is active if the spread is less than or equal to 1
+                if mid_active {
+                    remaining = remaining.saturating_sub(
+                        self.peg_bid_levels[PegReference::MidPrice.as_index()].quantity(),
+                    );
+                    if remaining == 0 {
+                        return requested_quantity;
+                    }
+                }
+            }
+        }
+
+        requested_quantity - remaining
+    }
 }
 
 /// Match an order against existing orders in the order book.
