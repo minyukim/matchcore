@@ -52,6 +52,7 @@ impl OrderBook {
             // The last trade price is guaranteed to exist because the order was matched
             let price = self.last_trade_price.unwrap();
 
+            // Remaining means there is no price level at this price, so create a new one
             let mut price_level = PriceLevel::new();
             price_level.push(
                 &mut self.limit_orders,
@@ -134,7 +135,58 @@ impl OrderBook {
             }
         }
 
-        todo!()
+        let order_id = meta.sequence_number;
+
+        let result = self.match_order(spec.side(), None, spec.total_quantity(), meta.timestamp);
+
+        let executed_quantity = result.executed_quantity();
+        let remaining_quantity = spec.total_quantity() - executed_quantity;
+        if remaining_quantity == 0 {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id).with_match_result(result),
+            ));
+        }
+
+        let quantity_policy = match spec.quantity_policy() {
+            QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
+                quantity: remaining_quantity,
+            },
+            QuantityPolicy::Iceberg {
+                replenish_quantity, ..
+            } => {
+                let visible_quantity = ((remaining_quantity - 1) % replenish_quantity) + 1;
+
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity: remaining_quantity - visible_quantity,
+                    replenish_quantity,
+                }
+            }
+        };
+
+        // Remaining means there is no price level at this price, so create a new one
+        let mut price_level = PriceLevel::new();
+        price_level.push(
+            &mut self.limit_orders,
+            LimitOrder::new(
+                order_id,
+                LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
+            ),
+        );
+
+        let price_levels = match spec.side() {
+            Side::Buy => &mut self.limit_bid_levels,
+            Side::Sell => &mut self.limit_ask_levels,
+        };
+        price_levels.insert(spec.price(), price_level);
+
+        let triggered_orders =
+            self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
+
+        Ok(
+            SubmitReport::new(OrderProcessingResult::new(order_id).with_match_result(result))
+                .with_triggered_orders(triggered_orders),
+        )
     }
 
     fn submit_non_crossable_order(
