@@ -95,9 +95,43 @@ impl OrderBook {
     /// Submit a limit order
     fn submit_limit_order(
         &mut self,
-        _meta: CommandMeta,
-        _spec: &LimitOrderSpec,
+        meta: CommandMeta,
+        spec: &LimitOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
+        spec.validate().map_err(RejectReason::CommandError)?;
+
+        if spec.is_expired(meta.timestamp) {
+            return Err(RejectReason::CommandError(CommandError::Expired));
+        }
+
+        if self.has_crossable_order(spec.side(), spec.price()) {
+            self.submit_crossable_order(meta, spec)
+        } else {
+            self.submit_non_crossable_order(meta, spec)
+        }
+    }
+
+    fn submit_crossable_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &LimitOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        if spec.post_only() {
+            return Err(RejectReason::PostOnlyWouldTake);
+        }
+
+        todo!()
+    }
+
+    fn submit_non_crossable_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &LimitOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        if spec.is_immediate() {
+            return Err(RejectReason::NoLiquidity);
+        }
+
         todo!()
     }
 

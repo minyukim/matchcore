@@ -10,6 +10,8 @@ pub enum RejectReason {
     CommandError(CommandError),
     /// No liquidity available to fill the immediate order
     NoLiquidity,
+    /// The post-only order would remove liquidity
+    PostOnlyWouldTake,
 }
 
 impl fmt::Display for RejectReason {
@@ -18,6 +20,9 @@ impl fmt::Display for RejectReason {
             RejectReason::CommandError(e) => write!(f, "Command error: {e}"),
             RejectReason::NoLiquidity => {
                 write!(f, "No liquidity available to fill the immediate order")
+            }
+            RejectReason::PostOnlyWouldTake => {
+                write!(f, "Post-only order would remove liquidity")
             }
         }
     }
