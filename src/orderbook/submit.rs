@@ -67,12 +67,7 @@ impl OrderBook {
                     ),
                 ),
             );
-
-            let price_levels = match spec.side() {
-                Side::Buy => &mut self.limit_bid_levels,
-                Side::Sell => &mut self.limit_ask_levels,
-            };
-            price_levels.insert(price, price_level);
+            self.insert_price_level(spec.side(), price, price_level);
 
             let triggered_orders =
                 self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
@@ -173,12 +168,7 @@ impl OrderBook {
                 LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
             ),
         );
-
-        let price_levels = match spec.side() {
-            Side::Buy => &mut self.limit_bid_levels,
-            Side::Sell => &mut self.limit_ask_levels,
-        };
-        price_levels.insert(spec.price(), price_level);
+        self.insert_price_level(spec.side(), spec.price(), price_level);
 
         let triggered_orders =
             self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);

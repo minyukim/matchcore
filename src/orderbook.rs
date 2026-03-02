@@ -134,4 +134,12 @@ impl OrderBook {
             Side::Sell => self.best_bid().is_some_and(|bid| limit_price <= bid),
         }
     }
+
+    /// Insert a price level into the order book for the given side and price
+    pub(self) fn insert_price_level(&mut self, side: Side, price: u64, price_level: PriceLevel) {
+        match side {
+            Side::Buy => self.limit_bid_levels.insert(price, price_level),
+            Side::Sell => self.limit_ask_levels.insert(price, price_level),
+        };
+    }
 }
