@@ -1,4 +1,5 @@
-use crate::{OrderId, PegReference, Quantity, orders::OrderFlags};
+use super::OrderFlags;
+use crate::{OrderId, PegReference, Quantity};
 
 use std::{
     fmt,

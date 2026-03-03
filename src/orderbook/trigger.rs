@@ -1,8 +1,5 @@
-use crate::{
-    CancelReason, OrderProcessingResult, Timestamp,
-    orderbook::{OrderBook, matching::match_order},
-    types::*,
-};
+use super::{OrderBook, matching::match_order};
+use crate::{CancelReason, OrderProcessingResult, Timestamp, types::*};
 
 impl OrderBook {
     /// Trigger the opposite side of the conditional orders to become active takers.

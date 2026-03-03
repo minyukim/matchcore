@@ -1,9 +1,5 @@
-use crate::{
-    SequenceNumber, Timestamp,
-    command::*,
-    orderbook::{ExecutionError, OrderBook},
-    report::*,
-};
+use super::{ExecutionError, OrderBook};
+use crate::{SequenceNumber, Timestamp, command::*, report::*};
 
 impl OrderBook {
     /// Execute a command against the order book

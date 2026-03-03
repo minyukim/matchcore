@@ -1,7 +1,5 @@
-use crate::{
-    Notional, OrderId, Price, Quantity, Side,
-    report::{CancelReason, Trade},
-};
+use super::{CancelReason, Trade};
+use crate::{Notional, OrderId, Price, Quantity, Side};
 
 use serde::{Deserialize, Serialize};
 

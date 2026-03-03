@@ -1,4 +1,5 @@
-use crate::{LimitOrder, PriceLevel, Side, orderbook::OrderBook};
+use super::OrderBook;
+use crate::{LimitOrder, PriceLevel, Side};
 
 use std::collections::btree_map::Entry;
 

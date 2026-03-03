@@ -1,4 +1,5 @@
-use crate::{OrderId, Price, Quantity, QuantityPolicy, orders::OrderFlags};
+use super::OrderFlags;
+use crate::{OrderId, Price, Quantity, QuantityPolicy};
 
 use std::{
     fmt,

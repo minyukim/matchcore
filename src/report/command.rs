@@ -1,7 +1,5 @@
-use crate::{
-    RejectReason,
-    report::{AmendReport, SubmitReport},
-};
+use super::{AmendReport, SubmitReport};
+use crate::RejectReason;
 
 use serde::{Deserialize, Serialize};
 

@@ -1,10 +1,10 @@
+use super::{
+    CommandError,
+    validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
+};
 use crate::{
     LimitOrder, OrderId, PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, TimeInForce,
     Timestamp,
-    command::{
-        CommandError,
-        validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
-    },
 };
 
 use serde::{Deserialize, Serialize};

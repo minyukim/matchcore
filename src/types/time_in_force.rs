@@ -1,4 +1,4 @@
-use crate::types::Timestamp;
+use super::Timestamp;
 
 use std::fmt;
 
