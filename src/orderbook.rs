@@ -3,6 +3,7 @@ mod cancel;
 mod error;
 mod execution;
 mod matching;
+mod operations;
 mod peg_level;
 mod price_level;
 mod submit;
