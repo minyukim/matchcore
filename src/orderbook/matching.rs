@@ -497,3 +497,99 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask(), Some(102));
     }
 }
+
+#[cfg(test)]
+mod tests_max_executable_quantity_unchecked {
+    use super::*;
+    use crate::{LimitOrderSpec, OrderFlags, QuantityPolicy, TimeInForce};
+
+    /// Helper function to create a new test order book
+    fn new_test_book() -> OrderBook {
+        OrderBook::new("TEST")
+    }
+
+    /// Helper function to add a standard limit order to the book
+    fn add_limit_order(book: &mut OrderBook, id: u64, price: u64, quantity: u64, side: Side) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Standard { quantity },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    #[test]
+    fn test_fully_executable_returns_requested() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        // Buy 30 at 100: 30 available, request 30 → fully executable
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 30);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_capped_by_available_liquidity() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        // Buy 100 at 100: only 50 available
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 100);
+        assert_eq!(qty, 50);
+    }
+
+    #[test]
+    fn test_multiple_levels_summed_up_to_limit_price() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 30, Side::Sell);
+        add_limit_order(&mut orderbook, 1, 101, 40, Side::Sell);
+
+        // Buy at limit 101: 30 + 40 = 70 available, request 100 → 70 executable
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 70);
+    }
+
+    #[test]
+    fn test_buy_respects_limit_price_ceiling() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 10, Side::Sell);
+        add_limit_order(&mut orderbook, 1, 102, 20, Side::Sell);
+
+        // Buy at limit 101: only 10 @ 100 counts, 102 is above limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 10);
+    }
+
+    #[test]
+    fn test_sell_taker_fully_executable() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Buy);
+
+        // Sell 30 at 100: 30 executable
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 100, 30);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_sell_taker_capped_by_bids() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Buy);
+
+        // Sell 100 at 100: only 50 available
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 100, 100);
+        assert_eq!(qty, 50);
+    }
+
+    #[test]
+    fn test_sell_respects_limit_price_floor() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 98, 30, Side::Buy);
+        add_limit_order(&mut orderbook, 1, 100, 50, Side::Buy);
+
+        // Sell at limit 99: only 50 @ 100 counts (bid >= 99), 98 is below limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 99, 100);
+        assert_eq!(qty, 50);
+    }
+}
