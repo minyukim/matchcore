@@ -1,5 +1,6 @@
 use crate::{
-    LimitOrder, OrderId, PegReference, PeggedOrder, QuantityPolicy, TimeInForce, Timestamp,
+    LimitOrder, OrderId, PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, TimeInForce,
+    Timestamp,
     command::{
         CommandError,
         validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
@@ -30,7 +31,7 @@ pub enum AmendPatch {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LimitOrderPatch {
     /// The new price of the order
-    pub price: Option<u64>,
+    pub price: Option<Price>,
     /// The new quantity policy of the order
     pub quantity_policy: Option<QuantityPolicy>,
     /// The flags to update
@@ -44,7 +45,7 @@ impl LimitOrderPatch {
     }
 
     /// Returns this patch with the price set.
-    pub fn with_price(mut self, v: u64) -> Self {
+    pub fn with_price(mut self, v: Price) -> Self {
         self.price = Some(v);
         self
     }
@@ -111,7 +112,7 @@ pub struct PeggedOrderPatch {
     /// The new peg reference type
     pub peg_reference: Option<PegReference>,
     /// The new quantity of the order
-    pub quantity: Option<u64>,
+    pub quantity: Option<Quantity>,
     /// The flags to update
     pub flags: OrderFlagsPatch,
 }
@@ -129,7 +130,7 @@ impl PeggedOrderPatch {
     }
 
     /// Returns this patch with the quantity set.
-    pub fn with_quantity(mut self, v: u64) -> Self {
+    pub fn with_quantity(mut self, v: Quantity) -> Self {
         self.quantity = Some(v);
         self
     }
@@ -226,14 +227,18 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
                 patch: LimitOrderPatch::new()
-                    .with_price(100)
-                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 10 }),
+                    .with_price(Price(100))
+                    .with_quantity_policy(QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    }),
                 expected: Ok(()),
             },
             Case {
@@ -241,12 +246,14 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitOrderPatch::new().with_price(200),
+                patch: LimitOrderPatch::new().with_price(Price(200)),
                 expected: Ok(()),
             },
             Case {
@@ -254,13 +261,16 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitOrderPatch::new()
-                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 20 }),
+                patch: LimitOrderPatch::new().with_quantity_policy(QuantityPolicy::Standard {
+                    quantity: Quantity(20),
+                }),
                 expected: Ok(()),
             },
             Case {
@@ -268,8 +278,10 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -281,8 +293,10 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -294,8 +308,10 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -307,8 +323,10 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -322,12 +340,14 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: LimitOrderPatch::new().with_price(0),
+                patch: LimitOrderPatch::new().with_price(Price(0)),
                 expected: Err(CommandError::ZeroPrice),
             },
             Case {
@@ -335,14 +355,18 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
                 patch: LimitOrderPatch::new()
-                    .with_price(100)
-                    .with_quantity_policy(QuantityPolicy::Standard { quantity: 0 }),
+                    .with_price(Price(100))
+                    .with_quantity_policy(QuantityPolicy::Standard {
+                        quantity: Quantity(0),
+                    }),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
@@ -350,16 +374,18 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
                 patch: LimitOrderPatch::new()
                     .with_quantity_policy(QuantityPolicy::Iceberg {
-                        visible_quantity: 10,
-                        hidden_quantity: 10,
-                        replenish_quantity: 10,
+                        visible_quantity: Quantity(10),
+                        hidden_quantity: Quantity(10),
+                        replenish_quantity: Quantity(10),
                     })
                     .with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::IcebergImmediateTif),
@@ -369,8 +395,10 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                     ),
                 ),
@@ -382,8 +410,10 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
-                        QuantityPolicy::Standard { quantity: 10 },
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
                     ),
                 ),
@@ -395,11 +425,11 @@ mod tests {
                 order: LimitOrder::new(
                     OrderId(1),
                     LimitOrderSpec::new(
-                        100,
+                        Price(100),
                         QuantityPolicy::Iceberg {
-                            visible_quantity: 10,
-                            hidden_quantity: 10,
-                            replenish_quantity: 10,
+                            visible_quantity: Quantity(10),
+                            hidden_quantity: Quantity(10),
+                            replenish_quantity: Quantity(10),
                         },
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
@@ -481,13 +511,13 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
                 patch: PeggedOrderPatch::new()
                     .with_peg_reference(PegReference::Market)
-                    .with_quantity(10),
+                    .with_quantity(Quantity(10)),
                 expected: Ok(()),
             },
             Case {
@@ -496,7 +526,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Primary,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -509,11 +539,11 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedOrderPatch::new().with_quantity(20),
+                patch: PeggedOrderPatch::new().with_quantity(Quantity(20)),
                 expected: Ok(()),
             },
             Case {
@@ -522,7 +552,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -535,7 +565,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -548,7 +578,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -561,7 +591,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -576,11 +606,11 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
-                patch: PeggedOrderPatch::new().with_quantity(0),
+                patch: PeggedOrderPatch::new().with_quantity(Quantity(0)),
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
@@ -589,7 +619,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
                 ),
@@ -604,7 +634,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Primary,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                     ),
                 ),
@@ -617,7 +647,7 @@ mod tests {
                     OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Primary,
-                        10,
+                        Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
                     ),
                 ),

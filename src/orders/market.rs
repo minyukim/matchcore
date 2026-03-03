@@ -1,4 +1,4 @@
-use crate::Side;
+use crate::{Quantity, Side};
 
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MarketOrderSpec {
     /// The quantity of the order
-    quantity: u64,
+    quantity: Quantity,
     /// The side of the order
     side: Side,
     /// Whether to convert the order to a limit order
@@ -18,7 +18,7 @@ pub struct MarketOrderSpec {
 
 impl MarketOrderSpec {
     /// Create a new market order specification
-    pub fn new(quantity: u64, side: Side, market_to_limit: bool) -> Self {
+    pub fn new(quantity: Quantity, side: Side, market_to_limit: bool) -> Self {
         Self {
             quantity,
             side,
@@ -27,7 +27,7 @@ impl MarketOrderSpec {
     }
 
     /// Get the quantity of the order
-    pub fn quantity(&self) -> u64 {
+    pub fn quantity(&self) -> Quantity {
         self.quantity
     }
 

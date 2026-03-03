@@ -94,7 +94,7 @@ impl OrderBook {
             self.last_trade_price = result.last_trade_price();
 
             let remaining = quantity - result.executed_quantity();
-            if remaining == 0 {
+            if remaining.is_zero() {
                 // The order is fully matched, remove it from the peg level
                 active_peg_level.remove_head_order(pegged_orders);
             } else {

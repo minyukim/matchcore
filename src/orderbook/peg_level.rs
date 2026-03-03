@@ -1,4 +1,4 @@
-use crate::{OrderId, PegReference, PeggedOrder};
+use crate::{OrderId, PegReference, PeggedOrder, Quantity};
 
 use std::collections::{HashMap, VecDeque};
 
@@ -17,7 +17,7 @@ pub(super) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
     /// Total quantity at this pegged order level
-    quantity: u64,
+    quantity: Quantity,
     /// Number of orders at this pegged order level
     order_count: u64,
     /// Queue of order IDs at this pegged order level
@@ -34,19 +34,19 @@ impl PegLevel {
     /// Create a new peg level
     pub fn new() -> Self {
         Self {
-            quantity: 0,
+            quantity: Quantity(0),
             order_count: 0,
             order_ids: VecDeque::new(),
         }
     }
 
     /// Get the quantity at this peg level
-    pub fn quantity(&self) -> u64 {
+    pub fn quantity(&self) -> Quantity {
         self.quantity
     }
 
     /// Consume the quantity at this peg level
-    pub(super) fn consume(&mut self, quantity: u64) {
+    pub(super) fn consume(&mut self, quantity: Quantity) {
         self.quantity = self.quantity.saturating_sub(quantity);
     }
 
@@ -141,7 +141,9 @@ impl PegLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{OrderFlags, PegReference, PeggedOrder, PeggedOrderSpec, Side, TimeInForce};
+    use crate::{
+        OrderFlags, PegReference, PeggedOrder, PeggedOrderSpec, Quantity, Side, TimeInForce,
+    };
 
     use std::collections::HashMap;
 
@@ -161,7 +163,7 @@ mod tests {
     fn test_push() {
         let mut limit_orders = HashMap::new();
         let mut peg_level = PegLevel::new();
-        assert_eq!(peg_level.quantity, 0);
+        assert_eq!(peg_level.quantity, Quantity(0));
         assert_eq!(peg_level.order_count(), 0);
 
         peg_level.push(
@@ -170,12 +172,12 @@ mod tests {
                 OrderId(0),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    10,
+                    Quantity(10),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(peg_level.quantity, 10);
+        assert_eq!(peg_level.quantity, Quantity(10));
         assert_eq!(peg_level.order_count(), 1);
 
         peg_level.push(
@@ -184,12 +186,12 @@ mod tests {
                 OrderId(1),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    20,
+                    Quantity(20),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(peg_level.quantity, 30);
+        assert_eq!(peg_level.quantity, Quantity(30));
         assert_eq!(peg_level.order_count(), 2);
 
         peg_level.push(
@@ -198,12 +200,12 @@ mod tests {
                 OrderId(2),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    30,
+                    Quantity(30),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(peg_level.quantity, 60);
+        assert_eq!(peg_level.quantity, Quantity(60));
         assert_eq!(peg_level.order_count(), 3);
     }
 
@@ -220,7 +222,7 @@ mod tests {
                 OrderId(0),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    100,
+                    Quantity(100),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -233,7 +235,7 @@ mod tests {
                 OrderId(1),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    100,
+                    Quantity(100),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -252,7 +254,7 @@ mod tests {
             OrderId(0),
             PeggedOrderSpec::new(
                 PegReference::Primary,
-                100,
+                Quantity(100),
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
@@ -265,7 +267,7 @@ mod tests {
                 OrderId(1),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    100,
+                    Quantity(100),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -286,7 +288,7 @@ mod tests {
                 OrderId(0),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    100,
+                    Quantity(100),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -302,7 +304,7 @@ mod tests {
                 OrderId(1),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    100,
+                    Quantity(100),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -315,7 +317,7 @@ mod tests {
                 OrderId(2),
                 PeggedOrderSpec::new(
                     PegReference::Primary,
-                    100,
+                    Quantity(100),
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),

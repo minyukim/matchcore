@@ -1,4 +1,4 @@
-use crate::{OrderId, PegReference, orders::OrderFlags};
+use crate::{OrderId, PegReference, Quantity, orders::OrderFlags};
 
 use std::{
     fmt,
@@ -35,7 +35,7 @@ impl PeggedOrder {
     /// Matches this order against an incoming quantity
     ///
     /// Returns the quantity consumed from the incoming order
-    pub(crate) fn match_against(&mut self, incoming_quantity: u64) -> u64 {
+    pub(crate) fn match_against(&mut self, incoming_quantity: Quantity) -> Quantity {
         let new_quantity = self.quantity.saturating_sub(incoming_quantity);
         let consumed = self.quantity - new_quantity;
 
@@ -78,14 +78,14 @@ pub struct PeggedOrderSpec {
     /// Reference price to track
     peg_reference: PegReference,
     /// The quantity of the order
-    quantity: u64,
+    quantity: Quantity,
     /// The flags of the order
     flags: OrderFlags,
 }
 
 impl PeggedOrderSpec {
     /// Create a new pegged order specification
-    pub fn new(peg_reference: PegReference, quantity: u64, flags: OrderFlags) -> Self {
+    pub fn new(peg_reference: PegReference, quantity: Quantity, flags: OrderFlags) -> Self {
         Self {
             peg_reference,
             quantity,
@@ -104,17 +104,17 @@ impl PeggedOrderSpec {
     }
 
     /// Get the quantity of the order
-    pub fn quantity(&self) -> u64 {
+    pub fn quantity(&self) -> Quantity {
         self.quantity
     }
 
     /// Check if the order is filled
     pub fn is_filled(&self) -> bool {
-        self.quantity == 0
+        self.quantity.is_zero()
     }
 
     /// Update the quantity of the order
-    pub(crate) fn update_quantity(&mut self, new_quantity: u64) {
+    pub(crate) fn update_quantity(&mut self, new_quantity: Quantity) {
         self.quantity = new_quantity;
     }
 
@@ -140,14 +140,14 @@ impl DerefMut for PeggedOrderSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{PegReference, Side, TimeInForce, Timestamp, orders::OrderFlags};
+    use crate::{PegReference, Quantity, Side, TimeInForce, Timestamp, orders::OrderFlags};
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
             OrderId(0),
             PeggedOrderSpec::new(
                 PegReference::Primary,
-                20,
+                Quantity(20),
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         )
@@ -176,19 +176,19 @@ mod tests {
     #[test]
     fn test_quantity() {
         let mut order = create_pegged_order();
-        assert_eq!(order.quantity(), 20);
+        assert_eq!(order.quantity(), Quantity(20));
         assert!(!order.is_filled());
 
-        order.update_quantity(30);
-        assert_eq!(order.quantity(), 30);
+        order.update_quantity(Quantity(30));
+        assert_eq!(order.quantity(), Quantity(30));
         assert!(!order.is_filled());
 
-        order.update_quantity(10);
-        assert_eq!(order.quantity(), 10);
+        order.update_quantity(Quantity(10));
+        assert_eq!(order.quantity(), Quantity(10));
         assert!(!order.is_filled());
 
-        order.update_quantity(0);
-        assert_eq!(order.quantity(), 0);
+        order.update_quantity(Quantity(0));
+        assert_eq!(order.quantity(), Quantity(0));
         assert!(order.is_filled());
     }
 
@@ -230,19 +230,19 @@ mod tests {
     #[test]
     fn test_match_against() {
         let mut order = create_pegged_order();
-        assert_eq!(order.quantity(), 20);
+        assert_eq!(order.quantity(), Quantity(20));
 
-        let consumed = order.match_against(2);
-        assert_eq!(consumed, 2);
-        assert_eq!(order.quantity(), 18);
+        let consumed = order.match_against(Quantity(2));
+        assert_eq!(consumed, Quantity(2));
+        assert_eq!(order.quantity(), Quantity(18));
 
-        let consumed = order.match_against(20);
-        assert_eq!(consumed, 18);
-        assert_eq!(order.quantity(), 0);
+        let consumed = order.match_against(Quantity(20));
+        assert_eq!(consumed, Quantity(18));
+        assert_eq!(order.quantity(), Quantity(0));
 
-        let consumed = order.match_against(10);
-        assert_eq!(consumed, 0);
-        assert_eq!(order.quantity(), 0);
+        let consumed = order.match_against(Quantity(10));
+        assert_eq!(consumed, Quantity(0));
+        assert_eq!(order.quantity(), Quantity(0));
     }
 
     #[test]

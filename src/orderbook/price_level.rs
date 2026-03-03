@@ -1,4 +1,4 @@
-use crate::{LimitOrder, OrderId};
+use crate::{LimitOrder, OrderId, Quantity};
 
 use std::collections::{HashMap, VecDeque};
 
@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level
-    visible_quantity: u64,
+    visible_quantity: Quantity,
     /// Total hidden quantity at this price level
-    hidden_quantity: u64,
+    hidden_quantity: Quantity,
     /// Number of orders at this price level
     order_count: u64,
     /// Queue of order IDs at this price level
@@ -29,30 +29,30 @@ impl PriceLevel {
     /// Create a new price level
     pub fn new() -> Self {
         Self {
-            visible_quantity: 0,
-            hidden_quantity: 0,
+            visible_quantity: Quantity(0),
+            hidden_quantity: Quantity(0),
             order_count: 0,
             order_ids: VecDeque::new(),
         }
     }
 
     /// Get the visible quantity at this price level
-    pub fn visible_quantity(&self) -> u64 {
+    pub fn visible_quantity(&self) -> Quantity {
         self.visible_quantity
     }
 
     /// Consume the quantity at this price level
-    pub(super) fn consume(&mut self, quantity: u64) {
+    pub(super) fn consume(&mut self, quantity: Quantity) {
         self.visible_quantity = self.visible_quantity.saturating_sub(quantity);
     }
 
     /// Get the hidden quantity at this price level
-    pub fn hidden_quantity(&self) -> u64 {
+    pub fn hidden_quantity(&self) -> Quantity {
         self.hidden_quantity
     }
 
     /// Get the total quantity at this price level (visible + hidden)
-    pub fn total_quantity(&self) -> u64 {
+    pub fn total_quantity(&self) -> Quantity {
         self.visible_quantity + self.hidden_quantity
     }
 
@@ -150,8 +150,8 @@ impl PriceLevel {
     /// Handle the replenishment of the order
     /// If the replenishment quantity is 0, do nothing
     /// Otherwise, add the order back to the price level
-    pub(super) fn handle_replenishment(&mut self, replenished_quantity: u64) {
-        if replenished_quantity == 0 {
+    pub(super) fn handle_replenishment(&mut self, replenished_quantity: Quantity) {
+        if replenished_quantity.is_zero() {
             return;
         }
 
@@ -168,18 +168,20 @@ impl PriceLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LimitOrder, LimitOrderSpec, OrderFlags, QuantityPolicy, Side, TimeInForce};
+    use crate::{
+        LimitOrder, LimitOrderSpec, OrderFlags, Price, Quantity, QuantityPolicy, Side, TimeInForce,
+    };
 
     use std::collections::HashMap;
 
     #[test]
     fn test_total_quantity() {
         let mut price_level = PriceLevel::new();
-        assert_eq!(price_level.total_quantity(), 0);
+        assert_eq!(price_level.total_quantity(), Quantity(0));
 
-        price_level.visible_quantity = 10;
-        price_level.hidden_quantity = 20;
-        assert_eq!(price_level.total_quantity(), 30);
+        price_level.visible_quantity = Quantity(10);
+        price_level.hidden_quantity = Quantity(20);
+        assert_eq!(price_level.total_quantity(), Quantity(30));
     }
 
     #[test]
@@ -201,8 +203,8 @@ mod tests {
     fn test_push() {
         let mut limit_orders = HashMap::new();
         let mut price_level = PriceLevel::new();
-        assert_eq!(price_level.visible_quantity, 0);
-        assert_eq!(price_level.hidden_quantity, 0);
+        assert_eq!(price_level.visible_quantity, Quantity(0));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
 
         price_level.push(
@@ -210,14 +212,16 @@ mod tests {
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(price_level.visible_quantity, 10);
-        assert_eq!(price_level.hidden_quantity, 0);
+        assert_eq!(price_level.visible_quantity, Quantity(10));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 1);
 
         price_level.push(
@@ -225,14 +229,16 @@ mod tests {
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 20 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(20),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(price_level.visible_quantity, 30);
-        assert_eq!(price_level.hidden_quantity, 0);
+        assert_eq!(price_level.visible_quantity, Quantity(30));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 2);
 
         price_level.push(
@@ -240,18 +246,18 @@ mod tests {
             LimitOrder::new(
                 OrderId(2),
                 LimitOrderSpec::new(
-                    100,
+                    Price(100),
                     QuantityPolicy::Iceberg {
-                        visible_quantity: 10,
-                        hidden_quantity: 20,
-                        replenish_quantity: 10,
+                        visible_quantity: Quantity(10),
+                        hidden_quantity: Quantity(20),
+                        replenish_quantity: Quantity(10),
                     },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(price_level.visible_quantity, 40);
-        assert_eq!(price_level.hidden_quantity, 20);
+        assert_eq!(price_level.visible_quantity, Quantity(40));
+        assert_eq!(price_level.hidden_quantity, Quantity(20));
         assert_eq!(price_level.order_count(), 3);
     }
 
@@ -267,8 +273,10 @@ mod tests {
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -280,8 +288,10 @@ mod tests {
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 20 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(20),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -299,8 +309,10 @@ mod tests {
         let mut order = LimitOrder::new(
             OrderId(0),
             LimitOrderSpec::new(
-                100,
-                QuantityPolicy::Standard { quantity: 10 },
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
@@ -312,8 +324,10 @@ mod tests {
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 20 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(20),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -333,8 +347,10 @@ mod tests {
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 10 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -349,8 +365,10 @@ mod tests {
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 20 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(20),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -362,8 +380,10 @@ mod tests {
             LimitOrder::new(
                 OrderId(2),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 30 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(30),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
@@ -382,8 +402,8 @@ mod tests {
         let mut limit_orders = HashMap::new();
 
         let mut price_level = PriceLevel::new();
-        assert_eq!(price_level.visible_quantity, 0);
-        assert_eq!(price_level.hidden_quantity, 0);
+        assert_eq!(price_level.visible_quantity, Quantity(0));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
         assert!(price_level.peek(&mut limit_orders).is_none());
 
@@ -392,24 +412,24 @@ mod tests {
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
-                    100,
+                    Price(100),
                     QuantityPolicy::Iceberg {
-                        visible_quantity: 0,
-                        hidden_quantity: 100,
-                        replenish_quantity: 10,
+                        visible_quantity: Quantity(0),
+                        hidden_quantity: Quantity(100),
+                        replenish_quantity: Quantity(10),
                     },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(price_level.visible_quantity, 0);
-        assert_eq!(price_level.hidden_quantity, 100);
+        assert_eq!(price_level.visible_quantity, Quantity(0));
+        assert_eq!(price_level.hidden_quantity, Quantity(100));
         assert_eq!(price_level.order_count(), 1);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        price_level.handle_replenishment(10);
-        assert_eq!(price_level.visible_quantity, 10);
-        assert_eq!(price_level.hidden_quantity, 90);
+        price_level.handle_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(10));
+        assert_eq!(price_level.hidden_quantity, Quantity(90));
         assert_eq!(price_level.order_count(), 1);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
@@ -418,20 +438,22 @@ mod tests {
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
-                    100,
-                    QuantityPolicy::Standard { quantity: 20 },
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(20),
+                    },
                     OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
                 ),
             ),
         );
-        assert_eq!(price_level.visible_quantity, 30);
-        assert_eq!(price_level.hidden_quantity, 90);
+        assert_eq!(price_level.visible_quantity, Quantity(30));
+        assert_eq!(price_level.hidden_quantity, Quantity(90));
         assert_eq!(price_level.order_count(), 2);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        price_level.handle_replenishment(10);
-        assert_eq!(price_level.visible_quantity, 40);
-        assert_eq!(price_level.hidden_quantity, 80);
+        price_level.handle_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(40));
+        assert_eq!(price_level.hidden_quantity, Quantity(80));
         assert_eq!(price_level.order_count(), 2);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
     }

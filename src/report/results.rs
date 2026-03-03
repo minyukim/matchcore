@@ -1,5 +1,5 @@
 use crate::{
-    OrderId, Side,
+    Notional, OrderId, Price, Quantity, Side,
     report::{CancelReason, Trade},
 };
 
@@ -90,7 +90,7 @@ impl OrderProcessingResult {
 mod tests_order_processing_result {
     use super::*;
     use crate::{
-        Side,
+        Quantity, Side,
         report::{CancelReason, MatchResult},
     };
 
@@ -109,8 +109,8 @@ mod tests_order_processing_result {
         assert_eq!(order_processing_result.cancel_reason(), None);
 
         let cancel_reason = CancelReason::InsufficientLiquidity {
-            requested_quantity: 100,
-            available_quantity: 50,
+            requested_quantity: Quantity(100),
+            available_quantity: Quantity(50),
         };
         order_processing_result = order_processing_result.with_cancel_reason(cancel_reason.clone());
         assert_eq!(
@@ -136,9 +136,9 @@ pub struct MatchResult {
     /// The side of the taker order
     taker_side: Side,
     /// The total executed quantity during the match
-    executed_quantity: u64,
+    executed_quantity: Quantity,
     /// The total value of the trades made during the match
-    executed_value: u64,
+    executed_value: Notional,
     /// The trades that were made during the match
     trades: Vec<Trade>,
 }
@@ -148,8 +148,8 @@ impl MatchResult {
     pub(crate) fn new(taker_side: Side) -> Self {
         Self {
             taker_side,
-            executed_quantity: 0,
-            executed_value: 0,
+            executed_quantity: Quantity(0),
+            executed_value: Notional(0),
             trades: Vec::new(),
         }
     }
@@ -160,12 +160,12 @@ impl MatchResult {
     }
 
     /// Get the total executed quantity during the match
-    pub fn executed_quantity(&self) -> u64 {
+    pub fn executed_quantity(&self) -> Quantity {
         self.executed_quantity
     }
 
     /// Get the total value of the trades made during the match
-    pub fn executed_value(&self) -> u64 {
+    pub fn executed_value(&self) -> Notional {
         self.executed_value
     }
 
@@ -175,7 +175,7 @@ impl MatchResult {
     }
 
     /// Get the price of the last trade made during the match
-    pub fn last_trade_price(&self) -> Option<u64> {
+    pub fn last_trade_price(&self) -> Option<Price> {
         self.trades.last().map(|trade| trade.price())
     }
 
@@ -207,12 +207,12 @@ mod tests_match_result {
 
     #[test]
     fn test_executed_quantity() {
-        assert_eq!(create_match_result().executed_quantity(), 0);
+        assert_eq!(create_match_result().executed_quantity(), Quantity(0));
     }
 
     #[test]
     fn test_executed_value() {
-        assert_eq!(create_match_result().executed_value(), 0);
+        assert_eq!(create_match_result().executed_value(), Notional(0));
     }
 
     #[test]
@@ -221,12 +221,12 @@ mod tests_match_result {
         assert_eq!(match_result.trades(), &[]);
 
         let trades = [
-            Trade::new(OrderId(2), 99, 20),
-            Trade::new(OrderId(3), 100, 30),
-            Trade::new(OrderId(4), 101, 20),
+            Trade::new(OrderId(2), Price(99), Quantity(20)),
+            Trade::new(OrderId(3), Price(100), Quantity(30)),
+            Trade::new(OrderId(4), Price(101), Quantity(20)),
         ];
-        let expected_executed_quantities = [20, 50, 70];
-        let expected_executed_values = [1980, 4980, 7000];
+        let expected_executed_quantities = [Quantity(20), Quantity(50), Quantity(70)];
+        let expected_executed_values = [Notional(1980), Notional(4980), Notional(7000)];
 
         for (i, trade) in trades.iter().enumerate() {
             match_result.add_trade(*trade);

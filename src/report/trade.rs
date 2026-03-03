@@ -1,4 +1,4 @@
-use crate::OrderId;
+use crate::{OrderId, Price, Quantity};
 
 use std::fmt;
 
@@ -10,14 +10,14 @@ pub struct Trade {
     /// The ID of the maker order
     maker_order_id: OrderId,
     /// The price of the trade
-    price: u64,
+    price: Price,
     /// The quantity of the trade
-    quantity: u64,
+    quantity: Quantity,
 }
 
 impl Trade {
     /// Create a new trade
-    pub(crate) fn new(maker_order_id: OrderId, price: u64, quantity: u64) -> Self {
+    pub(crate) fn new(maker_order_id: OrderId, price: Price, quantity: Quantity) -> Self {
         Self {
             maker_order_id,
             price,
@@ -31,12 +31,12 @@ impl Trade {
     }
 
     /// Get the price of the trade
-    pub fn price(&self) -> u64 {
+    pub fn price(&self) -> Price {
         self.price
     }
 
     /// Get the quantity of the trade
-    pub fn quantity(&self) -> u64 {
+    pub fn quantity(&self) -> Quantity {
         self.quantity
     }
 }
@@ -58,7 +58,7 @@ mod tests {
     use super::*;
 
     fn create_trade() -> Trade {
-        Trade::new(OrderId(1), 100, 10)
+        Trade::new(OrderId(1), Price(100), Quantity(10))
     }
 
     #[test]
@@ -68,12 +68,12 @@ mod tests {
 
     #[test]
     fn test_price() {
-        assert_eq!(create_trade().price(), 100);
+        assert_eq!(create_trade().price(), Price(100));
     }
 
     #[test]
     fn test_quantity() {
-        assert_eq!(create_trade().quantity(), 10);
+        assert_eq!(create_trade().quantity(), Quantity(10));
     }
 
     #[test]
