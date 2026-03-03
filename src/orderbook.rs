@@ -58,9 +58,9 @@ pub struct OrderBook {
 
 impl OrderBook {
     /// Create a new order book
-    pub fn new(symbol: String) -> Self {
+    pub fn new(symbol: &str) -> Self {
         Self {
-            symbol,
+            symbol: symbol.to_string(),
             last_sequence_number: None,
             last_seen_timestamp: None,
             last_trade_price: None,
