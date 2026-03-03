@@ -109,6 +109,7 @@ impl OrderBook {
         }
     }
 
+    /// Submit a crossable order
     fn submit_crossable_order(
         &mut self,
         meta: CommandMeta,
@@ -181,6 +182,7 @@ impl OrderBook {
         )
     }
 
+    /// Submit a non-crossable order
     fn submit_non_crossable_order(
         &mut self,
         meta: CommandMeta,
