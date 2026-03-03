@@ -17,7 +17,10 @@ use crate::{
     LimitOrder, OrderId, PegReference, PeggedOrder, Price, SequenceNumber, Side, Timestamp,
 };
 
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, BinaryHeap, HashMap},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -56,6 +59,10 @@ pub struct OrderBook {
 
     /// Pegged orders indexed by order ID for O(1) lookup
     pub(self) pegged_orders: HashMap<OrderId, PeggedOrder>,
+
+    /// Queue of orders to be expired, stored in a min heap of tuples of(expires_at, order_id)
+    /// with O(log N) ordering
+    pub(self) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 
 impl OrderBook {
@@ -72,6 +79,7 @@ impl OrderBook {
             peg_bid_levels: core::array::from_fn(|_| PegLevel::new()),
             peg_ask_levels: core::array::from_fn(|_| PegLevel::new()),
             pegged_orders: HashMap::new(),
+            expiration_queue: BinaryHeap::new(),
         }
     }
 
