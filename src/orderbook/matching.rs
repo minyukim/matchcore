@@ -286,3 +286,524 @@ pub(super) fn match_order(
 
     match_result
 }
+
+#[cfg(test)]
+mod tests_match_order {
+    use super::*;
+    use crate::{LimitOrderSpec, OrderFlags, QuantityPolicy, TimeInForce};
+
+    /// Helper function to create a new test order book
+    fn new_test_book() -> OrderBook {
+        OrderBook::new("TEST")
+    }
+
+    /// Helper function to add a standard limit order to the book
+    fn add_standard_order(book: &mut OrderBook, id: u64, price: u64, quantity: u64, side: Side) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Standard { quantity },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    /// Helper function to add an iceberg limit order to the book
+    fn add_iceberg_order(
+        book: &mut OrderBook,
+        id: u64,
+        price: u64,
+        visible_quantity: u64,
+        hidden_quantity: u64,
+        replenish_quantity: u64,
+        side: Side,
+    ) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity,
+                    replenish_quantity,
+                },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    #[test]
+    fn test_single_maker_full_fill() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        let result = orderbook.match_order(Side::Buy, Some(100), 50, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 50);
+        assert_eq!(result.executed_value(), 100 * 50);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 50));
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Maker fully filled, level removed
+        assert!(orderbook.best_ask().is_none());
+    }
+
+    #[test]
+    fn test_single_maker_partial_fill() {
+        let mut orderbook = new_test_book();
+        assert!(orderbook.last_trade_price().is_none());
+        assert!(orderbook.best_ask().is_none());
+
+        // Add a sell order (maker) at 100 for 50
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Sell);
+        assert_eq!(orderbook.best_ask(), Some(100));
+
+        // Match a buy order at 100 for 30 against the book
+        let result = orderbook.match_order(Side::Buy, Some(100), 30, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 30);
+        assert_eq!(result.executed_value(), 100 * 30);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 30));
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Best ask is still 100 with 20 remaining
+        assert_eq!(orderbook.best_ask(), Some(100));
+
+        // Match a buy order at 100 for 40 against the book
+        let result = orderbook.match_order(Side::Buy, Some(100), 40, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 20);
+        assert_eq!(result.executed_value(), 100 * 20);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 20));
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Maker fully filled, level removed
+        assert!(orderbook.best_ask().is_none());
+    }
+
+    #[test]
+    fn test_sell_taker() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Buy);
+
+        let result = orderbook.match_order(Side::Sell, Some(100), 40, 0);
+
+        assert_eq!(result.taker_side(), Side::Sell);
+        assert_eq!(result.executed_quantity(), 40);
+        assert_eq!(result.executed_value(), 100 * 40);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 40));
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Best bid is still 100 with 10 remaining
+        assert_eq!(orderbook.best_bid(), Some(100));
+
+        // Match a sell order at 100 for 20 against the book
+        let result = orderbook.match_order(Side::Sell, Some(100), 20, 0);
+
+        assert_eq!(result.taker_side(), Side::Sell);
+        assert_eq!(result.executed_quantity(), 10);
+        assert_eq!(result.executed_value(), 100 * 10);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 10));
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Maker fully filled, level removed
+        assert!(orderbook.best_bid().is_none());
+    }
+
+    #[test]
+    fn test_empty_book_no_fill() {
+        let mut orderbook = new_test_book();
+
+        let result = orderbook.match_order(Side::Buy, None, 30, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 0);
+        assert_eq!(result.executed_value(), 0);
+        assert!(result.trades().is_empty());
+        assert!(orderbook.last_trade_price().is_none());
+    }
+
+    #[test]
+    fn test_limit_not_crossed_no_fill() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        // Buy limit 99 does not cross best ask 100
+        let result = orderbook.match_order(Side::Buy, Some(99), 30, 0);
+
+        assert_eq!(result.executed_quantity(), 0);
+        assert!(result.trades().is_empty());
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_multiple_makers_same_price() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 20, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 100, 30, Side::Sell);
+
+        // Buy 40: fills first maker fully (20), second maker partially (20)
+        let result = orderbook.match_order(Side::Buy, Some(100), 40, 0);
+
+        assert_eq!(result.executed_quantity(), 40);
+        assert_eq!(result.executed_value(), 100 * 40);
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 20));
+        assert_eq!(result.trades()[1], Trade::new(1, 100, 20));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Second maker has 10 left at 100
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_multiple_price_levels() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 30, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 101, 40, Side::Sell);
+
+        // Buy 50 at limit 101: 30 @ 100, then 20 @ 101
+        let result = orderbook.match_order(Side::Buy, Some(101), 50, 0);
+
+        assert_eq!(result.executed_quantity(), 50);
+        assert_eq!(result.executed_value(), 30 * 100 + 20 * 101);
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 30));
+        assert_eq!(result.trades()[1], Trade::new(1, 101, 20));
+        assert_eq!(orderbook.last_trade_price(), Some(101));
+        // Best ask now 101 with 20 remaining
+        assert_eq!(orderbook.best_ask(), Some(101));
+    }
+
+    #[test]
+    fn test_market_buy_sweeps_levels() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 25, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 101, 25, Side::Sell);
+        add_standard_order(&mut orderbook, 2, 102, 25, Side::Sell);
+
+        // Market buy (None limit) for 60: 25 @ 100, 25 @ 101, 10 @ 102
+        let result = orderbook.match_order(Side::Buy, None, 60, 0);
+
+        assert_eq!(result.executed_quantity(), 60);
+        assert_eq!(result.executed_value(), 25 * 100 + 25 * 101 + 10 * 102);
+        assert_eq!(result.trades().len(), 3);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 25));
+        assert_eq!(result.trades()[1], Trade::new(1, 101, 25));
+        assert_eq!(result.trades()[2], Trade::new(2, 102, 10));
+        assert_eq!(orderbook.last_trade_price(), Some(102));
+        assert_eq!(orderbook.best_ask(), Some(102));
+    }
+
+    // --- Iceberg test cases ---
+
+    #[test]
+    fn test_iceberg_maker_partial_fill_visible_only() {
+        let mut orderbook = new_test_book();
+        // Iceberg: visible 20, hidden 30, replenish 10 (total 50)
+        add_iceberg_order(&mut orderbook, 0, 100, 20, 30, 10, Side::Sell);
+
+        // Buy 15: only consumes visible, no replenish yet
+        let result = orderbook.match_order(Side::Buy, Some(100), 15, 0);
+
+        assert_eq!(result.executed_quantity(), 15);
+        assert_eq!(result.executed_value(), 100 * 15);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 15));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Iceberg still has 5 visible + 30 hidden at 100
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_iceberg_maker_replenish_during_match() {
+        let mut orderbook = new_test_book();
+        // Iceberg: visible 10, hidden 20, replenish 10
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+
+        // Buy 15: consumes 10 (trade 10), replenish 10, then consumes 5 (trade 5)
+        let result = orderbook.match_order(Side::Buy, Some(100), 15, 0);
+
+        assert_eq!(result.executed_quantity(), 15);
+        assert_eq!(result.executed_value(), 100 * 15);
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[1], Trade::new(0, 100, 5));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Iceberg has 5 visible + 10 hidden left
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_iceberg_maker_multiple_replenishes_in_one_match() {
+        let mut orderbook = new_test_book();
+        // Iceberg: visible 10, hidden 30, replenish 10 (total 40)
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 30, 10, Side::Sell);
+
+        // Buy 35: 10 + 10 (replenish) + 10 + 5
+        let result = orderbook.match_order(Side::Buy, Some(100), 35, 0);
+
+        assert_eq!(result.executed_quantity(), 35);
+        assert_eq!(result.executed_value(), 100 * 35);
+        assert_eq!(result.trades().len(), 4);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[1], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[2], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[3], Trade::new(0, 100, 5));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Iceberg has 5 visible left
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_iceberg_maker_fully_filled() {
+        let mut orderbook = new_test_book();
+        // Iceberg: visible 10, hidden 20, replenish 10 (total 30)
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+
+        let result = orderbook.match_order(Side::Buy, Some(100), 30, 0);
+
+        assert_eq!(result.executed_quantity(), 30);
+        assert_eq!(result.executed_value(), 100 * 30);
+        assert_eq!(result.trades().len(), 3);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[1], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[2], Trade::new(0, 100, 10));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Iceberg fully filled, level removed
+        assert!(orderbook.best_ask().is_none());
+    }
+
+    #[test]
+    fn test_iceberg_then_standard_same_price() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 100, 50, Side::Sell);
+
+        // Buy 70: replenish moves iceberg to back, so we get 10 (iceberg), then 50 (standard), then 10 (iceberg) = 3 trades
+        let result = orderbook.match_order(Side::Buy, Some(100), 70, 0);
+
+        assert_eq!(result.executed_quantity(), 70);
+        assert_eq!(result.executed_value(), 100 * 70);
+        assert_eq!(result.trades().len(), 3);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[1], Trade::new(1, 100, 50));
+        assert_eq!(result.trades()[2], Trade::new(0, 100, 10));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Iceberg has 10 visible left (replenished); standard fully filled
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_iceberg_sell_taker_against_bids() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Buy);
+
+        // Sell 25: 10 + 10 (replenish) + 5
+        let result = orderbook.match_order(Side::Sell, Some(100), 25, 0);
+
+        assert_eq!(result.taker_side(), Side::Sell);
+        assert_eq!(result.executed_quantity(), 25);
+        assert_eq!(result.executed_value(), 100 * 25);
+        assert_eq!(result.trades().len(), 3);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[1], Trade::new(0, 100, 10));
+        assert_eq!(result.trades()[2], Trade::new(0, 100, 5));
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Iceberg bid has 5 visible left
+        assert_eq!(orderbook.best_bid(), Some(100));
+    }
+}
+
+#[cfg(test)]
+mod tests_max_executable_quantity_unchecked {
+    use super::*;
+    use crate::{LimitOrderSpec, OrderFlags, QuantityPolicy, TimeInForce};
+
+    /// Helper function to create a new test order book
+    fn new_test_book() -> OrderBook {
+        OrderBook::new("TEST")
+    }
+
+    /// Helper function to add a standard limit order to the book
+    fn add_standard_order(book: &mut OrderBook, id: u64, price: u64, quantity: u64, side: Side) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Standard { quantity },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    /// Helper function to add an iceberg limit order to the book
+    fn add_iceberg_order(
+        book: &mut OrderBook,
+        id: u64,
+        price: u64,
+        visible_quantity: u64,
+        hidden_quantity: u64,
+        replenish_quantity: u64,
+        side: Side,
+    ) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity,
+                    replenish_quantity,
+                },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    #[test]
+    fn test_fully_executable_returns_requested() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        // Buy 30 at 100: 30 available, request 30 → fully executable
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 30);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_capped_by_available_liquidity() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        // Buy 100 at 100: only 50 available
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 100);
+        assert_eq!(qty, 50);
+    }
+
+    #[test]
+    fn test_multiple_levels_summed_up_to_limit_price() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 30, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 101, 40, Side::Sell);
+
+        // Buy at limit 101: 30 + 40 = 70 available, request 100 → 70 executable
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 70);
+    }
+
+    #[test]
+    fn test_buy_respects_limit_price_ceiling() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 10, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 102, 20, Side::Sell);
+
+        // Buy at limit 101: only 10 @ 100 counts, 102 is above limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 10);
+    }
+
+    #[test]
+    fn test_sell_taker_fully_executable() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Buy);
+
+        // Sell 30 at 100: 30 executable
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 100, 30);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_sell_taker_capped_by_bids() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 100, 50, Side::Buy);
+
+        // Sell 100 at 100: only 50 available
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 100, 100);
+        assert_eq!(qty, 50);
+    }
+
+    #[test]
+    fn test_sell_respects_limit_price_floor() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 98, 30, Side::Buy);
+        add_standard_order(&mut orderbook, 1, 100, 50, Side::Buy);
+
+        // Sell at limit 99: only 50 @ 100 counts (bid >= 99), 98 is below limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 99, 100);
+        assert_eq!(qty, 50);
+    }
+
+    // --- Iceberg test cases (total = visible + hidden at each level) ---
+
+    #[test]
+    fn test_iceberg_buy_capped_by_total_quantity() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+
+        // Buy at 100: executable = visible + hidden = 30, request 50 → 30
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 50);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_iceberg_buy_fully_executable() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 25, 10, Side::Sell);
+
+        // Buy at 100: 35 total available, request 20 → 20 (fully executable)
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 20);
+        assert_eq!(qty, 20);
+    }
+
+    #[test]
+    fn test_iceberg_sell_capped_by_total_quantity() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 15, 25, 10, Side::Buy);
+
+        // Sell at 100: executable = 40 total, request 50 → 40
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 100, 50);
+        assert_eq!(qty, 40);
+    }
+
+    #[test]
+    fn test_iceberg_and_standard_levels_summed() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 101, 40, Side::Sell);
+
+        // Buy at 101: 30 (iceberg) + 40 (standard) = 70, request 100 → 70
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 70);
+    }
+
+    #[test]
+    fn test_iceberg_respects_buy_limit_price_ceiling() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 102, 50, Side::Sell);
+
+        // Buy at limit 101: only 30 @ 100 counts, 102 is above limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_iceberg_respects_sell_limit_price_floor() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 98, 30, Side::Buy);
+        add_iceberg_order(&mut orderbook, 1, 100, 10, 40, 10, Side::Buy);
+
+        // Sell at limit 99: only 50 @ 100 (iceberg total) counts, 98 is below limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 99, 100);
+        assert_eq!(qty, 50);
+    }
+}
