@@ -503,6 +503,8 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask(), Some(102));
     }
 
+    // --- Iceberg test cases ---
+
     #[test]
     fn test_iceberg_maker_partial_fill_visible_only() {
         let mut orderbook = new_test_book();
@@ -643,6 +645,30 @@ mod tests_max_executable_quantity_unchecked {
         ));
     }
 
+    /// Helper function to add an iceberg limit order to the book
+    fn add_iceberg_order(
+        book: &mut OrderBook,
+        id: u64,
+        price: u64,
+        visible_quantity: u64,
+        hidden_quantity: u64,
+        replenish_quantity: u64,
+        side: Side,
+    ) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity,
+                    replenish_quantity,
+                },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
     #[test]
     fn test_fully_executable_returns_requested() {
         let mut orderbook = new_test_book();
@@ -712,6 +738,71 @@ mod tests_max_executable_quantity_unchecked {
         add_standard_order(&mut orderbook, 1, 100, 50, Side::Buy);
 
         // Sell at limit 99: only 50 @ 100 counts (bid >= 99), 98 is below limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 99, 100);
+        assert_eq!(qty, 50);
+    }
+
+    // --- Iceberg test cases (total = visible + hidden at each level) ---
+
+    #[test]
+    fn test_iceberg_buy_capped_by_total_quantity() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+
+        // Buy at 100: executable = visible + hidden = 30, request 50 → 30
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 50);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_iceberg_buy_fully_executable() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 25, 10, Side::Sell);
+
+        // Buy at 100: 35 total available, request 20 → 20 (fully executable)
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 100, 20);
+        assert_eq!(qty, 20);
+    }
+
+    #[test]
+    fn test_iceberg_sell_capped_by_total_quantity() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 15, 25, 10, Side::Buy);
+
+        // Sell at 100: executable = 40 total, request 50 → 40
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 100, 50);
+        assert_eq!(qty, 40);
+    }
+
+    #[test]
+    fn test_iceberg_and_standard_levels_summed() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 101, 40, Side::Sell);
+
+        // Buy at 101: 30 (iceberg) + 40 (standard) = 70, request 100 → 70
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 70);
+    }
+
+    #[test]
+    fn test_iceberg_respects_buy_limit_price_ceiling() {
+        let mut orderbook = new_test_book();
+        add_iceberg_order(&mut orderbook, 0, 100, 10, 20, 10, Side::Sell);
+        add_standard_order(&mut orderbook, 1, 102, 50, Side::Sell);
+
+        // Buy at limit 101: only 30 @ 100 counts, 102 is above limit
+        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, 101, 100);
+        assert_eq!(qty, 30);
+    }
+
+    #[test]
+    fn test_iceberg_respects_sell_limit_price_floor() {
+        let mut orderbook = new_test_book();
+        add_standard_order(&mut orderbook, 0, 98, 30, Side::Buy);
+        add_iceberg_order(&mut orderbook, 1, 100, 10, 40, 10, Side::Buy);
+
+        // Sell at limit 99: only 50 @ 100 (iceberg total) counts, 98 is below limit
         let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, 99, 100);
         assert_eq!(qty, 50);
     }
