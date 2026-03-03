@@ -10,6 +10,15 @@ pub enum RejectReason {
     CommandError(CommandError),
     /// No liquidity available to fill the immediate order
     NoLiquidity,
+    /// Insufficient liquidity for FOK orders
+    InsufficientLiquidity {
+        /// The quantity of the order that was requested to be filled
+        requested_quantity: u64,
+        /// The quantity of the order that was available to be filled
+        available_quantity: u64,
+    },
+    /// The post-only order would remove liquidity
+    PostOnlyWouldTake,
 }
 
 impl fmt::Display for RejectReason {
@@ -19,13 +28,24 @@ impl fmt::Display for RejectReason {
             RejectReason::NoLiquidity => {
                 write!(f, "No liquidity available to fill the immediate order")
             }
+            RejectReason::InsufficientLiquidity {
+                requested_quantity,
+                available_quantity,
+            } => write!(
+                f,
+                "Insufficient liquidity: requested={} available={}",
+                requested_quantity, available_quantity
+            ),
+            RejectReason::PostOnlyWouldTake => {
+                write!(f, "Post-only order would remove liquidity")
+            }
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelReason {
-    /// Insufficient liquidity for market orders and IOC/FOK orders
+    /// Insufficient liquidity for market orders and IOC orders
     InsufficientLiquidity {
         /// The quantity of the order that was requested to be filled
         requested_quantity: u64,

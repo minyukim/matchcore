@@ -27,6 +27,11 @@ impl LimitOrder {
         self.id
     }
 
+    /// Get the specification of the order
+    pub fn spec(&self) -> &LimitOrderSpec {
+        &self.spec
+    }
+
     /// Matches this order against an incoming quantity
     ///
     /// Returns a tuple containing:
@@ -173,6 +178,11 @@ impl LimitOrderSpec {
     /// Update the quantity policy of the order
     pub(crate) fn update_quantity_policy(&mut self, new_quantity_policy: QuantityPolicy) {
         self.quantity_policy = new_quantity_policy;
+    }
+
+    /// Get the flags of the order
+    pub fn flags(&self) -> &OrderFlags {
+        &self.flags
     }
 }
 

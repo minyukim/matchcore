@@ -6,6 +6,8 @@ use crate::{
     types::*,
 };
 
+use std::collections::btree_map::Entry;
+
 impl OrderBook {
     /// Execute a submit command against the order book
     /// Returns the execution report for the command
@@ -52,6 +54,7 @@ impl OrderBook {
             // The last trade price is guaranteed to exist because the order was matched
             let price = self.last_trade_price.unwrap();
 
+            // Remaining means there is no price level at this price, so create a new one
             let mut price_level = PriceLevel::new();
             price_level.push(
                 &mut self.limit_orders,
@@ -66,12 +69,7 @@ impl OrderBook {
                     ),
                 ),
             );
-
-            let price_levels = match spec.side() {
-                Side::Buy => &mut self.limit_bid_levels,
-                Side::Sell => &mut self.limit_ask_levels,
-            };
-            price_levels.insert(price, price_level);
+            self.insert_price_level(spec.side(), price, price_level);
 
             let triggered_orders =
                 self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
@@ -95,10 +93,127 @@ impl OrderBook {
     /// Submit a limit order
     fn submit_limit_order(
         &mut self,
-        _meta: CommandMeta,
-        _spec: &LimitOrderSpec,
+        meta: CommandMeta,
+        spec: &LimitOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        todo!()
+        spec.validate().map_err(RejectReason::CommandError)?;
+
+        if spec.is_expired(meta.timestamp) {
+            return Err(RejectReason::CommandError(CommandError::Expired));
+        }
+
+        if self.has_crossable_order(spec.side(), spec.price()) {
+            self.submit_crossable_order(meta, spec)
+        } else {
+            self.submit_non_crossable_order(meta, spec)
+        }
+    }
+
+    /// Submit a crossable order
+    fn submit_crossable_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &LimitOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        if spec.post_only() {
+            return Err(RejectReason::PostOnlyWouldTake);
+        }
+
+        if spec.time_in_force() == TimeInForce::Fok {
+            let executable_quantity = self.max_executable_quantity_unchecked(
+                spec.side(),
+                spec.price(),
+                spec.total_quantity(),
+            );
+            if executable_quantity < spec.total_quantity() {
+                return Err(RejectReason::InsufficientLiquidity {
+                    requested_quantity: spec.total_quantity(),
+                    available_quantity: executable_quantity,
+                });
+            }
+        }
+
+        let order_id = meta.sequence_number;
+
+        let result = self.match_order(spec.side(), None, spec.total_quantity(), meta.timestamp);
+
+        let executed_quantity = result.executed_quantity();
+        let remaining_quantity = spec.total_quantity() - executed_quantity;
+        if remaining_quantity == 0 {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id).with_match_result(result),
+            ));
+        }
+
+        let quantity_policy = match spec.quantity_policy() {
+            QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
+                quantity: remaining_quantity,
+            },
+            QuantityPolicy::Iceberg {
+                replenish_quantity, ..
+            } => {
+                let visible_quantity = ((remaining_quantity - 1) % replenish_quantity) + 1;
+
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity: remaining_quantity - visible_quantity,
+                    replenish_quantity,
+                }
+            }
+        };
+
+        // Remaining means there is no price level at this price, so create a new one
+        let mut price_level = PriceLevel::new();
+        price_level.push(
+            &mut self.limit_orders,
+            LimitOrder::new(
+                order_id,
+                LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
+            ),
+        );
+        self.insert_price_level(spec.side(), spec.price(), price_level);
+
+        let triggered_orders =
+            self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
+
+        Ok(
+            SubmitReport::new(OrderProcessingResult::new(order_id).with_match_result(result))
+                .with_triggered_orders(triggered_orders),
+        )
+    }
+
+    /// Submit a non-crossable order
+    fn submit_non_crossable_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &LimitOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        if spec.is_immediate() {
+            return Err(RejectReason::NoLiquidity);
+        }
+
+        let order_id = meta.sequence_number;
+
+        let orders = &mut self.limit_orders;
+
+        let levels = match spec.side() {
+            Side::Buy => &mut self.limit_bid_levels,
+            Side::Sell => &mut self.limit_ask_levels,
+        };
+
+        match levels.entry(spec.price()) {
+            Entry::Occupied(mut e) => {
+                e.get_mut()
+                    .push(orders, LimitOrder::new(order_id, spec.clone()));
+            }
+            Entry::Vacant(e) => {
+                let mut price_level = PriceLevel::new();
+                price_level.push(orders, LimitOrder::new(order_id, spec.clone()));
+                e.insert(price_level);
+            }
+        }
+
+        Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }
 
     /// Submit a pegged order
