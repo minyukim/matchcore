@@ -9,7 +9,7 @@ pub use cancel::*;
 pub use error::*;
 pub use submit::*;
 
-use crate::SequenceNumber;
+use crate::{SequenceNumber, Timestamp};
 
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub struct CommandMeta {
     /// The sequence number of the command
     pub sequence_number: SequenceNumber,
     /// The timestamp of the command
-    pub timestamp: u64,
+    pub timestamp: Timestamp,
 }
 
 /// Represents the kind of command

@@ -1,4 +1,4 @@
-use crate::{Side, TimeInForce};
+use crate::{Side, TimeInForce, Timestamp};
 
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +54,7 @@ impl OrderFlags {
     }
 
     /// Check if the order is expired at a given timestamp
-    pub fn is_expired(&self, timestamp: u64) -> bool {
+    pub fn is_expired(&self, timestamp: Timestamp) -> bool {
         self.time_in_force.is_expired(timestamp)
     }
 
@@ -89,23 +89,23 @@ mod tests {
         assert_eq!(order.time_in_force(), TimeInForce::Gtc);
         assert!(!order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Ioc);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Fok);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
-        order.update_time_in_force(TimeInForce::Gtd(1771180000 + 1000));
+        order.update_time_in_force(TimeInForce::Gtd(Timestamp(1771180000 + 1000)));
         assert!(!order.is_immediate());
         assert!(order.has_expiry());
-        assert!(!order.is_expired(1771180000));
-        assert!(order.is_expired(1771180000 + 1000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
+        assert!(order.is_expired(Timestamp(1771180000 + 1000)));
     }
 
     #[test]

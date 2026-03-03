@@ -1,4 +1,4 @@
-use crate::SequenceNumber;
+use crate::{SequenceNumber, Timestamp};
 
 use std::fmt;
 
@@ -17,9 +17,9 @@ pub enum ExecutionError {
     /// The timestamp of the command is invalid
     InvalidTimestamp {
         /// The last seen timestamp
-        last_seen_timestamp: u64,
+        last_seen_timestamp: Timestamp,
         /// The received timestamp
-        received_timestamp: u64,
+        received_timestamp: Timestamp,
     },
 }
 
@@ -62,8 +62,8 @@ mod tests {
         );
         assert_eq!(
             ExecutionError::InvalidTimestamp {
-                last_seen_timestamp: 100,
-                received_timestamp: 10,
+                last_seen_timestamp: Timestamp(100),
+                received_timestamp: Timestamp(10),
             }
             .to_string(),
             "Invalid timestamp: received timestamp 10 is before the last seen timestamp 100"

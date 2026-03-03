@@ -1,5 +1,5 @@
 use crate::{
-    SequenceNumber,
+    SequenceNumber, Timestamp,
     command::*,
     orderbook::{ExecutionError, OrderBook},
     report::*,
@@ -58,7 +58,7 @@ impl OrderBook {
     }
 
     /// Validate the timestamp of the command
-    fn validate_timestamp(&self, timestamp: u64) -> Result<(), ExecutionError> {
+    fn validate_timestamp(&self, timestamp: Timestamp) -> Result<(), ExecutionError> {
         if let Some(last_seen_timestamp) = self.last_seen_timestamp
             && timestamp < last_seen_timestamp
         {
@@ -84,7 +84,7 @@ mod tests {
         // Expected sequence number is 0
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(1),
-            timestamp: 0,
+            timestamp: Timestamp(0),
         });
         assert_eq!(
             result.unwrap_err(),
@@ -98,16 +98,16 @@ mod tests {
 
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(0),
-            timestamp: 0,
+            timestamp: Timestamp(0),
         });
         assert!(result.is_ok());
         assert_eq!(book.last_sequence_number, Some(SequenceNumber(0)));
-        assert_eq!(book.last_seen_timestamp, Some(0));
+        assert_eq!(book.last_seen_timestamp, Some(Timestamp(0)));
 
         // Expected sequence number is 1
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(0),
-            timestamp: 10,
+            timestamp: Timestamp(10),
         });
         assert_eq!(
             result.unwrap_err(),
@@ -117,35 +117,35 @@ mod tests {
             }
         );
         assert_eq!(book.last_sequence_number, Some(SequenceNumber(0)));
-        assert_eq!(book.last_seen_timestamp, Some(0));
+        assert_eq!(book.last_seen_timestamp, Some(Timestamp(0)));
 
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(1),
-            timestamp: 10,
+            timestamp: Timestamp(10),
         });
         assert!(result.is_ok());
         assert_eq!(book.last_sequence_number, Some(SequenceNumber(1)));
-        assert_eq!(book.last_seen_timestamp, Some(10));
+        assert_eq!(book.last_seen_timestamp, Some(Timestamp(10)));
 
         // Timestamp is before the last seen timestamp
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(2),
-            timestamp: 9,
+            timestamp: Timestamp(9),
         });
         assert_eq!(
             result.unwrap_err(),
             ExecutionError::InvalidTimestamp {
-                last_seen_timestamp: 10,
-                received_timestamp: 9,
+                last_seen_timestamp: Timestamp(10),
+                received_timestamp: Timestamp(9),
             }
         );
         assert_eq!(book.last_sequence_number, Some(SequenceNumber(1)));
-        assert_eq!(book.last_seen_timestamp, Some(10));
+        assert_eq!(book.last_seen_timestamp, Some(Timestamp(10)));
 
         // Expected sequence number is 2
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(3),
-            timestamp: 10,
+            timestamp: Timestamp(10),
         });
         assert_eq!(
             result.unwrap_err(),
@@ -155,14 +155,14 @@ mod tests {
             }
         );
         assert_eq!(book.last_sequence_number, Some(SequenceNumber(1)));
-        assert_eq!(book.last_seen_timestamp, Some(10));
+        assert_eq!(book.last_seen_timestamp, Some(Timestamp(10)));
 
         let result = book.handle_command_meta(CommandMeta {
             sequence_number: SequenceNumber(2),
-            timestamp: 10,
+            timestamp: Timestamp(10),
         });
         assert!(result.is_ok());
         assert_eq!(book.last_sequence_number, Some(SequenceNumber(2)));
-        assert_eq!(book.last_seen_timestamp, Some(10));
+        assert_eq!(book.last_seen_timestamp, Some(Timestamp(10)));
     }
 }

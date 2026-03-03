@@ -13,7 +13,7 @@ pub use error::*;
 pub use peg_level::*;
 pub use price_level::*;
 
-use crate::{LimitOrder, OrderId, PegReference, PeggedOrder, SequenceNumber, Side};
+use crate::{LimitOrder, OrderId, PegReference, PeggedOrder, SequenceNumber, Side, Timestamp};
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -31,9 +31,8 @@ pub struct OrderBook {
     pub(self) last_sequence_number: Option<SequenceNumber>,
 
     /// The last seen timestamp of the order book, `None` if no command has been processed yet.
-    /// The timestamp is expressed as a Unix timestamp (seconds since epoch).
     /// This is used to ensure that the timestamps of the incoming commands are non-decreasing.
-    pub(self) last_seen_timestamp: Option<u64>,
+    pub(self) last_seen_timestamp: Option<Timestamp>,
 
     /// The last price at which a trade occurred, `None` if no trade has occurred yet
     pub(self) last_trade_price: Option<u64>,
@@ -85,7 +84,7 @@ impl OrderBook {
     }
 
     /// Get the last seen timestamp of the order book, `None` if no command has been processed yet.
-    pub fn last_seen_timestamp(&self) -> Option<u64> {
+    pub fn last_seen_timestamp(&self) -> Option<Timestamp> {
         self.last_seen_timestamp
     }
 

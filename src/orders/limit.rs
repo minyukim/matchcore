@@ -202,7 +202,7 @@ impl DerefMut for LimitOrderSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{QuantityPolicy, Side, TimeInForce, orders::OrderFlags};
+    use crate::{QuantityPolicy, Side, TimeInForce, Timestamp, orders::OrderFlags};
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
@@ -304,23 +304,23 @@ mod tests {
         assert_eq!(order.time_in_force(), TimeInForce::Gtc);
         assert!(!order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Ioc);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Fok);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
-        order.update_time_in_force(TimeInForce::Gtd(1771180000 + 1000));
+        order.update_time_in_force(TimeInForce::Gtd(Timestamp(1771180000 + 1000)));
         assert!(!order.is_immediate());
         assert!(order.has_expiry());
-        assert!(!order.is_expired(1771180000));
-        assert!(order.is_expired(1771180000 + 1000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
+        assert!(order.is_expired(Timestamp(1771180000 + 1000)));
     }
 
     #[test]

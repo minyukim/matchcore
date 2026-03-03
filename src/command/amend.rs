@@ -1,5 +1,5 @@
 use crate::{
-    LimitOrder, OrderId, PegReference, PeggedOrder, QuantityPolicy, TimeInForce,
+    LimitOrder, OrderId, PegReference, PeggedOrder, QuantityPolicy, TimeInForce, Timestamp,
     command::{
         CommandError,
         validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
@@ -73,7 +73,7 @@ impl LimitOrderPatch {
     }
 
     /// Checks if the patch has expired time in force at a given timestamp
-    pub fn has_expired_time_in_force(&self, timestamp: u64) -> bool {
+    pub fn has_expired_time_in_force(&self, timestamp: Timestamp) -> bool {
         self.flags.has_expired_time_in_force(timestamp)
     }
 
@@ -152,7 +152,7 @@ impl PeggedOrderPatch {
     }
 
     /// Checks if the patch has expired time in force at a given timestamp
-    pub fn has_expired_time_in_force(&self, timestamp: u64) -> bool {
+    pub fn has_expired_time_in_force(&self, timestamp: Timestamp) -> bool {
         self.flags.has_expired_time_in_force(timestamp)
     }
 
@@ -200,7 +200,7 @@ impl OrderFlagsPatch {
     }
 
     /// Checks if the patch has expired time in force at a given timestamp
-    pub fn has_expired_time_in_force(&self, timestamp: u64) -> bool {
+    pub fn has_expired_time_in_force(&self, timestamp: Timestamp) -> bool {
         self.time_in_force
             .is_some_and(|time_in_force| time_in_force.is_expired(timestamp))
     }
@@ -690,7 +690,7 @@ mod tests {
         struct Case {
             name: &'static str,
             patch: OrderFlagsPatch,
-            timestamp: u64,
+            timestamp: Timestamp,
             expected: bool,
         }
 
@@ -698,7 +698,7 @@ mod tests {
             Case {
                 name: "empty patch does not have expired time in force",
                 patch: OrderFlagsPatch::default(),
-                timestamp: 1000,
+                timestamp: Timestamp(1000),
                 expected: false,
             },
             Case {
@@ -707,7 +707,7 @@ mod tests {
                     post_only: None,
                     time_in_force: Some(TimeInForce::Gtc),
                 },
-                timestamp: 1000,
+                timestamp: Timestamp(1000),
                 expected: false,
             },
             Case {
@@ -716,7 +716,7 @@ mod tests {
                     post_only: None,
                     time_in_force: Some(TimeInForce::Ioc),
                 },
-                timestamp: 1000,
+                timestamp: Timestamp(1000),
                 expected: false,
             },
             Case {
@@ -725,25 +725,25 @@ mod tests {
                     post_only: None,
                     time_in_force: Some(TimeInForce::Fok),
                 },
-                timestamp: 1000,
+                timestamp: Timestamp(1000),
                 expected: false,
             },
             Case {
                 name: "GTD patch does not have expired time in force",
                 patch: OrderFlagsPatch {
                     post_only: None,
-                    time_in_force: Some(TimeInForce::Gtd(1000)),
+                    time_in_force: Some(TimeInForce::Gtd(Timestamp(1000))),
                 },
-                timestamp: 999,
+                timestamp: Timestamp(999),
                 expected: false,
             },
             Case {
                 name: "GTD order has expired time in force",
                 patch: OrderFlagsPatch {
                     post_only: None,
-                    time_in_force: Some(TimeInForce::Gtd(1000)),
+                    time_in_force: Some(TimeInForce::Gtd(Timestamp(1000))),
                 },
-                timestamp: 1000,
+                timestamp: Timestamp(1000),
                 expected: true,
             },
         ];

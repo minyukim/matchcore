@@ -1,5 +1,5 @@
 use crate::{
-    CancelReason, OrderProcessingResult,
+    CancelReason, OrderProcessingResult, Timestamp,
     orderbook::{OrderBook, matching::match_order},
     types::*,
 };
@@ -14,7 +14,7 @@ impl OrderBook {
     pub(super) fn trigger_opposite_side_takers(
         &mut self,
         taker_side: Side,
-        timestamp: u64,
+        timestamp: Timestamp,
     ) -> Vec<OrderProcessingResult> {
         let mut results = Vec::new();
 

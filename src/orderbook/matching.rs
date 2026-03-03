@@ -1,5 +1,5 @@
 use crate::{
-    LimitOrder, MatchResult, OrderId, PegReference, PeggedOrder, Side, Trade,
+    LimitOrder, MatchResult, OrderId, PegReference, PeggedOrder, Side, Timestamp, Trade,
     orderbook::{
         OrderBook, PegLevel, PriceLevel,
         peg_level::{MAKER_ARRAY_PRIMARY, MAKER_ARRAY_PRIMARY_MID_PRICE},
@@ -20,7 +20,7 @@ impl OrderBook {
         taker_side: Side,
         limit_price: Option<u64>,
         quantity: u64,
-        timestamp: u64,
+        timestamp: Timestamp,
     ) -> MatchResult {
         let (taker_side_best_price, maker_side_price_levels, maker_side_peg_levels) =
             match taker_side {
@@ -153,7 +153,7 @@ pub(super) fn match_order(
     pegged_orders: &mut HashMap<OrderId, PeggedOrder>,
     limit_price: Option<u64>,
     quantity: u64,
-    timestamp: u64,
+    timestamp: Timestamp,
 ) -> MatchResult {
     let mut match_result = MatchResult::new(taker_side);
     let mut remaining_quantity = quantity;
@@ -344,7 +344,7 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(&mut orderbook, OrderId(0), 100, 50, Side::Sell);
 
-        let result = orderbook.match_order(Side::Buy, Some(100), 50, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 50, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), 50);
@@ -368,7 +368,7 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask(), Some(100));
 
         // Match a buy order at 100 for 30 against the book
-        let result = orderbook.match_order(Side::Buy, Some(100), 30, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 30, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), 30);
@@ -381,7 +381,7 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask(), Some(100));
 
         // Match a buy order at 100 for 40 against the book
-        let result = orderbook.match_order(Side::Buy, Some(100), 40, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 40, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), 20);
@@ -399,7 +399,7 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(&mut orderbook, OrderId(0), 100, 50, Side::Buy);
 
-        let result = orderbook.match_order(Side::Sell, Some(100), 40, 0);
+        let result = orderbook.match_order(Side::Sell, Some(100), 40, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), 40);
@@ -412,7 +412,7 @@ mod tests_match_order {
         assert_eq!(orderbook.best_bid(), Some(100));
 
         // Match a sell order at 100 for 20 against the book
-        let result = orderbook.match_order(Side::Sell, Some(100), 20, 0);
+        let result = orderbook.match_order(Side::Sell, Some(100), 20, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), 10);
@@ -429,7 +429,7 @@ mod tests_match_order {
     fn test_empty_book_no_fill() {
         let mut orderbook = new_test_book();
 
-        let result = orderbook.match_order(Side::Buy, None, 30, 0);
+        let result = orderbook.match_order(Side::Buy, None, 30, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), 0);
@@ -444,7 +444,7 @@ mod tests_match_order {
         add_standard_order(&mut orderbook, OrderId(0), 100, 50, Side::Sell);
 
         // Buy limit 99 does not cross best ask 100
-        let result = orderbook.match_order(Side::Buy, Some(99), 30, 0);
+        let result = orderbook.match_order(Side::Buy, Some(99), 30, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 0);
         assert!(result.trades().is_empty());
@@ -458,7 +458,7 @@ mod tests_match_order {
         add_standard_order(&mut orderbook, OrderId(1), 100, 30, Side::Sell);
 
         // Buy 40: fills first maker fully (20), second maker partially (20)
-        let result = orderbook.match_order(Side::Buy, Some(100), 40, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 40, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 40);
         assert_eq!(result.executed_value(), 100 * 40);
@@ -477,7 +477,7 @@ mod tests_match_order {
         add_standard_order(&mut orderbook, OrderId(1), 101, 40, Side::Sell);
 
         // Buy 50 at limit 101: 30 @ 100, then 20 @ 101
-        let result = orderbook.match_order(Side::Buy, Some(101), 50, 0);
+        let result = orderbook.match_order(Side::Buy, Some(101), 50, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 50);
         assert_eq!(result.executed_value(), 30 * 100 + 20 * 101);
@@ -497,7 +497,7 @@ mod tests_match_order {
         add_standard_order(&mut orderbook, OrderId(2), 102, 25, Side::Sell);
 
         // Market buy (None limit) for 60: 25 @ 100, 25 @ 101, 10 @ 102
-        let result = orderbook.match_order(Side::Buy, None, 60, 0);
+        let result = orderbook.match_order(Side::Buy, None, 60, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 60);
         assert_eq!(result.executed_value(), 25 * 100 + 25 * 101 + 10 * 102);
@@ -518,7 +518,7 @@ mod tests_match_order {
         add_iceberg_order(&mut orderbook, OrderId(0), 100, 20, 30, 10, Side::Sell);
 
         // Buy 15: only consumes visible, no replenish yet
-        let result = orderbook.match_order(Side::Buy, Some(100), 15, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 15, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 15);
         assert_eq!(result.executed_value(), 100 * 15);
@@ -536,7 +536,7 @@ mod tests_match_order {
         add_iceberg_order(&mut orderbook, OrderId(0), 100, 10, 20, 10, Side::Sell);
 
         // Buy 15: consumes 10 (trade 10), replenish 10, then consumes 5 (trade 5)
-        let result = orderbook.match_order(Side::Buy, Some(100), 15, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 15, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 15);
         assert_eq!(result.executed_value(), 100 * 15);
@@ -555,7 +555,7 @@ mod tests_match_order {
         add_iceberg_order(&mut orderbook, OrderId(0), 100, 10, 30, 10, Side::Sell);
 
         // Buy 35: 10 + 10 (replenish) + 10 + 5
-        let result = orderbook.match_order(Side::Buy, Some(100), 35, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 35, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 35);
         assert_eq!(result.executed_value(), 100 * 35);
@@ -575,7 +575,7 @@ mod tests_match_order {
         // Iceberg: visible 10, hidden 20, replenish 10 (total 30)
         add_iceberg_order(&mut orderbook, OrderId(0), 100, 10, 20, 10, Side::Sell);
 
-        let result = orderbook.match_order(Side::Buy, Some(100), 30, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 30, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 30);
         assert_eq!(result.executed_value(), 100 * 30);
@@ -595,7 +595,7 @@ mod tests_match_order {
         add_standard_order(&mut orderbook, OrderId(1), 100, 50, Side::Sell);
 
         // Buy 70: replenish moves iceberg to back, so we get 10 (iceberg), then 50 (standard), then 10 (iceberg) = 3 trades
-        let result = orderbook.match_order(Side::Buy, Some(100), 70, 0);
+        let result = orderbook.match_order(Side::Buy, Some(100), 70, Timestamp(0));
 
         assert_eq!(result.executed_quantity(), 70);
         assert_eq!(result.executed_value(), 100 * 70);
@@ -614,7 +614,7 @@ mod tests_match_order {
         add_iceberg_order(&mut orderbook, OrderId(0), 100, 10, 20, 10, Side::Buy);
 
         // Sell 25: 10 + 10 (replenish) + 5
-        let result = orderbook.match_order(Side::Sell, Some(100), 25, 0);
+        let result = orderbook.match_order(Side::Sell, Some(100), 25, Timestamp(0));
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), 25);
