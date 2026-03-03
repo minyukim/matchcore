@@ -1,11 +1,16 @@
 use super::OrderBook;
 use crate::{LimitOrder, PriceLevel, Side};
 
-use std::collections::btree_map::Entry;
+use std::{cmp::Reverse, collections::btree_map::Entry};
 
 impl OrderBook {
     /// Add a limit order to the order book
     pub(super) fn add_limit_order(&mut self, order: LimitOrder) {
+        if let Some(expires_at) = order.expires_at() {
+            self.expiration_queue
+                .push(Reverse((expires_at, order.id())));
+        }
+
         let orders = &mut self.limit_orders;
 
         let levels = match order.side() {
