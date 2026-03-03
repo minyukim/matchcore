@@ -27,14 +27,22 @@ pub enum TimeInForce {
 }
 
 impl TimeInForce {
-    /// Returns true if the order should be canceled after attempting to match
+    /// Check if the order should be canceled after attempting to match
     pub fn is_immediate(&self) -> bool {
         matches!(self, Self::Ioc | Self::Fok)
     }
 
-    /// Returns true if the order has a specific expiration time
+    /// Check if the order has an expiry time
     pub fn has_expiry(&self) -> bool {
         matches!(self, Self::Gtd(_))
+    }
+
+    /// Get the timestamp when the order expires, if any
+    pub fn expires_at(&self) -> Option<Timestamp> {
+        match self {
+            Self::Gtd(expiry) => Some(*expiry),
+            _ => None,
+        }
     }
 
     /// Checks if an order with this time in force has expired
@@ -75,6 +83,17 @@ mod tests {
         assert!(!TimeInForce::Gtc.has_expiry());
         assert!(!TimeInForce::Ioc.has_expiry());
         assert!(!TimeInForce::Fok.has_expiry());
+    }
+
+    #[test]
+    fn test_expired_at() {
+        assert_eq!(
+            TimeInForce::Gtd(Timestamp(1000)).expires_at(),
+            Some(Timestamp(1000))
+        );
+        assert_eq!(TimeInForce::Gtc.expires_at(), None);
+        assert_eq!(TimeInForce::Ioc.expires_at(), None);
+        assert_eq!(TimeInForce::Fok.expires_at(), None);
     }
 
     #[test]
