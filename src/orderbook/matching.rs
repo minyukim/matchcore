@@ -286,3 +286,214 @@ pub(super) fn match_order(
 
     match_result
 }
+
+#[cfg(test)]
+mod tests_match_order {
+    use super::*;
+    use crate::{LimitOrderSpec, OrderFlags, QuantityPolicy, TimeInForce};
+
+    /// Helper function to create a new test order book
+    fn new_test_book() -> OrderBook {
+        OrderBook::new("TEST")
+    }
+
+    /// Helper function to add a standard limit order to the book
+    fn add_limit_order(book: &mut OrderBook, id: u64, price: u64, quantity: u64, side: Side) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Standard { quantity },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    #[test]
+    fn test_single_maker_full_fill() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        let result = orderbook.match_order(Side::Buy, Some(100), 50, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 50);
+        assert_eq!(result.executed_value(), 100 * 50);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 50);
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Maker fully filled, level removed
+        assert!(orderbook.best_ask().is_none());
+    }
+
+    #[test]
+    fn test_single_maker_partial_fill() {
+        let mut orderbook = new_test_book();
+        assert!(orderbook.last_trade_price().is_none());
+        assert!(orderbook.best_ask().is_none());
+
+        // Add a sell order (maker) at 100 for 50
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Sell);
+        assert_eq!(orderbook.best_ask(), Some(100));
+
+        // Match a buy order at 100 for 30 against the book
+        let result = orderbook.match_order(Side::Buy, Some(100), 30, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 30);
+        assert_eq!(result.executed_value(), 100 * 30);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 30);
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Best ask is still 100 with 20 remaining
+        assert_eq!(orderbook.best_ask(), Some(100));
+
+        // Match a buy order at 100 for 40 against the book
+        let result = orderbook.match_order(Side::Buy, Some(100), 40, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 20);
+        assert_eq!(result.executed_value(), 100 * 20);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 20);
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Maker fully filled, level removed
+        assert!(orderbook.best_ask().is_none());
+    }
+
+    #[test]
+    fn test_sell_taker() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Buy);
+
+        let result = orderbook.match_order(Side::Sell, Some(100), 40, 0);
+
+        assert_eq!(result.taker_side(), Side::Sell);
+        assert_eq!(result.executed_quantity(), 40);
+        assert_eq!(result.executed_value(), 100 * 40);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 40);
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Best bid is still 100 with 10 remaining
+        assert_eq!(orderbook.best_bid(), Some(100));
+
+        // Match a sell order at 100 for 20 against the book
+        let result = orderbook.match_order(Side::Sell, Some(100), 20, 0);
+
+        assert_eq!(result.taker_side(), Side::Sell);
+        assert_eq!(result.executed_quantity(), 10);
+        assert_eq!(result.executed_value(), 100 * 10);
+        assert_eq!(result.trades().len(), 1);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 10);
+
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Maker fully filled, level removed
+        assert!(orderbook.best_bid().is_none());
+    }
+
+    #[test]
+    fn test_empty_book_no_fill() {
+        let mut orderbook = new_test_book();
+
+        let result = orderbook.match_order(Side::Buy, None, 30, 0);
+
+        assert_eq!(result.taker_side(), Side::Buy);
+        assert_eq!(result.executed_quantity(), 0);
+        assert_eq!(result.executed_value(), 0);
+        assert!(result.trades().is_empty());
+        assert!(orderbook.last_trade_price().is_none());
+    }
+
+    #[test]
+    fn test_limit_not_crossed_no_fill() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 50, Side::Sell);
+
+        // Buy limit 99 does not cross best ask 100
+        let result = orderbook.match_order(Side::Buy, Some(99), 30, 0);
+
+        assert_eq!(result.executed_quantity(), 0);
+        assert!(result.trades().is_empty());
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_multiple_makers_same_price() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 20, Side::Sell);
+        add_limit_order(&mut orderbook, 1, 100, 30, Side::Sell);
+
+        // Buy 40: fills first maker fully (20), second maker partially (20)
+        let result = orderbook.match_order(Side::Buy, Some(100), 40, 0);
+
+        assert_eq!(result.executed_quantity(), 40);
+        assert_eq!(result.executed_value(), 100 * 40);
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 20);
+        assert_eq!(result.trades()[1].maker_order_id(), 1);
+        assert_eq!(result.trades()[1].price(), 100);
+        assert_eq!(result.trades()[1].quantity(), 20);
+        assert_eq!(orderbook.last_trade_price(), Some(100));
+        // Second maker has 10 left at 100
+        assert_eq!(orderbook.best_ask(), Some(100));
+    }
+
+    #[test]
+    fn test_multiple_price_levels() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 30, Side::Sell);
+        add_limit_order(&mut orderbook, 1, 101, 40, Side::Sell);
+
+        // Buy 50 at limit 101: 30 @ 100, then 20 @ 101
+        let result = orderbook.match_order(Side::Buy, Some(101), 50, 0);
+
+        assert_eq!(result.executed_quantity(), 50);
+        assert_eq!(result.executed_value(), 30 * 100 + 20 * 101);
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(result.trades()[0].maker_order_id(), 0);
+        assert_eq!(result.trades()[0].price(), 100);
+        assert_eq!(result.trades()[0].quantity(), 30);
+        assert_eq!(result.trades()[1].maker_order_id(), 1);
+        assert_eq!(result.trades()[1].price(), 101);
+        assert_eq!(result.trades()[1].quantity(), 20);
+        assert_eq!(orderbook.last_trade_price(), Some(101));
+        // Best ask now 101 with 20 remaining
+        assert_eq!(orderbook.best_ask(), Some(101));
+    }
+
+    #[test]
+    fn test_market_buy_sweeps_levels() {
+        let mut orderbook = new_test_book();
+        add_limit_order(&mut orderbook, 0, 100, 25, Side::Sell);
+        add_limit_order(&mut orderbook, 1, 101, 25, Side::Sell);
+        add_limit_order(&mut orderbook, 2, 102, 25, Side::Sell);
+
+        // Market buy (None limit) for 60: 25 @ 100, 25 @ 101, 10 @ 102
+        let result = orderbook.match_order(Side::Buy, None, 60, 0);
+
+        assert_eq!(result.executed_quantity(), 60);
+        assert_eq!(result.executed_value(), 25 * 100 + 25 * 101 + 10 * 102);
+        assert_eq!(result.trades().len(), 3);
+        assert_eq!(result.trades()[0], Trade::new(0, 100, 25));
+        assert_eq!(result.trades()[1], Trade::new(1, 101, 25));
+        assert_eq!(result.trades()[2], Trade::new(2, 102, 10));
+        assert_eq!(orderbook.last_trade_price(), Some(102));
+        assert_eq!(orderbook.best_ask(), Some(102));
+    }
+}
