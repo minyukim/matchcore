@@ -1,12 +1,4 @@
-use crate::{
-    command::*,
-    orderbook::{OrderBook, PriceLevel},
-    orders::*,
-    report::*,
-    types::*,
-};
-
-use std::collections::btree_map::Entry;
+use crate::{command::*, orderbook::OrderBook, orders::*, report::*, types::*};
 
 impl OrderBook {
     /// Execute a submit command against the order book
@@ -54,22 +46,16 @@ impl OrderBook {
             // The last trade price is guaranteed to exist because the order was matched
             let price = self.last_trade_price.unwrap();
 
-            // Remaining means there is no price level at this price, so create a new one
-            let mut price_level = PriceLevel::new();
-            price_level.push(
-                &mut self.limit_orders,
-                LimitOrder::new(
-                    order_id,
-                    LimitOrderSpec::new(
-                        price,
-                        QuantityPolicy::Standard {
-                            quantity: remaining_quantity,
-                        },
-                        OrderFlags::new(spec.side(), false, TimeInForce::Gtc),
-                    ),
+            self.add_limit_order(LimitOrder::new(
+                order_id,
+                LimitOrderSpec::new(
+                    price,
+                    QuantityPolicy::Standard {
+                        quantity: remaining_quantity,
+                    },
+                    OrderFlags::new(spec.side(), false, TimeInForce::Gtc),
                 ),
-            );
-            self.insert_price_level(spec.side(), price, price_level);
+            ));
 
             let triggered_orders =
                 self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
@@ -162,16 +148,10 @@ impl OrderBook {
             }
         };
 
-        // Remaining means there is no price level at this price, so create a new one
-        let mut price_level = PriceLevel::new();
-        price_level.push(
-            &mut self.limit_orders,
-            LimitOrder::new(
-                order_id,
-                LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
-            ),
-        );
-        self.insert_price_level(spec.side(), spec.price(), price_level);
+        self.add_limit_order(LimitOrder::new(
+            order_id,
+            LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
+        ));
 
         let triggered_orders =
             self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
@@ -193,25 +173,7 @@ impl OrderBook {
         }
 
         let order_id = meta.sequence_number;
-
-        let orders = &mut self.limit_orders;
-
-        let levels = match spec.side() {
-            Side::Buy => &mut self.limit_bid_levels,
-            Side::Sell => &mut self.limit_ask_levels,
-        };
-
-        match levels.entry(spec.price()) {
-            Entry::Occupied(mut e) => {
-                e.get_mut()
-                    .push(orders, LimitOrder::new(order_id, spec.clone()));
-            }
-            Entry::Vacant(e) => {
-                let mut price_level = PriceLevel::new();
-                price_level.push(orders, LimitOrder::new(order_id, spec.clone()));
-                e.insert(price_level);
-            }
-        }
+        self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
 
         Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }

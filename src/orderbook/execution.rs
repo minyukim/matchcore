@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_handle_command_meta() {
-        let mut book: OrderBook = OrderBook::new("TEST".to_string());
+        let mut book: OrderBook = OrderBook::new("TEST");
         assert!(book.last_sequence_number.is_none());
         assert!(book.last_seen_timestamp.is_none());
 

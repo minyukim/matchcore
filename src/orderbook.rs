@@ -3,6 +3,7 @@ mod cancel;
 mod error;
 mod execution;
 mod matching;
+mod operations;
 mod peg_level;
 mod price_level;
 mod submit;
@@ -58,9 +59,9 @@ pub struct OrderBook {
 
 impl OrderBook {
     /// Create a new order book
-    pub fn new(symbol: String) -> Self {
+    pub fn new(symbol: &str) -> Self {
         Self {
-            symbol,
+            symbol: symbol.to_string(),
             last_sequence_number: None,
             last_seen_timestamp: None,
             last_trade_price: None,
@@ -133,13 +134,5 @@ impl OrderBook {
             Side::Buy => self.best_ask().is_some_and(|ask| limit_price >= ask),
             Side::Sell => self.best_bid().is_some_and(|bid| limit_price <= bid),
         }
-    }
-
-    /// Insert a price level into the order book for the given side and price
-    pub(self) fn insert_price_level(&mut self, side: Side, price: u64, price_level: PriceLevel) {
-        match side {
-            Side::Buy => self.limit_bid_levels.insert(price, price_level),
-            Side::Sell => self.limit_ask_levels.insert(price, price_level),
-        };
     }
 }
