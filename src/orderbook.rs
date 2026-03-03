@@ -13,7 +13,9 @@ pub use error::*;
 pub use peg_level::*;
 pub use price_level::*;
 
-use crate::{LimitOrder, PegReference, PeggedOrder, Side};
+use crate::{
+    LimitOrder, OrderId, PegReference, PeggedOrder, Price, SequenceNumber, Side, Timestamp,
+};
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -28,24 +30,23 @@ pub struct OrderBook {
 
     /// The last sequence number of the order book, `None` if no command has been processed yet.
     /// This is used to ensure that the incoming commands are processed in the correct order.
-    pub(self) last_sequence_number: Option<u64>,
+    pub(self) last_sequence_number: Option<SequenceNumber>,
 
     /// The last seen timestamp of the order book, `None` if no command has been processed yet.
-    /// The timestamp is expressed as a Unix timestamp (seconds since epoch).
     /// This is used to ensure that the timestamps of the incoming commands are non-decreasing.
-    pub(self) last_seen_timestamp: Option<u64>,
+    pub(self) last_seen_timestamp: Option<Timestamp>,
 
     /// The last price at which a trade occurred, `None` if no trade has occurred yet
-    pub(self) last_trade_price: Option<u64>,
+    pub(self) last_trade_price: Option<Price>,
 
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
-    pub(self) limit_bid_levels: BTreeMap<u64, PriceLevel>,
+    pub(self) limit_bid_levels: BTreeMap<Price, PriceLevel>,
 
     /// Ask side price levels, stored in a ordered map with O(log N) ordering
-    pub(self) limit_ask_levels: BTreeMap<u64, PriceLevel>,
+    pub(self) limit_ask_levels: BTreeMap<Price, PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(self) limit_orders: HashMap<u64, LimitOrder>,
+    pub(self) limit_orders: HashMap<OrderId, LimitOrder>,
 
     /// Pegged bid side levels, one for each reference price type
     pub(self) peg_bid_levels: [PegLevel; PegReference::COUNT],
@@ -54,7 +55,7 @@ pub struct OrderBook {
     pub(self) peg_ask_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged orders indexed by order ID for O(1) lookup
-    pub(self) pegged_orders: HashMap<u64, PeggedOrder>,
+    pub(self) pegged_orders: HashMap<OrderId, PeggedOrder>,
 }
 
 impl OrderBook {
@@ -80,29 +81,29 @@ impl OrderBook {
     }
 
     /// Get the last sequence number of the order book, `None` if no command has been processed yet.
-    pub fn last_sequence_number(&self) -> Option<u64> {
+    pub fn last_sequence_number(&self) -> Option<SequenceNumber> {
         self.last_sequence_number
     }
 
     /// Get the last seen timestamp of the order book, `None` if no command has been processed yet.
-    pub fn last_seen_timestamp(&self) -> Option<u64> {
+    pub fn last_seen_timestamp(&self) -> Option<Timestamp> {
         self.last_seen_timestamp
     }
 
     /// Get the last trade price, `None` if no trade has occurred yet
-    pub fn last_trade_price(&self) -> Option<u64> {
+    pub fn last_trade_price(&self) -> Option<Price> {
         self.last_trade_price
     }
 
     /// Get the best bid price, if any
     /// O(1) operation using the last key (highest price) in the BTreeMap
-    pub fn best_bid(&self) -> Option<u64> {
+    pub fn best_bid(&self) -> Option<Price> {
         self.limit_bid_levels.keys().next_back().copied()
     }
 
     /// Get the best ask price, if any
     /// O(1) operation using the first key (lowest price) in the BTreeMap
-    pub fn best_ask(&self) -> Option<u64> {
+    pub fn best_ask(&self) -> Option<Price> {
         self.limit_ask_levels.keys().next().copied()
     }
 
@@ -110,7 +111,7 @@ impl OrderBook {
     pub fn mid_price(&self) -> Option<f64> {
         let best_bid = self.best_bid()?;
         let best_ask = self.best_ask()?;
-        Some((best_bid as f64 + best_ask as f64) / 2.0)
+        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
     }
 
     /// Get the spread (difference between best bid and best ask)
@@ -129,7 +130,7 @@ impl OrderBook {
     }
 
     /// Check if there is a crossable order at the given limit price
-    pub fn has_crossable_order(&self, taker_side: Side, limit_price: u64) -> bool {
+    pub fn has_crossable_order(&self, taker_side: Side, limit_price: Price) -> bool {
         match taker_side {
             Side::Buy => self.best_ask().is_some_and(|ask| limit_price >= ask),
             Side::Sell => self.best_bid().is_some_and(|bid| limit_price <= bid),

@@ -1,4 +1,4 @@
-use crate::CommandError;
+use crate::{CommandError, Quantity};
 
 use std::fmt;
 
@@ -13,9 +13,9 @@ pub enum RejectReason {
     /// Insufficient liquidity for FOK orders
     InsufficientLiquidity {
         /// The quantity of the order that was requested to be filled
-        requested_quantity: u64,
+        requested_quantity: Quantity,
         /// The quantity of the order that was available to be filled
-        available_quantity: u64,
+        available_quantity: Quantity,
     },
     /// The post-only order would remove liquidity
     PostOnlyWouldTake,
@@ -48,9 +48,9 @@ pub enum CancelReason {
     /// Insufficient liquidity for market orders and IOC orders
     InsufficientLiquidity {
         /// The quantity of the order that was requested to be filled
-        requested_quantity: u64,
+        requested_quantity: Quantity,
         /// The quantity of the order that was available to be filled
-        available_quantity: u64,
+        available_quantity: Quantity,
     },
     /// The post-only order would remove liquidity
     PostOnlyWouldTake,
@@ -94,8 +94,8 @@ mod tests {
     fn test_display_cancel_reason() {
         assert_eq!(
             CancelReason::InsufficientLiquidity {
-                requested_quantity: 100,
-                available_quantity: 50,
+                requested_quantity: Quantity(100),
+                available_quantity: Quantity(50),
             }
             .to_string(),
             "Insufficient liquidity: requested=100 available=50"

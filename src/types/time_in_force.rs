@@ -1,3 +1,5 @@
+use crate::types::Timestamp;
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -20,9 +22,8 @@ pub enum TimeInForce {
     Fok,
 
     /// Good 'Til Date - The order remains active until a specified date and time.
-    /// The date and time is expressed as a Unix timestamp (seconds since epoch).
     #[serde(rename = "GTD")]
-    Gtd(u64),
+    Gtd(Timestamp),
 }
 
 impl TimeInForce {
@@ -37,7 +38,7 @@ impl TimeInForce {
     }
 
     /// Checks if an order with this time in force has expired
-    pub fn is_expired(&self, timestamp: u64) -> bool {
+    pub fn is_expired(&self, timestamp: Timestamp) -> bool {
         match self {
             Self::Gtd(expiry) => timestamp >= *expiry,
             _ => false,
@@ -65,12 +66,12 @@ mod tests {
         assert!(TimeInForce::Ioc.is_immediate());
         assert!(TimeInForce::Fok.is_immediate());
         assert!(!TimeInForce::Gtc.is_immediate());
-        assert!(!TimeInForce::Gtd(1000).is_immediate());
+        assert!(!TimeInForce::Gtd(Timestamp(1000)).is_immediate());
     }
 
     #[test]
     fn test_has_expiry() {
-        assert!(TimeInForce::Gtd(1000).has_expiry());
+        assert!(TimeInForce::Gtd(Timestamp(1000)).has_expiry());
         assert!(!TimeInForce::Gtc.has_expiry());
         assert!(!TimeInForce::Ioc.has_expiry());
         assert!(!TimeInForce::Fok.has_expiry());
@@ -78,18 +79,18 @@ mod tests {
 
     #[test]
     fn test_is_expired_gtd() {
-        let expiry_time = 1000;
+        let expiry_time = Timestamp(1000);
         let tif = TimeInForce::Gtd(expiry_time);
-        assert!(!tif.is_expired(999));
-        assert!(tif.is_expired(1000));
-        assert!(tif.is_expired(1001));
+        assert!(!tif.is_expired(Timestamp(999)));
+        assert!(tif.is_expired(Timestamp(1000)));
+        assert!(tif.is_expired(Timestamp(1001)));
     }
 
     #[test]
     fn test_non_expiring_types() {
-        assert!(!TimeInForce::Gtc.is_expired(9999));
-        assert!(!TimeInForce::Ioc.is_expired(9999));
-        assert!(!TimeInForce::Fok.is_expired(9999));
+        assert!(!TimeInForce::Gtc.is_expired(Timestamp(9999)));
+        assert!(!TimeInForce::Ioc.is_expired(Timestamp(9999)));
+        assert!(!TimeInForce::Fok.is_expired(Timestamp(9999)));
     }
 
     #[test]
@@ -98,7 +99,7 @@ mod tests {
         assert_eq!(serde_json::to_string(&TimeInForce::Ioc).unwrap(), "\"IOC\"");
         assert_eq!(serde_json::to_string(&TimeInForce::Fok).unwrap(), "\"FOK\"");
         assert_eq!(
-            serde_json::to_string(&TimeInForce::Gtd(12345)).unwrap(),
+            serde_json::to_string(&TimeInForce::Gtd(Timestamp(12345))).unwrap(),
             "{\"GTD\":12345}"
         );
     }
@@ -119,7 +120,7 @@ mod tests {
         );
         assert_eq!(
             serde_json::from_str::<TimeInForce>("{\"GTD\":12345}").unwrap(),
-            TimeInForce::Gtd(12345)
+            TimeInForce::Gtd(Timestamp(12345))
         );
     }
 
@@ -129,7 +130,7 @@ mod tests {
             TimeInForce::Gtc,
             TimeInForce::Ioc,
             TimeInForce::Fok,
-            TimeInForce::Gtd(12345),
+            TimeInForce::Gtd(Timestamp(12345)),
         ] {
             let serialized = serde_json::to_string(&tif).unwrap();
             let deserialized: TimeInForce = serde_json::from_str(&serialized).unwrap();
@@ -150,7 +151,7 @@ mod tests {
         assert_eq!(TimeInForce::Ioc.to_string(), "IOC");
         assert_eq!(TimeInForce::Fok.to_string(), "FOK");
         assert_eq!(
-            TimeInForce::Gtd(1616823000000).to_string(),
+            TimeInForce::Gtd(Timestamp(1616823000000)).to_string(),
             "GTD-1616823000000"
         );
     }

@@ -1,4 +1,4 @@
-use crate::{QuantityPolicy, orders::OrderFlags};
+use crate::{OrderId, Price, Quantity, QuantityPolicy, orders::OrderFlags};
 
 use std::{
     fmt,
@@ -11,19 +11,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LimitOrder {
     /// The ID of the order
-    id: u64,
+    id: OrderId,
     /// The specification of the order
     spec: LimitOrderSpec,
 }
 
 impl LimitOrder {
     /// Create a new limit order
-    pub fn new(id: u64, spec: LimitOrderSpec) -> Self {
+    pub fn new(id: OrderId, spec: LimitOrderSpec) -> Self {
         Self { id, spec }
     }
 
     /// Get the order ID
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> OrderId {
         self.id
     }
 
@@ -37,14 +37,14 @@ impl LimitOrder {
     /// Returns a tuple containing:
     /// - The quantity consumed from the incoming order
     /// - The quantity that was replenished (for iceberg orders)
-    pub(crate) fn match_against(&mut self, incoming_quantity: u64) -> (u64, u64) {
+    pub(crate) fn match_against(&mut self, incoming_quantity: Quantity) -> (Quantity, Quantity) {
         match self.quantity_policy {
             QuantityPolicy::Standard { quantity } => {
                 let new_quantity = quantity.saturating_sub(incoming_quantity);
                 let consumed = quantity - new_quantity;
 
                 self.quantity_policy.update_visible_quantity(new_quantity);
-                (consumed, 0)
+                (consumed, Quantity(0))
             }
             QuantityPolicy::Iceberg {
                 visible_quantity, ..
@@ -53,8 +53,8 @@ impl LimitOrder {
                 let consumed = visible_quantity - new_visible;
 
                 self.quantity_policy.update_visible_quantity(new_visible);
-                if new_visible > 0 {
-                    (consumed, 0)
+                if !new_visible.is_zero() {
+                    (consumed, Quantity(0))
                 } else {
                     // Try replenishing the order
                     let replenished = self.quantity_policy.replenish();
@@ -119,7 +119,7 @@ impl fmt::Display for LimitOrder {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LimitOrderSpec {
     /// The price of the order
-    price: u64,
+    price: Price,
     /// The quantity policy of the order
     quantity_policy: QuantityPolicy,
     /// The flags of the order
@@ -128,7 +128,7 @@ pub struct LimitOrderSpec {
 
 impl LimitOrderSpec {
     /// Create a new limit order specification
-    pub fn new(price: u64, quantity_policy: QuantityPolicy, flags: OrderFlags) -> Self {
+    pub fn new(price: Price, quantity_policy: QuantityPolicy, flags: OrderFlags) -> Self {
         Self {
             price,
             quantity_policy,
@@ -136,12 +136,12 @@ impl LimitOrderSpec {
         }
     }
     /// Get the price
-    pub fn price(&self) -> u64 {
+    pub fn price(&self) -> Price {
         self.price
     }
 
     /// Update the price of the order
-    pub(crate) fn update_price(&mut self, new_price: u64) {
+    pub(crate) fn update_price(&mut self, new_price: Price) {
         self.price = new_price;
     }
 
@@ -151,22 +151,22 @@ impl LimitOrderSpec {
     }
 
     /// Get the visible quantity
-    pub fn visible_quantity(&self) -> u64 {
+    pub fn visible_quantity(&self) -> Quantity {
         self.quantity_policy.visible_quantity()
     }
 
     /// Get the hidden quantity
-    pub fn hidden_quantity(&self) -> u64 {
+    pub fn hidden_quantity(&self) -> Quantity {
         self.quantity_policy.hidden_quantity()
     }
 
     /// Get the replenish quantity
-    pub fn replenish_quantity(&self) -> u64 {
+    pub fn replenish_quantity(&self) -> Quantity {
         self.quantity_policy.replenish_quantity()
     }
 
     /// Get the total quantity of the order
-    pub fn total_quantity(&self) -> u64 {
+    pub fn total_quantity(&self) -> Quantity {
         self.quantity_policy.total_quantity()
     }
 
@@ -202,14 +202,16 @@ impl DerefMut for LimitOrderSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{QuantityPolicy, Side, TimeInForce, orders::OrderFlags};
+    use crate::{Quantity, QuantityPolicy, Side, TimeInForce, Timestamp, orders::OrderFlags};
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
-            0,
+            OrderId(0),
             LimitOrderSpec::new(
-                90,
-                QuantityPolicy::Standard { quantity: 10 },
+                Price(90),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         )
@@ -217,13 +219,13 @@ mod tests {
 
     fn create_iceberg_order() -> LimitOrder {
         LimitOrder::new(
-            1,
+            OrderId(1),
             LimitOrderSpec::new(
-                100,
+                Price(100),
                 QuantityPolicy::Iceberg {
-                    visible_quantity: 20,
-                    hidden_quantity: 40,
-                    replenish_quantity: 20,
+                    visible_quantity: Quantity(20),
+                    hidden_quantity: Quantity(40),
+                    replenish_quantity: Quantity(20),
                 },
                 OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
             ),
@@ -232,56 +234,58 @@ mod tests {
 
     #[test]
     fn test_id() {
-        assert_eq!(create_standard_order().id(), 0);
-        assert_eq!(create_iceberg_order().id(), 1);
+        assert_eq!(create_standard_order().id(), OrderId(0));
+        assert_eq!(create_iceberg_order().id(), OrderId(1));
     }
 
     #[test]
     fn test_price() {
         let mut order = create_standard_order();
-        assert_eq!(order.price(), 90);
+        assert_eq!(order.price(), Price(90));
 
-        order.update_price(95);
-        assert_eq!(order.price(), 95);
+        order.update_price(Price(95));
+        assert_eq!(order.price(), Price(95));
 
-        assert_eq!(create_iceberg_order().price(), 100);
+        assert_eq!(create_iceberg_order().price(), Price(100));
     }
 
     #[test]
     fn test_quantity_policy() {
         {
             let mut order = create_standard_order();
-            assert_eq!(order.visible_quantity(), 10);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 0);
-            assert_eq!(order.total_quantity(), 10);
+            assert_eq!(order.visible_quantity(), Quantity(10));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(0));
+            assert_eq!(order.total_quantity(), Quantity(10));
             assert!(!order.is_filled());
 
             order.update_quantity_policy(QuantityPolicy::Iceberg {
-                visible_quantity: 1,
-                hidden_quantity: 10,
-                replenish_quantity: 1,
+                visible_quantity: Quantity(1),
+                hidden_quantity: Quantity(10),
+                replenish_quantity: Quantity(1),
             });
 
-            assert_eq!(order.visible_quantity(), 1);
-            assert_eq!(order.hidden_quantity(), 10);
-            assert_eq!(order.replenish_quantity(), 1);
-            assert_eq!(order.total_quantity(), 11);
+            assert_eq!(order.visible_quantity(), Quantity(1));
+            assert_eq!(order.hidden_quantity(), Quantity(10));
+            assert_eq!(order.replenish_quantity(), Quantity(1));
+            assert_eq!(order.total_quantity(), Quantity(11));
             assert!(!order.is_filled());
         }
         {
             let mut order = create_iceberg_order();
-            assert_eq!(order.visible_quantity(), 20);
-            assert_eq!(order.hidden_quantity(), 40);
-            assert_eq!(order.replenish_quantity(), 20);
-            assert_eq!(order.total_quantity(), 60);
+            assert_eq!(order.visible_quantity(), Quantity(20));
+            assert_eq!(order.hidden_quantity(), Quantity(40));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
+            assert_eq!(order.total_quantity(), Quantity(60));
             assert!(!order.is_filled());
 
-            order.update_quantity_policy(QuantityPolicy::Standard { quantity: 100 });
-            assert_eq!(order.visible_quantity(), 100);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 0);
-            assert_eq!(order.total_quantity(), 100);
+            order.update_quantity_policy(QuantityPolicy::Standard {
+                quantity: Quantity(100),
+            });
+            assert_eq!(order.visible_quantity(), Quantity(100));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(0));
+            assert_eq!(order.total_quantity(), Quantity(100));
             assert!(!order.is_filled());
         }
     }
@@ -304,101 +308,101 @@ mod tests {
         assert_eq!(order.time_in_force(), TimeInForce::Gtc);
         assert!(!order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Ioc);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Fok);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
-        assert!(!order.is_expired(1771180000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
 
-        order.update_time_in_force(TimeInForce::Gtd(1771180000 + 1000));
+        order.update_time_in_force(TimeInForce::Gtd(Timestamp(1771180000 + 1000)));
         assert!(!order.is_immediate());
         assert!(order.has_expiry());
-        assert!(!order.is_expired(1771180000));
-        assert!(order.is_expired(1771180000 + 1000));
+        assert!(!order.is_expired(Timestamp(1771180000)));
+        assert!(order.is_expired(Timestamp(1771180000 + 1000)));
     }
 
     #[test]
     fn test_match_against() {
         {
             let mut order = create_standard_order();
-            assert_eq!(order.visible_quantity(), 10);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 0);
+            assert_eq!(order.visible_quantity(), Quantity(10));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(0));
 
-            let (consumed, replenished) = order.match_against(2);
-            assert_eq!(consumed, 2);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 8);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 0);
+            let (consumed, replenished) = order.match_against(Quantity(2));
+            assert_eq!(consumed, Quantity(2));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(8));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(0));
 
-            let (consumed, replenished) = order.match_against(10);
-            assert_eq!(consumed, 8);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 0);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 0);
+            let (consumed, replenished) = order.match_against(Quantity(10));
+            assert_eq!(consumed, Quantity(8));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(0));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(0));
 
-            let (consumed, replenished) = order.match_against(10);
-            assert_eq!(consumed, 0);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 0);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 0);
+            let (consumed, replenished) = order.match_against(Quantity(10));
+            assert_eq!(consumed, Quantity(0));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(0));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(0));
         }
         {
             let mut order = create_iceberg_order();
-            assert_eq!(order.visible_quantity(), 20);
-            assert_eq!(order.hidden_quantity(), 40);
-            assert_eq!(order.replenish_quantity(), 20);
+            assert_eq!(order.visible_quantity(), Quantity(20));
+            assert_eq!(order.hidden_quantity(), Quantity(40));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
 
-            let (consumed, replenished) = order.match_against(5);
-            assert_eq!(consumed, 5);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 15);
-            assert_eq!(order.hidden_quantity(), 40);
-            assert_eq!(order.replenish_quantity(), 20);
+            let (consumed, replenished) = order.match_against(Quantity(5));
+            assert_eq!(consumed, Quantity(5));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(15));
+            assert_eq!(order.hidden_quantity(), Quantity(40));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
 
-            let (consumed, replenished) = order.match_against(20);
-            assert_eq!(consumed, 15);
-            assert_eq!(replenished, 20);
-            assert_eq!(order.visible_quantity(), 20);
-            assert_eq!(order.hidden_quantity(), 20);
-            assert_eq!(order.replenish_quantity(), 20);
+            let (consumed, replenished) = order.match_against(Quantity(20));
+            assert_eq!(consumed, Quantity(15));
+            assert_eq!(replenished, Quantity(20));
+            assert_eq!(order.visible_quantity(), Quantity(20));
+            assert_eq!(order.hidden_quantity(), Quantity(20));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
 
-            let (consumed, replenished) = order.match_against(20);
-            assert_eq!(consumed, 20);
-            assert_eq!(replenished, 20);
-            assert_eq!(order.visible_quantity(), 20);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 20);
+            let (consumed, replenished) = order.match_against(Quantity(20));
+            assert_eq!(consumed, Quantity(20));
+            assert_eq!(replenished, Quantity(20));
+            assert_eq!(order.visible_quantity(), Quantity(20));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
 
-            let (consumed, replenished) = order.match_against(1);
-            assert_eq!(consumed, 1);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 19);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 20);
+            let (consumed, replenished) = order.match_against(Quantity(1));
+            assert_eq!(consumed, Quantity(1));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(19));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
 
-            let (consumed, replenished) = order.match_against(19);
-            assert_eq!(consumed, 19);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 0);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 20);
+            let (consumed, replenished) = order.match_against(Quantity(19));
+            assert_eq!(consumed, Quantity(19));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(0));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
 
-            let (consumed, replenished) = order.match_against(1);
-            assert_eq!(consumed, 0);
-            assert_eq!(replenished, 0);
-            assert_eq!(order.visible_quantity(), 0);
-            assert_eq!(order.hidden_quantity(), 0);
-            assert_eq!(order.replenish_quantity(), 20);
+            let (consumed, replenished) = order.match_against(Quantity(1));
+            assert_eq!(consumed, Quantity(0));
+            assert_eq!(replenished, Quantity(0));
+            assert_eq!(order.visible_quantity(), Quantity(0));
+            assert_eq!(order.hidden_quantity(), Quantity(0));
+            assert_eq!(order.replenish_quantity(), Quantity(20));
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::{command::*, orderbook::OrderBook, report::*};
+use crate::{OrderId, command::*, orderbook::OrderBook, report::*};
 
 impl OrderBook {
     /// Execute a cancel command against the order book
@@ -16,12 +16,12 @@ impl OrderBook {
     }
 
     /// Cancel a limit order
-    fn cancel_limit_order(&mut self, _order_id: u64) -> Result<(), RejectReason> {
+    fn cancel_limit_order(&mut self, _order_id: OrderId) -> Result<(), RejectReason> {
         todo!()
     }
 
     /// Cancel a pegged order
-    fn cancel_pegged_order(&mut self, _order_id: u64) -> Result<(), RejectReason> {
+    fn cancel_pegged_order(&mut self, _order_id: OrderId) -> Result<(), RejectReason> {
         todo!()
     }
 }

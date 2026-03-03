@@ -1,5 +1,5 @@
 use crate::{
-    CancelReason, OrderProcessingResult,
+    CancelReason, OrderProcessingResult, Timestamp,
     orderbook::{OrderBook, matching::match_order},
     types::*,
 };
@@ -14,7 +14,7 @@ impl OrderBook {
     pub(super) fn trigger_opposite_side_takers(
         &mut self,
         taker_side: Side,
-        timestamp: u64,
+        timestamp: Timestamp,
     ) -> Vec<OrderProcessingResult> {
         let mut results = Vec::new();
 
@@ -94,7 +94,7 @@ impl OrderBook {
             self.last_trade_price = result.last_trade_price();
 
             let remaining = quantity - result.executed_quantity();
-            if remaining == 0 {
+            if remaining.is_zero() {
                 // The order is fully matched, remove it from the peg level
                 active_peg_level.remove_head_order(pegged_orders);
             } else {

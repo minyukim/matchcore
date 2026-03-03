@@ -1,9 +1,11 @@
-use crate::{PegReference, QuantityPolicy, TimeInForce, command::CommandError, orders::*};
+use crate::{
+    PegReference, Price, Quantity, QuantityPolicy, TimeInForce, command::CommandError, orders::*,
+};
 
 impl MarketOrderSpec {
     /// Validate the order specification
     pub fn validate(&self) -> Result<(), CommandError> {
-        if self.quantity() == 0 {
+        if self.quantity().is_zero() {
             return Err(CommandError::ZeroQuantity);
         }
         Ok(())
@@ -36,20 +38,20 @@ impl PeggedOrderSpec {
 
 /// Validate the invariants of a limit order
 pub(super) fn validate_limit_order_invariants(
-    price: u64,
+    price: Price,
     quantity_policy: QuantityPolicy,
     post_only: bool,
     time_in_force: TimeInForce,
 ) -> Result<(), CommandError> {
     validate_order_core_invariants(post_only, time_in_force)?;
 
-    if price == 0 {
+    if price.is_zero() {
         return Err(CommandError::ZeroPrice);
     }
 
     match quantity_policy {
         QuantityPolicy::Standard { quantity } => {
-            if quantity == 0 {
+            if quantity.is_zero() {
                 return Err(CommandError::ZeroQuantity);
             }
         }
@@ -58,13 +60,13 @@ pub(super) fn validate_limit_order_invariants(
             hidden_quantity,
             replenish_quantity,
         } => {
-            if visible_quantity == 0 {
+            if visible_quantity.is_zero() {
                 return Err(CommandError::ZeroQuantity);
             }
-            if hidden_quantity == 0 {
+            if hidden_quantity.is_zero() {
                 return Err(CommandError::IcebergZeroHiddenQuantity);
             }
-            if replenish_quantity == 0 {
+            if replenish_quantity.is_zero() {
                 return Err(CommandError::IcebergZeroReplenishQuantity);
             }
 
@@ -79,13 +81,13 @@ pub(super) fn validate_limit_order_invariants(
 /// Validate the invariants of a pegged order
 pub(super) fn validate_pegged_order_invariants(
     peg_reference: PegReference,
-    quantity: u64,
+    quantity: Quantity,
     post_only: bool,
     time_in_force: TimeInForce,
 ) -> Result<(), CommandError> {
     validate_order_core_invariants(post_only, time_in_force)?;
 
-    if quantity == 0 {
+    if quantity.is_zero() {
         return Err(CommandError::ZeroQuantity);
     }
 
@@ -122,12 +124,12 @@ mod tests {
         let cases = [
             Case {
                 name: "valid market order",
-                spec: MarketOrderSpec::new(100, Side::Buy, true),
+                spec: MarketOrderSpec::new(Quantity(100), Side::Buy, true),
                 expected: Ok(()),
             },
             Case {
                 name: "zero quantity",
-                spec: MarketOrderSpec::new(0, Side::Buy, true),
+                spec: MarketOrderSpec::new(Quantity(0), Side::Buy, true),
                 expected: Err(CommandError::ZeroQuantity),
             },
         ];
@@ -144,7 +146,7 @@ mod tests {
     fn test_validate_limit_order_invariants() {
         struct Case {
             name: &'static str,
-            price: u64,
+            price: Price,
             quantity_policy: QuantityPolicy,
             post_only: bool,
             time_in_force: TimeInForce,
@@ -154,35 +156,41 @@ mod tests {
         let cases = [
             Case {
                 name: "valid standard order",
-                price: 100,
-                quantity_policy: QuantityPolicy::Standard { quantity: 10 },
+                price: Price(100),
+                quantity_policy: QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
                 expected: Ok(()),
             },
             Case {
                 name: "zero price",
-                price: 0,
-                quantity_policy: QuantityPolicy::Standard { quantity: 10 },
+                price: Price(0),
+                quantity_policy: QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
                 expected: Err(CommandError::ZeroPrice),
             },
             Case {
                 name: "standard zero quantity",
-                price: 100,
-                quantity_policy: QuantityPolicy::Standard { quantity: 0 },
+                price: Price(100),
+                quantity_policy: QuantityPolicy::Standard {
+                    quantity: Quantity(0),
+                },
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
                 expected: Err(CommandError::ZeroQuantity),
             },
             Case {
                 name: "iceberg zero visible quantity",
-                price: 100,
+                price: Price(100),
                 quantity_policy: QuantityPolicy::Iceberg {
-                    visible_quantity: 0,
-                    hidden_quantity: 10,
-                    replenish_quantity: 10,
+                    visible_quantity: Quantity(0),
+                    hidden_quantity: Quantity(10),
+                    replenish_quantity: Quantity(10),
                 },
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
@@ -190,11 +198,11 @@ mod tests {
             },
             Case {
                 name: "iceberg zero hidden quantity",
-                price: 100,
+                price: Price(100),
                 quantity_policy: QuantityPolicy::Iceberg {
-                    visible_quantity: 10,
-                    hidden_quantity: 0,
-                    replenish_quantity: 10,
+                    visible_quantity: Quantity(10),
+                    hidden_quantity: Quantity(0),
+                    replenish_quantity: Quantity(10),
                 },
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
@@ -202,11 +210,11 @@ mod tests {
             },
             Case {
                 name: "iceberg zero replenish quantity",
-                price: 100,
+                price: Price(100),
                 quantity_policy: QuantityPolicy::Iceberg {
-                    visible_quantity: 10,
-                    hidden_quantity: 10,
-                    replenish_quantity: 0,
+                    visible_quantity: Quantity(10),
+                    hidden_quantity: Quantity(10),
+                    replenish_quantity: Quantity(0),
                 },
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
@@ -214,35 +222,41 @@ mod tests {
             },
             Case {
                 name: "post-only standard order",
-                price: 100,
-                quantity_policy: QuantityPolicy::Standard { quantity: 10 },
+                price: Price(100),
+                quantity_policy: QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 post_only: true,
                 time_in_force: TimeInForce::Gtc,
                 expected: Ok(()),
             },
             Case {
                 name: "immediate time in force standard order",
-                price: 100,
-                quantity_policy: QuantityPolicy::Standard { quantity: 10 },
+                price: Price(100),
+                quantity_policy: QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 post_only: false,
                 time_in_force: TimeInForce::Ioc,
                 expected: Ok(()),
             },
             Case {
                 name: "post-only immediate time in force",
-                price: 100,
-                quantity_policy: QuantityPolicy::Standard { quantity: 10 },
+                price: Price(100),
+                quantity_policy: QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
                 post_only: true,
                 time_in_force: TimeInForce::Ioc,
                 expected: Err(CommandError::PostOnlyImmediateTif),
             },
             Case {
                 name: "iceberg with immediate time in force",
-                price: 100,
+                price: Price(100),
                 quantity_policy: QuantityPolicy::Iceberg {
-                    visible_quantity: 10,
-                    hidden_quantity: 10,
-                    replenish_quantity: 10,
+                    visible_quantity: Quantity(10),
+                    hidden_quantity: Quantity(10),
+                    replenish_quantity: Quantity(10),
                 },
                 post_only: false,
                 time_in_force: TimeInForce::Ioc,
@@ -284,7 +298,7 @@ mod tests {
         struct Case {
             name: &'static str,
             peg_reference: PegReference,
-            quantity: u64,
+            quantity: Quantity,
             post_only: bool,
             time_in_force: TimeInForce,
             expected: Result<(), CommandError>,
@@ -293,7 +307,7 @@ mod tests {
             Case {
                 name: "valid pegged order",
                 peg_reference: PegReference::Market,
-                quantity: 100,
+                quantity: Quantity(100),
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
                 expected: Ok(()),
@@ -301,7 +315,7 @@ mod tests {
             Case {
                 name: "zero quantity",
                 peg_reference: PegReference::Market,
-                quantity: 0,
+                quantity: Quantity(0),
                 post_only: false,
                 time_in_force: TimeInForce::Gtc,
                 expected: Err(CommandError::ZeroQuantity),
@@ -309,7 +323,7 @@ mod tests {
             Case {
                 name: "post-only pegged order",
                 peg_reference: PegReference::Market,
-                quantity: 100,
+                quantity: Quantity(100),
                 post_only: true,
                 time_in_force: TimeInForce::Gtc,
                 expected: Ok(()),
@@ -317,7 +331,7 @@ mod tests {
             Case {
                 name: "immediate time in force pegged order",
                 peg_reference: PegReference::Market,
-                quantity: 100,
+                quantity: Quantity(100),
                 post_only: false,
                 time_in_force: TimeInForce::Ioc,
                 expected: Ok(()),
@@ -325,7 +339,7 @@ mod tests {
             Case {
                 name: "post-only immediate time in force",
                 peg_reference: PegReference::Market,
-                quantity: 100,
+                quantity: Quantity(100),
                 post_only: true,
                 time_in_force: TimeInForce::Ioc,
                 expected: Err(CommandError::PostOnlyImmediateTif),
@@ -333,7 +347,7 @@ mod tests {
             Case {
                 name: "maker only immediate time in force",
                 peg_reference: PegReference::Primary,
-                quantity: 100,
+                quantity: Quantity(100),
                 post_only: false,
                 time_in_force: TimeInForce::Ioc,
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),

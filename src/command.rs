@@ -9,6 +9,8 @@ pub use cancel::*;
 pub use error::*;
 pub use submit::*;
 
+use crate::{SequenceNumber, Timestamp};
+
 use serde::{Deserialize, Serialize};
 
 /// Represents a top-level command for all command and order kinds
@@ -24,9 +26,9 @@ pub struct Command {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommandMeta {
     /// The sequence number of the command
-    pub sequence_number: u64,
+    pub sequence_number: SequenceNumber,
     /// The timestamp of the command
-    pub timestamp: u64,
+    pub timestamp: Timestamp,
 }
 
 /// Represents the kind of command

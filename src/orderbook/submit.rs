@@ -28,13 +28,13 @@ impl OrderBook {
             return Err(RejectReason::NoLiquidity);
         }
 
-        let order_id = meta.sequence_number;
+        let order_id = OrderId::from(meta.sequence_number);
 
         let result = self.match_order(spec.side(), None, spec.quantity(), meta.timestamp);
 
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = spec.quantity() - executed_quantity;
-        if remaining_quantity == 0 {
+        if remaining_quantity.is_zero() {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
             ));
@@ -119,13 +119,13 @@ impl OrderBook {
             }
         }
 
-        let order_id = meta.sequence_number;
+        let order_id = OrderId::from(meta.sequence_number);
 
         let result = self.match_order(spec.side(), None, spec.total_quantity(), meta.timestamp);
 
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = spec.total_quantity() - executed_quantity;
-        if remaining_quantity == 0 {
+        if remaining_quantity.is_zero() {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
             ));
@@ -138,7 +138,8 @@ impl OrderBook {
             QuantityPolicy::Iceberg {
                 replenish_quantity, ..
             } => {
-                let visible_quantity = ((remaining_quantity - 1) % replenish_quantity) + 1;
+                let visible_quantity =
+                    Quantity(((remaining_quantity.0 - 1) % replenish_quantity.0) + 1);
 
                 QuantityPolicy::Iceberg {
                     visible_quantity,
@@ -172,7 +173,7 @@ impl OrderBook {
             return Err(RejectReason::NoLiquidity);
         }
 
-        let order_id = meta.sequence_number;
+        let order_id = OrderId::from(meta.sequence_number);
         self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
 
         let triggered_orders =
