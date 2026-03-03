@@ -1,5 +1,5 @@
 use crate::{
-    LimitOrder, PegReference, PeggedOrder, QuantityPolicy, TimeInForce,
+    LimitOrder, OrderId, PegReference, PeggedOrder, QuantityPolicy, TimeInForce,
     command::{
         CommandError,
         validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AmendCmd {
     /// The ID of the order to amend
-    pub order_id: u64,
+    pub order_id: OrderId,
     /// The patch to apply to the order
     pub patch: AmendPatch,
 }
@@ -224,7 +224,7 @@ mod tests {
             Case {
                 name: "no-op patch (same price and quantity policy)",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -239,7 +239,7 @@ mod tests {
             Case {
                 name: "update price only",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -252,7 +252,7 @@ mod tests {
             Case {
                 name: "update quantity policy only",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -266,7 +266,7 @@ mod tests {
             Case {
                 name: "update post_only only",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -279,7 +279,7 @@ mod tests {
             Case {
                 name: "update time_in_force only",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -292,7 +292,7 @@ mod tests {
             Case {
                 name: "invalid: empty patch",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -305,7 +305,7 @@ mod tests {
             Case {
                 name: "invalid: post-only with immediate TIF",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -320,7 +320,7 @@ mod tests {
             Case {
                 name: "invalid: zero price",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -333,7 +333,7 @@ mod tests {
             Case {
                 name: "invalid: zero quantity",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -348,7 +348,7 @@ mod tests {
             Case {
                 name: "invalid: iceberg with immediate TIF",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -367,7 +367,7 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -380,7 +380,7 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is immediate TIF, patch sets post_only",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Standard { quantity: 10 },
@@ -393,7 +393,7 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is iceberg, patch sets immediate TIF",
                 order: LimitOrder::new(
-                    1,
+                    OrderId(1),
                     LimitOrderSpec::new(
                         100,
                         QuantityPolicy::Iceberg {
@@ -478,7 +478,7 @@ mod tests {
             Case {
                 name: "no-op patch (same peg_reference and quantity)",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -493,7 +493,7 @@ mod tests {
             Case {
                 name: "update peg_reference only",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Primary,
                         10,
@@ -506,7 +506,7 @@ mod tests {
             Case {
                 name: "update quantity only",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -519,7 +519,7 @@ mod tests {
             Case {
                 name: "update post_only only",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -532,7 +532,7 @@ mod tests {
             Case {
                 name: "update time_in_force only",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -545,7 +545,7 @@ mod tests {
             Case {
                 name: "invalid: empty patch",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -558,7 +558,7 @@ mod tests {
             Case {
                 name: "invalid: post-only with immediate TIF",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -573,7 +573,7 @@ mod tests {
             Case {
                 name: "invalid: zero quantity",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -586,7 +586,7 @@ mod tests {
             Case {
                 name: "invalid: peg reference Primary + immediate TIF",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Market,
                         10,
@@ -601,7 +601,7 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Primary,
                         10,
@@ -614,7 +614,7 @@ mod tests {
             Case {
                 name: "valid patch + valid order → invalid: order is Primary, patch sets immediate TIF",
                 order: PeggedOrder::new(
-                    1,
+                    OrderId(1),
                     PeggedOrderSpec::new(
                         PegReference::Primary,
                         10,

@@ -28,7 +28,7 @@ impl OrderBook {
             return Err(RejectReason::NoLiquidity);
         }
 
-        let order_id = meta.sequence_number;
+        let order_id = OrderId::from(meta.sequence_number);
 
         let result = self.match_order(spec.side(), None, spec.quantity(), meta.timestamp);
 
@@ -119,7 +119,7 @@ impl OrderBook {
             }
         }
 
-        let order_id = meta.sequence_number;
+        let order_id = OrderId::from(meta.sequence_number);
 
         let result = self.match_order(spec.side(), None, spec.total_quantity(), meta.timestamp);
 
@@ -172,7 +172,7 @@ impl OrderBook {
             return Err(RejectReason::NoLiquidity);
         }
 
-        let order_id = meta.sequence_number;
+        let order_id = OrderId::from(meta.sequence_number);
         self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
 
         let triggered_orders =

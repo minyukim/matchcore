@@ -13,7 +13,7 @@ pub use error::*;
 pub use peg_level::*;
 pub use price_level::*;
 
-use crate::{LimitOrder, PegReference, PeggedOrder, Side};
+use crate::{LimitOrder, OrderId, PegReference, PeggedOrder, SequenceNumber, Side};
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -28,7 +28,7 @@ pub struct OrderBook {
 
     /// The last sequence number of the order book, `None` if no command has been processed yet.
     /// This is used to ensure that the incoming commands are processed in the correct order.
-    pub(self) last_sequence_number: Option<u64>,
+    pub(self) last_sequence_number: Option<SequenceNumber>,
 
     /// The last seen timestamp of the order book, `None` if no command has been processed yet.
     /// The timestamp is expressed as a Unix timestamp (seconds since epoch).
@@ -45,7 +45,7 @@ pub struct OrderBook {
     pub(self) limit_ask_levels: BTreeMap<u64, PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(self) limit_orders: HashMap<u64, LimitOrder>,
+    pub(self) limit_orders: HashMap<OrderId, LimitOrder>,
 
     /// Pegged bid side levels, one for each reference price type
     pub(self) peg_bid_levels: [PegLevel; PegReference::COUNT],
@@ -54,7 +54,7 @@ pub struct OrderBook {
     pub(self) peg_ask_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged orders indexed by order ID for O(1) lookup
-    pub(self) pegged_orders: HashMap<u64, PeggedOrder>,
+    pub(self) pegged_orders: HashMap<OrderId, PeggedOrder>,
 }
 
 impl OrderBook {
@@ -80,7 +80,7 @@ impl OrderBook {
     }
 
     /// Get the last sequence number of the order book, `None` if no command has been processed yet.
-    pub fn last_sequence_number(&self) -> Option<u64> {
+    pub fn last_sequence_number(&self) -> Option<SequenceNumber> {
         self.last_sequence_number
     }
 

@@ -1,3 +1,5 @@
+use crate::OrderId;
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -6,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trade {
     /// The ID of the maker order
-    maker_order_id: u64,
+    maker_order_id: OrderId,
     /// The price of the trade
     price: u64,
     /// The quantity of the trade
@@ -15,7 +17,7 @@ pub struct Trade {
 
 impl Trade {
     /// Create a new trade
-    pub(crate) fn new(maker_order_id: u64, price: u64, quantity: u64) -> Self {
+    pub(crate) fn new(maker_order_id: OrderId, price: u64, quantity: u64) -> Self {
         Self {
             maker_order_id,
             price,
@@ -24,7 +26,7 @@ impl Trade {
     }
 
     /// Get the ID of the maker order
-    pub fn maker_order_id(&self) -> u64 {
+    pub fn maker_order_id(&self) -> OrderId {
         self.maker_order_id
     }
 
@@ -56,12 +58,12 @@ mod tests {
     use super::*;
 
     fn create_trade() -> Trade {
-        Trade::new(1, 100, 10)
+        Trade::new(OrderId(1), 100, 10)
     }
 
     #[test]
     fn test_maker_order_id() {
-        assert_eq!(create_trade().maker_order_id(), 1);
+        assert_eq!(create_trade().maker_order_id(), OrderId(1));
     }
 
     #[test]

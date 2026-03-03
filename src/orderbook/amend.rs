@@ -1,4 +1,4 @@
-use crate::{command::*, orderbook::OrderBook, report::*};
+use crate::{OrderId, command::*, orderbook::OrderBook, report::*};
 
 impl OrderBook {
     /// Execute an amend command against the order book
@@ -19,7 +19,7 @@ impl OrderBook {
     fn amend_limit_order(
         &mut self,
         _meta: CommandMeta,
-        _order_id: u64,
+        _order_id: OrderId,
         _patch: &LimitOrderPatch,
     ) -> Result<AmendReport, RejectReason> {
         todo!()
@@ -29,7 +29,7 @@ impl OrderBook {
     fn amend_pegged_order(
         &mut self,
         _meta: CommandMeta,
-        _order_id: u64,
+        _order_id: OrderId,
         _patch: &PeggedOrderPatch,
     ) -> Result<AmendReport, RejectReason> {
         todo!()

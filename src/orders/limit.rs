@@ -1,4 +1,4 @@
-use crate::{QuantityPolicy, orders::OrderFlags};
+use crate::{OrderId, QuantityPolicy, orders::OrderFlags};
 
 use std::{
     fmt,
@@ -11,19 +11,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LimitOrder {
     /// The ID of the order
-    id: u64,
+    id: OrderId,
     /// The specification of the order
     spec: LimitOrderSpec,
 }
 
 impl LimitOrder {
     /// Create a new limit order
-    pub fn new(id: u64, spec: LimitOrderSpec) -> Self {
+    pub fn new(id: OrderId, spec: LimitOrderSpec) -> Self {
         Self { id, spec }
     }
 
     /// Get the order ID
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> OrderId {
         self.id
     }
 
@@ -206,7 +206,7 @@ mod tests {
 
     fn create_standard_order() -> LimitOrder {
         LimitOrder::new(
-            0,
+            OrderId(0),
             LimitOrderSpec::new(
                 90,
                 QuantityPolicy::Standard { quantity: 10 },
@@ -217,7 +217,7 @@ mod tests {
 
     fn create_iceberg_order() -> LimitOrder {
         LimitOrder::new(
-            1,
+            OrderId(1),
             LimitOrderSpec::new(
                 100,
                 QuantityPolicy::Iceberg {
@@ -232,8 +232,8 @@ mod tests {
 
     #[test]
     fn test_id() {
-        assert_eq!(create_standard_order().id(), 0);
-        assert_eq!(create_iceberg_order().id(), 1);
+        assert_eq!(create_standard_order().id(), OrderId(0));
+        assert_eq!(create_iceberg_order().id(), OrderId(1));
     }
 
     #[test]

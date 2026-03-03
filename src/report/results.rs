@@ -1,5 +1,5 @@
 use crate::{
-    Side,
+    OrderId, Side,
     report::{CancelReason, Trade},
 };
 
@@ -41,7 +41,7 @@ impl OrderProcessingResults {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderProcessingResult {
     /// The ID of the order
-    order_id: u64,
+    order_id: OrderId,
     /// The match result if the order was matched
     match_result: Option<MatchResult>,
     /// The reason the order was cancelled, if it was cancelled
@@ -50,7 +50,7 @@ pub struct OrderProcessingResult {
 
 impl OrderProcessingResult {
     /// Create a new order processing result
-    pub(crate) fn new(order_id: u64) -> Self {
+    pub(crate) fn new(order_id: OrderId) -> Self {
         Self {
             order_id,
             match_result: None,
@@ -71,7 +71,7 @@ impl OrderProcessingResult {
     }
 
     /// Get the ID of the order
-    pub fn order_id(&self) -> u64 {
+    pub fn order_id(&self) -> OrderId {
         self.order_id
     }
 
@@ -95,12 +95,12 @@ mod tests_order_processing_result {
     };
 
     fn create_order_processing_result() -> OrderProcessingResult {
-        OrderProcessingResult::new(1)
+        OrderProcessingResult::new(OrderId(1))
     }
 
     #[test]
     fn test_order_id() {
-        assert_eq!(create_order_processing_result().order_id(), 1);
+        assert_eq!(create_order_processing_result().order_id(), OrderId(1));
     }
 
     #[test]
@@ -221,9 +221,9 @@ mod tests_match_result {
         assert_eq!(match_result.trades(), &[]);
 
         let trades = [
-            Trade::new(2, 99, 20),
-            Trade::new(3, 100, 30),
-            Trade::new(4, 101, 20),
+            Trade::new(OrderId(2), 99, 20),
+            Trade::new(OrderId(3), 100, 30),
+            Trade::new(OrderId(4), 101, 20),
         ];
         let expected_executed_quantities = [20, 50, 70];
         let expected_executed_values = [1980, 4980, 7000];

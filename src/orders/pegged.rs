@@ -1,4 +1,4 @@
-use crate::{PegReference, orders::OrderFlags};
+use crate::{OrderId, PegReference, orders::OrderFlags};
 
 use std::{
     fmt,
@@ -11,19 +11,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedOrder {
     /// The ID of the order
-    id: u64,
+    id: OrderId,
     /// The specification of the order
     spec: PeggedOrderSpec,
 }
 
 impl PeggedOrder {
     /// Create a new pegged order
-    pub fn new(id: u64, spec: PeggedOrderSpec) -> Self {
+    pub fn new(id: OrderId, spec: PeggedOrderSpec) -> Self {
         Self { id, spec }
     }
 
     /// Get the order ID
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> OrderId {
         self.id
     }
 
@@ -144,7 +144,7 @@ mod tests {
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
-            0,
+            OrderId(0),
             PeggedOrderSpec::new(
                 PegReference::Primary,
                 20,
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_id() {
-        assert_eq!(create_pegged_order().id(), 0);
+        assert_eq!(create_pegged_order().id(), OrderId(0));
     }
 
     #[test]

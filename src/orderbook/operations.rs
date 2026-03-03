@@ -28,7 +28,7 @@ impl OrderBook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LimitOrderSpec, OrderFlags, QuantityPolicy, TimeInForce};
+    use crate::{LimitOrderSpec, OrderFlags, OrderId, QuantityPolicy, TimeInForce};
 
     #[test]
     fn test_add_limit_order() {
@@ -38,7 +38,7 @@ mod tests {
         assert!(book.limit_orders.is_empty());
 
         let order = LimitOrder::new(
-            0,
+            OrderId(0),
             LimitOrderSpec::new(
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
@@ -50,10 +50,10 @@ mod tests {
         assert!(book.limit_ask_levels.is_empty());
         assert_eq!(book.limit_orders.len(), 1);
         assert_eq!(book.limit_bid_levels.get(&100).unwrap().order_count(), 1);
-        assert_eq!(book.limit_orders.get(&0).unwrap(), &order);
+        assert_eq!(book.limit_orders.get(&OrderId(0)).unwrap(), &order);
 
         let order = LimitOrder::new(
-            1,
+            OrderId(1),
             LimitOrderSpec::new(
                 100,
                 QuantityPolicy::Standard { quantity: 10 },
@@ -65,10 +65,10 @@ mod tests {
         assert!(book.limit_ask_levels.is_empty());
         assert_eq!(book.limit_orders.len(), 2);
         assert_eq!(book.limit_bid_levels.get(&100).unwrap().order_count(), 2);
-        assert_eq!(book.limit_orders.get(&1).unwrap(), &order);
+        assert_eq!(book.limit_orders.get(&OrderId(1)).unwrap(), &order);
 
         let order = LimitOrder::new(
-            2,
+            OrderId(2),
             LimitOrderSpec::new(
                 110,
                 QuantityPolicy::Standard { quantity: 10 },
@@ -81,10 +81,10 @@ mod tests {
         assert_eq!(book.limit_orders.len(), 3);
         assert_eq!(book.limit_bid_levels.get(&100).unwrap().order_count(), 2);
         assert_eq!(book.limit_ask_levels.get(&110).unwrap().order_count(), 1);
-        assert_eq!(book.limit_orders.get(&2).unwrap(), &order);
+        assert_eq!(book.limit_orders.get(&OrderId(2)).unwrap(), &order);
 
         let order = LimitOrder::new(
-            3,
+            OrderId(3),
             LimitOrderSpec::new(
                 105,
                 QuantityPolicy::Standard { quantity: 10 },
@@ -98,6 +98,6 @@ mod tests {
         assert_eq!(book.limit_bid_levels.get(&100).unwrap().order_count(), 2);
         assert_eq!(book.limit_ask_levels.get(&110).unwrap().order_count(), 1);
         assert_eq!(book.limit_ask_levels.get(&105).unwrap().order_count(), 1);
-        assert_eq!(book.limit_orders.get(&3).unwrap(), &order);
+        assert_eq!(book.limit_orders.get(&OrderId(3)).unwrap(), &order);
     }
 }

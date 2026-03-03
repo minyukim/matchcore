@@ -1,3 +1,5 @@
+use crate::SequenceNumber;
+
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -8,9 +10,9 @@ pub enum ExecutionError {
     /// The sequence number of the command is invalid
     InvalidSequenceNumber {
         /// The expected sequence number
-        expected_sequence_number: u64,
+        expected_sequence_number: SequenceNumber,
         /// The received sequence number
-        received_sequence_number: u64,
+        received_sequence_number: SequenceNumber,
     },
     /// The timestamp of the command is invalid
     InvalidTimestamp {
@@ -52,8 +54,8 @@ mod tests {
     fn test_display() {
         assert_eq!(
             ExecutionError::InvalidSequenceNumber {
-                expected_sequence_number: 1,
-                received_sequence_number: 2,
+                expected_sequence_number: SequenceNumber(1),
+                received_sequence_number: SequenceNumber(2),
             }
             .to_string(),
             "Invalid sequence number: expected 1, received 2"
