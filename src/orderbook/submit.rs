@@ -175,7 +175,11 @@ impl OrderBook {
         let order_id = meta.sequence_number;
         self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
 
-        Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
+        let triggered_orders =
+            self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
+
+        Ok(SubmitReport::new(OrderProcessingResult::new(order_id))
+            .with_triggered_orders(triggered_orders))
     }
 
     /// Submit a pegged order
