@@ -1,4 +1,5 @@
-use crate::{OrderId, command::*, orderbook::OrderBook, report::*};
+use super::OrderBook;
+use crate::{OrderId, command::*, report::*};
 
 impl OrderBook {
     /// Execute an amend command against the order book

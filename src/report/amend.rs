@@ -1,4 +1,4 @@
-use crate::report::{OrderProcessingResult, OrderProcessingResults};
+use super::{OrderProcessingResult, OrderProcessingResults};
 
 use serde::{Deserialize, Serialize};
 

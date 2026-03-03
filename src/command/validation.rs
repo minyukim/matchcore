@@ -1,6 +1,5 @@
-use crate::{
-    PegReference, Price, Quantity, QuantityPolicy, TimeInForce, command::CommandError, orders::*,
-};
+use super::CommandError;
+use crate::{PegReference, Price, Quantity, QuantityPolicy, TimeInForce, orders::*};
 
 impl MarketOrderSpec {
     /// Validate the order specification

@@ -1,4 +1,5 @@
-use crate::{command::*, orderbook::OrderBook, orders::*, report::*, types::*};
+use super::OrderBook;
+use crate::{command::*, orders::*, report::*, types::*};
 
 impl OrderBook {
     /// Execute a submit command against the order book
