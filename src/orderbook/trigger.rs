@@ -22,19 +22,19 @@ impl OrderBook {
         ) = match taker_side {
             Side::Buy => (
                 self.best_bid(),
-                &mut self.limit_ask_levels,
-                &mut self.peg_ask_levels,
-                &mut self.peg_bid_levels,
+                &mut self.limit.ask_levels,
+                &mut self.pegged.ask_levels,
+                &mut self.pegged.bid_levels,
             ),
             Side::Sell => (
                 self.best_ask(),
-                &mut self.limit_bid_levels,
-                &mut self.peg_bid_levels,
-                &mut self.peg_ask_levels,
+                &mut self.limit.bid_levels,
+                &mut self.pegged.bid_levels,
+                &mut self.pegged.ask_levels,
             ),
         };
 
-        let pegged_orders = &mut self.pegged_orders;
+        let pegged_orders = &mut self.pegged.orders;
 
         let active_peg_level = &mut taker_side_peg_levels[PegReference::Market.as_index()];
 
@@ -70,7 +70,7 @@ impl OrderBook {
                 taker_side,
                 taker_side_best_price,
                 maker_side_price_levels,
-                &mut self.limit_orders,
+                &mut self.limit.orders,
                 maker_side_peg_levels,
                 pegged_orders,
                 None,

@@ -7,15 +7,16 @@ impl OrderBook {
     /// Add a limit order to the order book
     pub(super) fn add_limit_order(&mut self, order: LimitOrder) {
         if let Some(expires_at) = order.expires_at() {
-            self.limit_expiration_queue
+            self.limit
+                .expiration_queue
                 .push(Reverse((expires_at, order.id())));
         }
 
-        let orders = &mut self.limit_orders;
+        let orders = &mut self.limit.orders;
 
         let levels = match order.side() {
-            Side::Buy => &mut self.limit_bid_levels,
-            Side::Sell => &mut self.limit_ask_levels,
+            Side::Buy => &mut self.limit.bid_levels,
+            Side::Sell => &mut self.limit.ask_levels,
         };
 
         match levels.entry(order.price()) {
@@ -41,9 +42,9 @@ mod tests {
     #[test]
     fn test_add_limit_order() {
         let mut book = OrderBook::new("TEST");
-        assert!(book.limit_bid_levels.is_empty());
-        assert!(book.limit_ask_levels.is_empty());
-        assert!(book.limit_orders.is_empty());
+        assert!(book.limit.bid_levels.is_empty());
+        assert!(book.limit.ask_levels.is_empty());
+        assert!(book.limit.orders.is_empty());
 
         let order = LimitOrder::new(
             OrderId(0),
@@ -56,17 +57,18 @@ mod tests {
             ),
         );
         book.add_limit_order(order.clone());
-        assert_eq!(book.limit_bid_levels.len(), 1);
-        assert!(book.limit_ask_levels.is_empty());
-        assert_eq!(book.limit_orders.len(), 1);
+        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert!(book.limit.ask_levels.is_empty());
+        assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(
-            book.limit_bid_levels
+            book.limit
+                .bid_levels
                 .get(&Price(100))
                 .unwrap()
                 .order_count(),
             1
         );
-        assert_eq!(book.limit_orders.get(&OrderId(0)).unwrap(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(0)).unwrap(), &order);
 
         let order = LimitOrder::new(
             OrderId(1),
@@ -79,17 +81,18 @@ mod tests {
             ),
         );
         book.add_limit_order(order.clone());
-        assert_eq!(book.limit_bid_levels.len(), 1);
-        assert!(book.limit_ask_levels.is_empty());
-        assert_eq!(book.limit_orders.len(), 2);
+        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert!(book.limit.ask_levels.is_empty());
+        assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(
-            book.limit_bid_levels
+            book.limit
+                .bid_levels
                 .get(&Price(100))
                 .unwrap()
                 .order_count(),
             2
         );
-        assert_eq!(book.limit_orders.get(&OrderId(1)).unwrap(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(1)).unwrap(), &order);
 
         let order = LimitOrder::new(
             OrderId(2),
@@ -102,24 +105,26 @@ mod tests {
             ),
         );
         book.add_limit_order(order.clone());
-        assert_eq!(book.limit_bid_levels.len(), 1);
-        assert_eq!(book.limit_ask_levels.len(), 1);
-        assert_eq!(book.limit_orders.len(), 3);
+        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert_eq!(book.limit.ask_levels.len(), 1);
+        assert_eq!(book.limit.orders.len(), 3);
         assert_eq!(
-            book.limit_bid_levels
+            book.limit
+                .bid_levels
                 .get(&Price(100))
                 .unwrap()
                 .order_count(),
             2
         );
         assert_eq!(
-            book.limit_ask_levels
+            book.limit
+                .ask_levels
                 .get(&Price(110))
                 .unwrap()
                 .order_count(),
             1
         );
-        assert_eq!(book.limit_orders.get(&OrderId(2)).unwrap(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(2)).unwrap(), &order);
 
         let order = LimitOrder::new(
             OrderId(3),
@@ -132,30 +137,33 @@ mod tests {
             ),
         );
         book.add_limit_order(order.clone());
-        assert_eq!(book.limit_bid_levels.len(), 1);
-        assert_eq!(book.limit_ask_levels.len(), 2);
-        assert_eq!(book.limit_orders.len(), 4);
+        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert_eq!(book.limit.ask_levels.len(), 2);
+        assert_eq!(book.limit.orders.len(), 4);
         assert_eq!(
-            book.limit_bid_levels
+            book.limit
+                .bid_levels
                 .get(&Price(100))
                 .unwrap()
                 .order_count(),
             2
         );
         assert_eq!(
-            book.limit_ask_levels
+            book.limit
+                .ask_levels
                 .get(&Price(110))
                 .unwrap()
                 .order_count(),
             1
         );
         assert_eq!(
-            book.limit_ask_levels
+            book.limit
+                .ask_levels
                 .get(&Price(105))
                 .unwrap()
                 .order_count(),
             1
         );
-        assert_eq!(book.limit_orders.get(&OrderId(3)).unwrap(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(3)).unwrap(), &order);
     }
 }
