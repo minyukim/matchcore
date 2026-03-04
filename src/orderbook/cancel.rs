@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{OrderId, command::*, report::*};
+use crate::{OrderId, OrderKind, command::*, report::*};
 
 impl OrderBook {
     /// Execute a cancel command against the order book

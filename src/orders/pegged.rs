@@ -1,4 +1,4 @@
-use super::OrderFlags;
+use super::{OrderFlags, OrderKind};
 use crate::{OrderId, PegReference, Quantity};
 
 use std::{
@@ -31,6 +31,11 @@ impl PeggedOrder {
     /// Get the specification of the order
     pub fn spec(&self) -> &PeggedOrderSpec {
         &self.spec
+    }
+
+    /// Get the kind of the order
+    pub fn kind(&self) -> OrderKind {
+        OrderKind::Pegged
     }
 
     /// Matches this order against an incoming quantity
