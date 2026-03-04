@@ -7,7 +7,7 @@ impl OrderBook {
     /// Add a limit order to the order book
     pub(super) fn add_limit_order(&mut self, order: LimitOrder) {
         if let Some(expires_at) = order.expires_at() {
-            self.expiration_queue
+            self.limit_expiration_queue
                 .push(Reverse((expires_at, order.id())));
         }
 

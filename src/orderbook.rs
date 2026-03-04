@@ -51,6 +51,10 @@ pub struct OrderBook {
     /// Limit orders indexed by order ID for O(1) lookup
     pub(self) limit_orders: HashMap<OrderId, LimitOrder>,
 
+    /// Queue of limit order IDs to be expired, stored in a min heap of tuples of
+    /// (expires_at, order_id) with O(log N) ordering
+    pub(self) limit_expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
+
     /// Pegged bid side levels, one for each reference price type
     pub(self) peg_bid_levels: [PegLevel; PegReference::COUNT],
 
@@ -60,9 +64,9 @@ pub struct OrderBook {
     /// Pegged orders indexed by order ID for O(1) lookup
     pub(self) pegged_orders: HashMap<OrderId, PeggedOrder>,
 
-    /// Queue of orders to be expired, stored in a min heap of tuples of(expires_at, order_id)
-    /// with O(log N) ordering
-    pub(self) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
+    /// Queue of pegged order IDs to be expired, stored in a min heap of tuples of
+    /// (expires_at, order_id) with O(log N) ordering
+    pub(self) pegged_expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 
 impl OrderBook {
@@ -76,10 +80,11 @@ impl OrderBook {
             limit_bid_levels: BTreeMap::new(),
             limit_ask_levels: BTreeMap::new(),
             limit_orders: HashMap::new(),
+            limit_expiration_queue: BinaryHeap::new(),
             peg_bid_levels: core::array::from_fn(|_| PegLevel::new()),
             peg_ask_levels: core::array::from_fn(|_| PegLevel::new()),
             pegged_orders: HashMap::new(),
-            expiration_queue: BinaryHeap::new(),
+            pegged_expiration_queue: BinaryHeap::new(),
         }
     }
 
