@@ -1,4 +1,4 @@
-use crate::OrderId;
+use crate::{OrderId, OrderKind};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,13 +9,4 @@ pub struct CancelCmd {
     pub order_id: OrderId,
     /// The type of the order to cancel
     pub order_kind: OrderKind,
-}
-
-/// Represents the kind of an order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrderKind {
-    /// Limit order
-    Limit,
-    /// Pegged order
-    Pegged,
 }

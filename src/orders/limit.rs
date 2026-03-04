@@ -1,4 +1,4 @@
-use super::OrderFlags;
+use super::{OrderFlags, OrderKind};
 use crate::{OrderId, Price, Quantity, QuantityPolicy};
 
 use std::{
@@ -31,6 +31,11 @@ impl LimitOrder {
     /// Get the specification of the order
     pub fn spec(&self) -> &LimitOrderSpec {
         &self.spec
+    }
+
+    /// Get the kind of the order
+    pub fn kind(&self) -> OrderKind {
+        OrderKind::Limit
     }
 
     /// Matches this order against an incoming quantity
