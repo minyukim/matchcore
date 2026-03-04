@@ -111,12 +111,12 @@ impl OrderBook {
 
     /// Clean up expired pegged orders
     fn clean_up_expired_pegged_orders(&mut self, timestamp: Timestamp) {
-        while let Some(Reverse((expires_at, order_id))) = self.pegged_expiration_queue.peek() {
+        while let Some(Reverse((expires_at, order_id))) = self.pegged.expiration_queue.peek() {
             if *expires_at > timestamp {
                 break;
             }
-            let Some(order) = self.pegged_orders.get(order_id) else {
-                self.pegged_expiration_queue.pop();
+            let Some(order) = self.pegged.orders.get(order_id) else {
+                self.pegged.expiration_queue.pop();
                 continue;
             };
 
@@ -124,13 +124,13 @@ impl OrderBook {
             // since the order was added to the expiration queue
             if order.is_expired(timestamp) {
                 let peg_level = match order.side() {
-                    Side::Buy => &mut self.peg_bid_levels[order.peg_reference().as_index()],
-                    Side::Sell => &mut self.peg_ask_levels[order.peg_reference().as_index()],
+                    Side::Buy => &mut self.pegged.bid_levels[order.peg_reference().as_index()],
+                    Side::Sell => &mut self.pegged.ask_levels[order.peg_reference().as_index()],
                 };
-                peg_level.remove_order(&mut self.pegged_orders, *order_id);
+                peg_level.remove_order(&mut self.pegged.orders, *order_id);
             }
 
-            self.pegged_expiration_queue.pop();
+            self.pegged.expiration_queue.pop();
         }
     }
 }

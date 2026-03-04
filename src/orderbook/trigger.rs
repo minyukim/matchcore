@@ -23,18 +23,18 @@ impl OrderBook {
             Side::Buy => (
                 self.best_bid(),
                 &mut self.limit.ask_levels,
-                &mut self.peg_ask_levels,
-                &mut self.peg_bid_levels,
+                &mut self.pegged.ask_levels,
+                &mut self.pegged.bid_levels,
             ),
             Side::Sell => (
                 self.best_ask(),
                 &mut self.limit.bid_levels,
-                &mut self.peg_bid_levels,
-                &mut self.peg_ask_levels,
+                &mut self.pegged.bid_levels,
+                &mut self.pegged.ask_levels,
             ),
         };
 
-        let pegged_orders = &mut self.pegged_orders;
+        let pegged_orders = &mut self.pegged.orders;
 
         let active_peg_level = &mut taker_side_peg_levels[PegReference::Market.as_index()];
 

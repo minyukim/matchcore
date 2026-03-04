@@ -6,6 +6,7 @@ mod limit;
 mod matching;
 mod operations;
 mod peg_level;
+mod pegged;
 mod price_level;
 mod submit;
 mod trigger;
@@ -13,14 +14,10 @@ mod trigger;
 pub use error::*;
 pub use limit::*;
 pub use peg_level::*;
+pub use pegged::*;
 pub use price_level::*;
 
-use crate::{OrderId, PegReference, PeggedOrder, Price, SequenceNumber, Side, Timestamp};
-
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
-};
+use crate::{Price, SequenceNumber, Side, Timestamp};
 
 use serde::{Deserialize, Serialize};
 
@@ -45,18 +42,8 @@ pub struct OrderBook {
     /// Limit order book
     pub(self) limit: LimitBook,
 
-    /// Pegged bid side levels, one for each reference price type
-    pub(self) peg_bid_levels: [PegLevel; PegReference::COUNT],
-
-    /// Pegged ask side levels, one for each reference price type
-    pub(self) peg_ask_levels: [PegLevel; PegReference::COUNT],
-
-    /// Pegged orders indexed by order ID for O(1) lookup
-    pub(self) pegged_orders: HashMap<OrderId, PeggedOrder>,
-
-    /// Queue of pegged order IDs to be expired, stored in a min heap of tuples of
-    /// (expires_at, order_id) with O(log N) ordering
-    pub(self) pegged_expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
+    /// Pegged order book
+    pub(self) pegged: PeggedBook,
 }
 
 impl OrderBook {
@@ -68,10 +55,7 @@ impl OrderBook {
             last_seen_timestamp: None,
             last_trade_price: None,
             limit: LimitBook::new(),
-            peg_bid_levels: core::array::from_fn(|_| PegLevel::new()),
-            peg_ask_levels: core::array::from_fn(|_| PegLevel::new()),
-            pegged_orders: HashMap::new(),
-            pegged_expiration_queue: BinaryHeap::new(),
+            pegged: PeggedBook::new(),
         }
     }
 

@@ -26,12 +26,12 @@ impl OrderBook {
                 Side::Buy => (
                     self.best_bid(),
                     &mut self.limit.ask_levels,
-                    &mut self.peg_ask_levels,
+                    &mut self.pegged.ask_levels,
                 ),
                 Side::Sell => (
                     self.best_ask(),
                     &mut self.limit.bid_levels,
-                    &mut self.peg_bid_levels,
+                    &mut self.pegged.bid_levels,
                 ),
             };
 
@@ -41,7 +41,7 @@ impl OrderBook {
             maker_side_price_levels,
             &mut self.limit.orders,
             maker_side_peg_levels,
-            &mut self.pegged_orders,
+            &mut self.pegged.orders,
             limit_price,
             quantity,
         );
@@ -87,14 +87,14 @@ impl OrderBook {
                 }
                 // Primary peg level is always active
                 remaining = remaining.saturating_sub(
-                    self.peg_ask_levels[PegReference::Primary.as_index()].quantity(),
+                    self.pegged.ask_levels[PegReference::Primary.as_index()].quantity(),
                 );
                 if remaining.is_zero() {
                     return requested_quantity;
                 }
                 if mid_active {
                     remaining = remaining.saturating_sub(
-                        self.peg_ask_levels[PegReference::MidPrice.as_index()].quantity(),
+                        self.pegged.ask_levels[PegReference::MidPrice.as_index()].quantity(),
                     );
                     if remaining.is_zero() {
                         return requested_quantity;
@@ -114,12 +114,12 @@ impl OrderBook {
                 }
                 // Primary peg level is always active
                 remaining = remaining.saturating_sub(
-                    self.peg_bid_levels[PegReference::Primary.as_index()].quantity(),
+                    self.pegged.bid_levels[PegReference::Primary.as_index()].quantity(),
                 );
                 // MidPrice peg level is active if the spread is less than or equal to 1
                 if mid_active {
                     remaining = remaining.saturating_sub(
-                        self.peg_bid_levels[PegReference::MidPrice.as_index()].quantity(),
+                        self.pegged.bid_levels[PegReference::MidPrice.as_index()].quantity(),
                     );
                     if remaining.is_zero() {
                         return requested_quantity;
