@@ -1,5 +1,4 @@
 mod notional;
-mod order_id;
 mod peg_reference;
 mod price;
 mod quantity;
@@ -10,7 +9,6 @@ mod time_in_force;
 mod timestamp;
 
 pub use notional::*;
-pub use order_id::*;
 pub use peg_reference::*;
 pub use price::*;
 pub use quantity::*;

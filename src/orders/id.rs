@@ -1,4 +1,4 @@
-use super::SequenceNumber;
+use crate::SequenceNumber;
 
 use std::fmt;
 
