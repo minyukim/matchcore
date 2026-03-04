@@ -79,22 +79,22 @@ impl PriceLevel {
 
 impl PriceLevel {
     /// Push an order ID to the queue
-    fn _push(&mut self, order_id: OrderId) {
+    fn push(&mut self, order_id: OrderId) {
         self.order_ids.push_back(order_id);
     }
 
     /// Attempt to peek the first order ID in the queue without removing it
-    fn _peek(&self) -> Option<OrderId> {
+    fn peek(&self) -> Option<OrderId> {
         self.order_ids.front().copied()
     }
 
     /// Attempt to pop the first order ID in the queue
-    fn _pop(&mut self) -> Option<OrderId> {
+    fn pop(&mut self) -> Option<OrderId> {
         self.order_ids.pop_front()
     }
 
     /// Push a limit order to the price level and add it to the order book
-    pub(super) fn push(
+    pub(super) fn push_order(
         &mut self,
         limit_orders: &mut HashMap<OrderId, LimitOrder>,
         limit_order: LimitOrder,
@@ -102,7 +102,7 @@ impl PriceLevel {
         self.visible_quantity += limit_order.visible_quantity();
         self.hidden_quantity += limit_order.hidden_quantity();
 
-        self._push(limit_order.id());
+        self.push(limit_order.id());
         self.increment_order_count();
         limit_orders.insert(limit_order.id(), limit_order);
     }
@@ -115,20 +115,20 @@ impl PriceLevel {
         limit_orders: &HashMap<OrderId, LimitOrder>,
     ) -> Option<OrderId> {
         loop {
-            let order_id = self._peek()?;
+            let order_id = self.peek()?;
             if limit_orders.contains_key(&order_id) {
                 return Some(order_id);
             }
 
             // Stale order ID in the price level, remove it
-            self._pop();
+            self.pop();
         }
     }
 
     /// Attempt to peek the first order in the price level without removing it
     /// It cleans up stale order IDs in the price level
     /// Returns a mutable reference to the order if it is found
-    pub(super) fn peek<'a>(
+    pub(super) fn peek_order<'a>(
         &mut self,
         limit_orders: &'a mut HashMap<OrderId, LimitOrder>,
     ) -> Option<&'a mut LimitOrder> {
@@ -139,8 +139,9 @@ impl PriceLevel {
 
     /// Pop the first order ID from the price level and remove it from the order book
     /// If the price level is empty, do nothing
+    /// Note that it does not update the quantity of the price level
     pub(super) fn remove_head_order(&mut self, limit_orders: &mut HashMap<OrderId, LimitOrder>) {
-        let Some(order_id) = self._pop() else {
+        let Some(order_id) = self.pop() else {
             return;
         };
         limit_orders.remove(&order_id);
@@ -158,10 +159,10 @@ impl PriceLevel {
         self.visible_quantity += replenished_quantity;
         self.hidden_quantity -= replenished_quantity;
 
-        let Some(order_id) = self._pop() else {
+        let Some(order_id) = self.pop() else {
             return;
         };
-        self._push(order_id);
+        self.push(order_id);
     }
 }
 
@@ -200,14 +201,14 @@ mod tests {
     }
 
     #[test]
-    fn test_push() {
+    fn test_push_order() {
         let mut limit_orders = HashMap::new();
         let mut price_level = PriceLevel::new();
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(0),
@@ -224,7 +225,7 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 1);
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(1),
@@ -241,7 +242,7 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 2);
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(2),
@@ -268,7 +269,7 @@ mod tests {
         let mut price_level = PriceLevel::new();
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(0),
@@ -283,7 +284,7 @@ mod tests {
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(1),
@@ -300,11 +301,11 @@ mod tests {
     }
 
     #[test]
-    fn test_peek() {
+    fn test_peek_order() {
         let mut limit_orders = HashMap::new();
 
         let mut price_level = PriceLevel::new();
-        assert!(price_level.peek(&mut limit_orders).is_none());
+        assert!(price_level.peek_order(&mut limit_orders).is_none());
 
         let mut order = LimitOrder::new(
             OrderId(0),
@@ -316,10 +317,10 @@ mod tests {
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
-        price_level.push(&mut limit_orders, order.clone());
-        assert_eq!(price_level.peek(&mut limit_orders), Some(&mut order));
+        price_level.push_order(&mut limit_orders, order.clone());
+        assert_eq!(price_level.peek_order(&mut limit_orders), Some(&mut order));
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(1),
@@ -332,7 +333,7 @@ mod tests {
                 ),
             ),
         );
-        assert_eq!(price_level.peek(&mut limit_orders), Some(&mut order));
+        assert_eq!(price_level.peek_order(&mut limit_orders), Some(&mut order));
     }
 
     #[test]
@@ -342,7 +343,7 @@ mod tests {
         let mut price_level = PriceLevel::new();
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(0),
@@ -360,7 +361,7 @@ mod tests {
         price_level.remove_head_order(&mut limit_orders);
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(1),
@@ -375,7 +376,7 @@ mod tests {
         );
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(2),
@@ -405,9 +406,9 @@ mod tests {
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
-        assert!(price_level.peek(&mut limit_orders).is_none());
+        assert!(price_level.peek_order(&mut limit_orders).is_none());
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(0),
@@ -433,7 +434,7 @@ mod tests {
         assert_eq!(price_level.order_count(), 1);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        price_level.push(
+        price_level.push_order(
             &mut limit_orders,
             LimitOrder::new(
                 OrderId(1),

@@ -185,7 +185,7 @@ pub(super) fn match_order(
         // Iterate over the orders at the price level
         while !remaining_quantity.is_zero() {
             // The price level is guaranteed to have at least one order
-            let order = price_level.peek(limit_orders).unwrap();
+            let order = price_level.peek_order(limit_orders).unwrap();
             let order_id = order.id();
 
             // The order is expired, remove it from the price level

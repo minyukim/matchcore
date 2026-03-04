@@ -20,11 +20,11 @@ impl OrderBook {
 
         match levels.entry(order.price()) {
             Entry::Occupied(mut e) => {
-                e.get_mut().push(orders, order);
+                e.get_mut().push_order(orders, order);
             }
             Entry::Vacant(e) => {
                 let mut price_level = PriceLevel::new();
-                price_level.push(orders, order);
+                price_level.push_order(orders, order);
                 e.insert(price_level);
             }
         }
