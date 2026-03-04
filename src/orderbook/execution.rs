@@ -139,8 +139,8 @@ impl OrderBook {
 mod tests {
     use super::*;
     use crate::{
-        LimitOrder, LimitOrderSpec, OrderFlags, OrderId, Price, Quantity, QuantityPolicy, Side,
-        TimeInForce, Timestamp,
+        LimitOrder, LimitOrderSpec, OrderFlags, OrderId, PegReference, PeggedOrder,
+        PeggedOrderSpec, Price, Quantity, QuantityPolicy, Side, TimeInForce, Timestamp,
     };
 
     #[test]
@@ -341,5 +341,171 @@ mod tests {
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(book.limit.expiration_queue.len(), 0);
+    }
+
+    #[test]
+    fn test_clean_up_expired_pegged_orders() {
+        let mut book: OrderBook = OrderBook::new("TEST");
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 0);
+        assert_eq!(book.pegged.expiration_queue.len(), 0);
+
+        book.add_pegged_order(PeggedOrder::new(
+            OrderId(0),
+            PeggedOrderSpec::new(
+                PegReference::Primary,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
+            ),
+        ));
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 1);
+        assert_eq!(book.pegged.expiration_queue.len(), 1);
+
+        book.add_pegged_order(PeggedOrder::new(
+            OrderId(1),
+            PeggedOrderSpec::new(
+                PegReference::Market,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
+            ),
+        ));
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 2);
+        assert_eq!(book.pegged.expiration_queue.len(), 2);
+
+        book.add_pegged_order(PeggedOrder::new(
+            OrderId(2),
+            PeggedOrderSpec::new(
+                PegReference::MidPrice,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1001))),
+            ),
+        ));
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 3);
+        assert_eq!(book.pegged.expiration_queue.len(), 3);
+
+        book.add_pegged_order(PeggedOrder::new(
+            OrderId(3),
+            PeggedOrderSpec::new(
+                PegReference::Primary,
+                Quantity(10),
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtd(Timestamp(1002))),
+            ),
+        ));
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 4);
+        assert_eq!(book.pegged.expiration_queue.len(), 4);
+
+        // No orders should be expired
+        book.clean_up_expired_pegged_orders(Timestamp(999));
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 4);
+        assert_eq!(book.pegged.expiration_queue.len(), 4);
+
+        // Two orders at GTD 1000 should be expired
+        book.clean_up_expired_pegged_orders(Timestamp(1000));
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 2);
+        assert_eq!(book.pegged.expiration_queue.len(), 2);
+
+        // Two remaining orders should be expired
+        book.clean_up_expired_pegged_orders(Timestamp(1002));
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 0);
+        assert_eq!(book.pegged.expiration_queue.len(), 0);
     }
 }
