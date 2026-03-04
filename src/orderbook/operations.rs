@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{LimitOrder, PriceLevel, Side};
+use crate::{LimitOrder, PeggedOrder, PriceLevel, Side};
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
 
@@ -30,13 +30,32 @@ impl OrderBook {
             }
         }
     }
+
+    /// Add a pegged order to the order book
+    #[allow(unused)]
+    pub(super) fn add_pegged_order(&mut self, order: PeggedOrder) {
+        if let Some(expires_at) = order.expires_at() {
+            self.pegged
+                .expiration_queue
+                .push(Reverse((expires_at, order.id())));
+        }
+
+        let orders = &mut self.pegged.orders;
+
+        let levels = match order.side() {
+            Side::Buy => &mut self.pegged.bid_levels,
+            Side::Sell => &mut self.pegged.ask_levels,
+        };
+        levels[order.peg_reference().as_index()].push_order(orders, order);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        LimitOrderSpec, OrderFlags, OrderId, Price, Quantity, QuantityPolicy, TimeInForce,
+        LimitOrderSpec, OrderFlags, OrderId, PegReference, PeggedOrderSpec, Price, Quantity,
+        QuantityPolicy, TimeInForce,
     };
 
     #[test]
@@ -165,5 +184,175 @@ mod tests {
             1
         );
         assert_eq!(book.limit.orders.get(&OrderId(3)).unwrap(), &order);
+    }
+
+    #[test]
+    fn test_add_pegged_order() {
+        let mut book = OrderBook::new("TEST");
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert!(book.pegged.orders.is_empty());
+
+        let order = PeggedOrder::new(
+            OrderId(0),
+            PeggedOrderSpec::new(
+                PegReference::Primary,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(order.clone());
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 1);
+        assert_eq!(book.pegged.orders.get(&OrderId(0)).unwrap(), &order);
+
+        let order = PeggedOrder::new(
+            OrderId(1),
+            PeggedOrderSpec::new(
+                PegReference::Market,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(order.clone());
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 2);
+        assert_eq!(book.pegged.orders.get(&OrderId(1)).unwrap(), &order);
+
+        let order = PeggedOrder::new(
+            OrderId(2),
+            PeggedOrderSpec::new(
+                PegReference::MidPrice,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(order.clone());
+        for (peg, count) in [
+            (PegReference::Primary, 1),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 3);
+        assert_eq!(book.pegged.orders.get(&OrderId(2)).unwrap(), &order);
+
+        let order = PeggedOrder::new(
+            OrderId(3),
+            PeggedOrderSpec::new(
+                PegReference::Primary,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(order.clone());
+        for (peg, count) in [
+            (PegReference::Primary, 2),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 0),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 4);
+        assert_eq!(book.pegged.orders.get(&OrderId(3)).unwrap(), &order);
+
+        let order = PeggedOrder::new(
+            OrderId(4),
+            PeggedOrderSpec::new(
+                PegReference::MidPrice,
+                Quantity(10),
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(order.clone());
+        for (peg, count) in [
+            (PegReference::Primary, 2),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 5);
+        assert_eq!(book.pegged.orders.get(&OrderId(4)).unwrap(), &order);
+
+        let order = PeggedOrder::new(
+            OrderId(5),
+            PeggedOrderSpec::new(
+                PegReference::MidPrice,
+                Quantity(10),
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(order.clone());
+        for (peg, count) in [
+            (PegReference::Primary, 2),
+            (PegReference::Market, 1),
+            (PegReference::MidPrice, 1),
+        ] {
+            assert_eq!(book.pegged.bid_levels[peg.as_index()].order_count(), count);
+        }
+        for (peg, count) in [
+            (PegReference::Primary, 0),
+            (PegReference::Market, 0),
+            (PegReference::MidPrice, 2),
+        ] {
+            assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
+        }
+        assert_eq!(book.pegged.orders.len(), 6);
+        assert_eq!(book.pegged.orders.get(&OrderId(5)).unwrap(), &order);
     }
 }
