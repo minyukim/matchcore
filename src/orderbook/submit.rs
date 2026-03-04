@@ -31,7 +31,7 @@ impl OrderBook {
 
         let order_id = OrderId::from(meta.sequence_number);
 
-        let result = self.match_order(spec.side(), None, spec.quantity(), meta.timestamp);
+        let result = self.match_order(spec.side(), None, spec.quantity());
 
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = spec.quantity() - executed_quantity;
@@ -58,8 +58,7 @@ impl OrderBook {
                 ),
             ));
 
-            let triggered_orders =
-                self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
+            let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
 
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
@@ -122,7 +121,7 @@ impl OrderBook {
 
         let order_id = OrderId::from(meta.sequence_number);
 
-        let result = self.match_order(spec.side(), None, spec.total_quantity(), meta.timestamp);
+        let result = self.match_order(spec.side(), None, spec.total_quantity());
 
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = spec.total_quantity() - executed_quantity;
@@ -155,8 +154,7 @@ impl OrderBook {
             LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
         ));
 
-        let triggered_orders =
-            self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
+        let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
 
         Ok(
             SubmitReport::new(OrderProcessingResult::new(order_id).with_match_result(result))
@@ -177,8 +175,7 @@ impl OrderBook {
         let order_id = OrderId::from(meta.sequence_number);
         self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
 
-        let triggered_orders =
-            self.trigger_opposite_side_takers(spec.side().opposite(), meta.timestamp);
+        let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
 
         Ok(SubmitReport::new(OrderProcessingResult::new(order_id))
             .with_triggered_orders(triggered_orders))
