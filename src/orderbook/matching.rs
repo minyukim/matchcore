@@ -25,12 +25,12 @@ impl OrderBook {
             match taker_side {
                 Side::Buy => (
                     self.best_bid(),
-                    &mut self.limit_ask_levels,
+                    &mut self.limit.ask_levels,
                     &mut self.peg_ask_levels,
                 ),
                 Side::Sell => (
                     self.best_ask(),
-                    &mut self.limit_bid_levels,
+                    &mut self.limit.bid_levels,
                     &mut self.peg_bid_levels,
                 ),
             };
@@ -39,7 +39,7 @@ impl OrderBook {
             taker_side,
             taker_side_best_price,
             maker_side_price_levels,
-            &mut self.limit_orders,
+            &mut self.limit.orders,
             maker_side_peg_levels,
             &mut self.pegged_orders,
             limit_price,
@@ -76,7 +76,7 @@ impl OrderBook {
         match taker_side {
             Side::Buy => {
                 // Iterate over the limit ask price levels up to the limit price
-                for (price, level) in self.limit_ask_levels.iter() {
+                for (price, level) in self.limit.ask_levels.iter() {
                     if *price > limit_price {
                         break;
                     }
@@ -103,7 +103,7 @@ impl OrderBook {
             }
             Side::Sell => {
                 // Iterate over the limit bid price levels up to the limit price
-                for (price, level) in self.limit_bid_levels.iter().rev() {
+                for (price, level) in self.limit.bid_levels.iter().rev() {
                     if *price < limit_price {
                         break;
                     }
