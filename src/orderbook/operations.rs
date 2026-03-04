@@ -1,4 +1,4 @@
-use super::OrderBook;
+use super::{LimitBook, OrderBook, PeggedBook};
 use crate::{LimitOrder, PeggedOrder, PriceLevel, Side};
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
@@ -6,17 +6,29 @@ use std::{cmp::Reverse, collections::btree_map::Entry};
 impl OrderBook {
     /// Add a limit order to the order book
     pub(super) fn add_limit_order(&mut self, order: LimitOrder) {
+        self.limit.add_order(order);
+    }
+
+    /// Add a pegged order to the order book
+    #[allow(unused)]
+    pub(super) fn add_pegged_order(&mut self, order: PeggedOrder) {
+        self.pegged.add_order(order);
+    }
+}
+
+impl LimitBook {
+    /// Add a limit order to the order book
+    pub(super) fn add_order(&mut self, order: LimitOrder) {
         if let Some(expires_at) = order.expires_at() {
-            self.limit
-                .expiration_queue
+            self.expiration_queue
                 .push(Reverse((expires_at, order.id())));
         }
 
-        let orders = &mut self.limit.orders;
+        let orders = &mut self.orders;
 
         let levels = match order.side() {
-            Side::Buy => &mut self.limit.bid_levels,
-            Side::Sell => &mut self.limit.ask_levels,
+            Side::Buy => &mut self.bid_levels,
+            Side::Sell => &mut self.ask_levels,
         };
 
         match levels.entry(order.price()) {
@@ -30,21 +42,21 @@ impl OrderBook {
             }
         }
     }
+}
 
+impl PeggedBook {
     /// Add a pegged order to the order book
-    #[allow(unused)]
-    pub(super) fn add_pegged_order(&mut self, order: PeggedOrder) {
+    pub(super) fn add_order(&mut self, order: PeggedOrder) {
         if let Some(expires_at) = order.expires_at() {
-            self.pegged
-                .expiration_queue
+            self.expiration_queue
                 .push(Reverse((expires_at, order.id())));
         }
 
-        let orders = &mut self.pegged.orders;
+        let orders = &mut self.orders;
 
         let levels = match order.side() {
-            Side::Buy => &mut self.pegged.bid_levels,
-            Side::Sell => &mut self.pegged.ask_levels,
+            Side::Buy => &mut self.bid_levels,
+            Side::Sell => &mut self.ask_levels,
         };
         levels[order.peg_reference().as_index()].push_order(orders, order);
     }
@@ -54,8 +66,8 @@ impl OrderBook {
 mod tests {
     use super::*;
     use crate::{
-        LimitOrderSpec, OrderFlags, OrderId, PegReference, PeggedOrderSpec, Price, Quantity,
-        QuantityPolicy, TimeInForce,
+        LimitOrderSpec, OrderBook, OrderFlags, OrderId, PegReference, PeggedOrderSpec, Price,
+        Quantity, QuantityPolicy, TimeInForce,
     };
 
     #[test]
