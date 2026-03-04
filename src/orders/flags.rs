@@ -53,6 +53,11 @@ impl OrderFlags {
         self.time_in_force.has_expiry()
     }
 
+    /// Get the timestamp when the order expires, if any
+    pub fn expires_at(&self) -> Option<Timestamp> {
+        self.time_in_force.expires_at()
+    }
+
     /// Check if the order is expired at a given timestamp
     pub fn is_expired(&self, timestamp: Timestamp) -> bool {
         self.time_in_force.is_expired(timestamp)
@@ -89,21 +94,25 @@ mod tests {
         assert_eq!(order.time_in_force(), TimeInForce::Gtc);
         assert!(!order.is_immediate());
         assert!(!order.has_expiry());
+        assert_eq!(order.expires_at(), None);
         assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Ioc);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
+        assert_eq!(order.expires_at(), None);
         assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Fok);
         assert!(order.is_immediate());
         assert!(!order.has_expiry());
+        assert_eq!(order.expires_at(), None);
         assert!(!order.is_expired(Timestamp(1771180000)));
 
         order.update_time_in_force(TimeInForce::Gtd(Timestamp(1771180000 + 1000)));
         assert!(!order.is_immediate());
         assert!(order.has_expiry());
+        assert_eq!(order.expires_at(), Some(Timestamp(1771180000 + 1000)));
         assert!(!order.is_expired(Timestamp(1771180000)));
         assert!(order.is_expired(Timestamp(1771180000 + 1000)));
     }

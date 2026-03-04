@@ -1,5 +1,5 @@
 use super::{OrderBook, matching::match_order};
-use crate::{CancelReason, OrderProcessingResult, Timestamp, types::*};
+use crate::{CancelReason, OrderProcessingResult, types::*};
 
 impl OrderBook {
     /// Trigger the opposite side of the conditional orders to become active takers.
@@ -11,7 +11,6 @@ impl OrderBook {
     pub(super) fn trigger_opposite_side_takers(
         &mut self,
         taker_side: Side,
-        timestamp: Timestamp,
     ) -> Vec<OrderProcessingResult> {
         let mut results = Vec::new();
 
@@ -52,21 +51,11 @@ impl OrderBook {
                 break;
             };
 
-            let (quantity, expired, post_only) = {
+            let (quantity, post_only) = {
                 // The order is guaranteed to exist because the order ID is found in the peg level
                 let order = pegged_orders.get(&order_id).unwrap();
-                (
-                    order.quantity(),
-                    order.is_expired(timestamp),
-                    order.post_only(),
-                )
+                (order.quantity(), order.post_only())
             };
-
-            // The order is expired, remove it from the peg level
-            if expired {
-                active_peg_level.remove_head_order(pegged_orders);
-                continue;
-            }
 
             // The post-only order cannot be a taker. Cancel the order.
             if post_only {
@@ -86,7 +75,6 @@ impl OrderBook {
                 pegged_orders,
                 None,
                 quantity,
-                timestamp,
             );
             self.last_trade_price = result.last_trade_price();
 

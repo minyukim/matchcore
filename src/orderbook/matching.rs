@@ -3,8 +3,7 @@ use super::{
     peg_level::{MAKER_ARRAY_PRIMARY, MAKER_ARRAY_PRIMARY_MID_PRICE},
 };
 use crate::{
-    LimitOrder, MatchResult, OrderId, PegReference, PeggedOrder, Price, Quantity, Side, Timestamp,
-    Trade,
+    LimitOrder, MatchResult, OrderId, PegReference, PeggedOrder, Price, Quantity, Side, Trade,
 };
 
 use std::collections::{BTreeMap, HashMap};
@@ -21,7 +20,6 @@ impl OrderBook {
         taker_side: Side,
         limit_price: Option<Price>,
         quantity: Quantity,
-        timestamp: Timestamp,
     ) -> MatchResult {
         let (taker_side_best_price, maker_side_price_levels, maker_side_peg_levels) =
             match taker_side {
@@ -46,7 +44,6 @@ impl OrderBook {
             &mut self.pegged_orders,
             limit_price,
             quantity,
-            timestamp,
         );
         self.last_trade_price = result.last_trade_price();
 
@@ -154,7 +151,6 @@ pub(super) fn match_order(
     pegged_orders: &mut HashMap<OrderId, PeggedOrder>,
     limit_price: Option<Price>,
     quantity: Quantity,
-    timestamp: Timestamp,
 ) -> MatchResult {
     let mut match_result = MatchResult::new(taker_side);
     let mut remaining_quantity = quantity;
@@ -185,18 +181,8 @@ pub(super) fn match_order(
         // Iterate over the orders at the price level
         while !remaining_quantity.is_zero() {
             // The price level is guaranteed to have at least one order
-            let order = price_level.peek(limit_orders).unwrap();
+            let order = price_level.peek_order(limit_orders).unwrap();
             let order_id = order.id();
-
-            // The order is expired, remove it from the price level
-            if order.is_expired(timestamp) {
-                price_level.remove_head_order(limit_orders);
-                if price_level.is_empty() {
-                    maker_side_price_levels.remove(&price);
-                    break;
-                }
-                continue;
-            }
 
             let (consumed, replenished) = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
@@ -264,12 +250,6 @@ pub(super) fn match_order(
 
             // The order is guaranteed to exist because the order ID is found in the peg level
             let order = pegged_orders.get_mut(&order_id).unwrap();
-
-            // The order is expired, remove it from the peg level
-            if order.is_expired(timestamp) {
-                peg_level.remove_head_order(pegged_orders);
-                continue;
-            }
 
             let consumed = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
@@ -351,7 +331,7 @@ mod tests_match_order {
             Side::Sell,
         );
 
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(50), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(50));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(50));
@@ -384,7 +364,7 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask(), Some(Price(100)));
 
         // Match a buy order at 100 for 30 against the book
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(30));
@@ -400,7 +380,7 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask(), Some(Price(100)));
 
         // Match a buy order at 100 for 40 against the book
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(20));
@@ -427,8 +407,7 @@ mod tests_match_order {
             Side::Buy,
         );
 
-        let result =
-            orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(40), Timestamp(0));
+        let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(40));
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), Quantity(40));
@@ -444,8 +423,7 @@ mod tests_match_order {
         assert_eq!(orderbook.best_bid(), Some(Price(100)));
 
         // Match a sell order at 100 for 20 against the book
-        let result =
-            orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(20), Timestamp(0));
+        let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(20));
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), Quantity(10));
@@ -465,7 +443,7 @@ mod tests_match_order {
     fn test_empty_book_no_fill() {
         let mut orderbook = new_test_book();
 
-        let result = orderbook.match_order(Side::Buy, None, Quantity(30), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, None, Quantity(30));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(0));
@@ -486,7 +464,7 @@ mod tests_match_order {
         );
 
         // Buy limit 99 does not cross best ask 100
-        let result = orderbook.match_order(Side::Buy, Some(Price(99)), Quantity(30), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(99)), Quantity(30));
 
         assert_eq!(result.executed_quantity(), Quantity(0));
         assert!(result.trades().is_empty());
@@ -512,7 +490,7 @@ mod tests_match_order {
         );
 
         // Buy 40: fills first maker fully (20), second maker partially (20)
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40));
 
         assert_eq!(result.executed_quantity(), Quantity(40));
         assert_eq!(result.executed_value(), Notional(100 * 40));
@@ -549,7 +527,7 @@ mod tests_match_order {
         );
 
         // Buy 50 at limit 101: 30 @ 100, then 20 @ 101
-        let result = orderbook.match_order(Side::Buy, Some(Price(101)), Quantity(50), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(101)), Quantity(50));
 
         assert_eq!(result.executed_quantity(), Quantity(50));
         assert_eq!(result.executed_value(), Notional(30 * 100 + 20 * 101));
@@ -593,7 +571,7 @@ mod tests_match_order {
         );
 
         // Market buy (None limit) for 60: 25 @ 100, 25 @ 101, 10 @ 102
-        let result = orderbook.match_order(Side::Buy, None, Quantity(60), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, None, Quantity(60));
 
         assert_eq!(result.executed_quantity(), Quantity(60));
         assert_eq!(
@@ -634,7 +612,7 @@ mod tests_match_order {
         );
 
         // Buy 15: only consumes visible, no replenish yet
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(15), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(15));
 
         assert_eq!(result.executed_quantity(), Quantity(15));
         assert_eq!(result.executed_value(), Notional(100 * 15));
@@ -663,7 +641,7 @@ mod tests_match_order {
         );
 
         // Buy 15: consumes 10 (trade 10), replenish 10, then consumes 5 (trade 5)
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(15), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(15));
 
         assert_eq!(result.executed_quantity(), Quantity(15));
         assert_eq!(result.executed_value(), Notional(100 * 15));
@@ -696,7 +674,7 @@ mod tests_match_order {
         );
 
         // Buy 35: 10 + 10 (replenish) + 10 + 5
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(35), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(35));
 
         assert_eq!(result.executed_quantity(), Quantity(35));
         assert_eq!(result.executed_value(), Notional(100 * 35));
@@ -736,7 +714,7 @@ mod tests_match_order {
             Side::Sell,
         );
 
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30));
 
         assert_eq!(result.executed_quantity(), Quantity(30));
         assert_eq!(result.executed_value(), Notional(100 * 30));
@@ -779,7 +757,7 @@ mod tests_match_order {
         );
 
         // Buy 70: replenish moves iceberg to back, so we get 10 (iceberg), then 50 (standard), then 10 (iceberg) = 3 trades
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(70), Timestamp(0));
+        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(70));
 
         assert_eq!(result.executed_quantity(), Quantity(70));
         assert_eq!(result.executed_value(), Notional(100 * 70));
@@ -815,8 +793,7 @@ mod tests_match_order {
         );
 
         // Sell 25: 10 + 10 (replenish) + 5
-        let result =
-            orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(25), Timestamp(0));
+        let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(25));
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), Quantity(25));
