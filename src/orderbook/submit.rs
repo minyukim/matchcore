@@ -106,7 +106,7 @@ impl OrderBook {
         }
 
         if spec.time_in_force() == TimeInForce::Fok {
-            let executable_quantity = self.max_executable_quantity_unchecked(
+            let executable_quantity = self.max_executable_quantity_with_limit_price_unchecked(
                 spec.side(),
                 spec.price(),
                 spec.total_quantity(),

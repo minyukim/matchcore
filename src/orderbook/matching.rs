@@ -50,8 +50,8 @@ impl OrderBook {
         result
     }
 
-    /// Computes the immediately executable quantity against the current book,
-    /// capped at `requested_quantity`, without mutating state.
+    /// Computes the immediately executable quantity with a limit price against the current book,
+    /// capped by `requested_quantity`, without mutating state.
     ///
     /// Preconditions:
     /// - `requested_quantity` > 0
@@ -59,7 +59,7 @@ impl OrderBook {
     ///
     /// Returns `requested_quantity` if fully executable; otherwise returns the
     /// available executable quantity.
-    pub(super) fn max_executable_quantity_unchecked(
+    pub(super) fn max_executable_quantity_with_limit_price_unchecked(
         &self,
         taker_side: Side,
         limit_price: Price,
@@ -818,7 +818,7 @@ mod tests_match_order {
 }
 
 #[cfg(test)]
-mod tests_max_executable_quantity_unchecked {
+mod tests_max_executable_quantity_with_limit_price_unchecked {
     use super::*;
     use crate::{LimitOrderSpec, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
 
@@ -881,7 +881,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy 30 at 100: 30 available, request 30 → fully executable
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(100), Quantity(30));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(100),
+            Quantity(30),
+        );
         assert_eq!(qty, Quantity(30));
     }
 
@@ -897,7 +901,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy 100 at 100: only 50 available
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(100), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(100),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(50));
     }
 
@@ -920,7 +928,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy at limit 101: 30 + 40 = 70 available, request 100 → 70 executable
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(101), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(101),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(70));
     }
 
@@ -943,7 +955,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy at limit 101: only 10 @ 100 counts, 102 is above limit
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(101), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(101),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(10));
     }
 
@@ -959,7 +975,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Sell 30 at 100: 30 executable
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, Price(100), Quantity(30));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Sell,
+            Price(100),
+            Quantity(30),
+        );
         assert_eq!(qty, Quantity(30));
     }
 
@@ -975,8 +995,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Sell 100 at 100: only 50 available
-        let qty =
-            orderbook.max_executable_quantity_unchecked(Side::Sell, Price(100), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Sell,
+            Price(100),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(50));
     }
 
@@ -999,7 +1022,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Sell at limit 99: only 50 @ 100 counts (bid >= 99), 98 is below limit
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, Price(99), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Sell,
+            Price(99),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(50));
     }
 
@@ -1019,7 +1046,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy at 100: executable = visible + hidden = 30, request 50 → 30
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(100), Quantity(50));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(100),
+            Quantity(50),
+        );
         assert_eq!(qty, Quantity(30));
     }
 
@@ -1037,7 +1068,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy at 100: 35 total available, request 20 → 20 (fully executable)
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(100), Quantity(20));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(100),
+            Quantity(20),
+        );
         assert_eq!(qty, Quantity(20));
     }
 
@@ -1055,7 +1090,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Sell at 100: executable = 40 total, request 50 → 40
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, Price(100), Quantity(50));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Sell,
+            Price(100),
+            Quantity(50),
+        );
         assert_eq!(qty, Quantity(40));
     }
 
@@ -1080,7 +1119,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy at 101: 30 (iceberg) + 40 (standard) = 70, request 100 → 70
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(101), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(101),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(70));
     }
 
@@ -1105,7 +1148,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Buy at limit 101: only 30 @ 100 counts, 102 is above limit
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Buy, Price(101), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Buy,
+            Price(101),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(30));
     }
 
@@ -1130,7 +1177,11 @@ mod tests_max_executable_quantity_unchecked {
         );
 
         // Sell at limit 99: only 50 @ 100 (iceberg total) counts, 98 is below limit
-        let qty = orderbook.max_executable_quantity_unchecked(Side::Sell, Price(99), Quantity(100));
+        let qty = orderbook.max_executable_quantity_with_limit_price_unchecked(
+            Side::Sell,
+            Price(99),
+            Quantity(100),
+        );
         assert_eq!(qty, Quantity(50));
     }
 }
