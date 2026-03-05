@@ -215,7 +215,62 @@ impl OrderBook {
         meta: CommandMeta,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        todo!()
+        let order_id = OrderId::from(meta.sequence_number);
+
+        if self.is_side_empty(spec.side().opposite()) {
+            if spec.is_immediate() {
+                return Err(RejectReason::NoLiquidity);
+            }
+
+            self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
+
+            return Ok(SubmitReport::new(OrderProcessingResult::new(order_id)));
+        }
+
+        if spec.time_in_force() == TimeInForce::Fok {
+            let executable_quantity =
+                self.max_executable_quantity_unchecked(spec.side(), spec.quantity());
+            if executable_quantity < spec.quantity() {
+                return Err(RejectReason::InsufficientLiquidity {
+                    requested_quantity: spec.quantity(),
+                    available_quantity: executable_quantity,
+                });
+            }
+        }
+
+        let result = self.match_order(spec.side(), None, spec.quantity());
+
+        let executed_quantity = result.executed_quantity();
+        let remaining_quantity = spec.quantity() - executed_quantity;
+        if remaining_quantity.is_zero() {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id).with_match_result(result),
+            ));
+        }
+
+        if spec.time_in_force() == TimeInForce::Ioc {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id)
+                    .with_match_result(result)
+                    .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested_quantity: spec.quantity(),
+                        available_quantity: executed_quantity,
+                    }),
+            ));
+        }
+
+        self.add_pegged_order(PeggedOrder::new(
+            order_id,
+            PeggedOrderSpec::new(
+                spec.peg_reference(),
+                remaining_quantity,
+                spec.flags().clone(),
+            ),
+        ));
+
+        Ok(SubmitReport::new(
+            OrderProcessingResult::new(order_id).with_match_result(result),
+        ))
     }
 
     /// Submit a mid price pegged order
