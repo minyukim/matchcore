@@ -184,8 +184,45 @@ impl OrderBook {
     /// Submit a pegged order
     fn submit_pegged_order(
         &mut self,
-        _meta: CommandMeta,
-        _spec: &PeggedOrderSpec,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        spec.validate().map_err(RejectReason::CommandError)?;
+
+        if spec.is_expired(meta.timestamp) {
+            return Err(RejectReason::CommandError(CommandError::Expired));
+        }
+
+        match spec.peg_reference() {
+            PegReference::Primary => self.submit_primary_pegged_order(meta, spec),
+            PegReference::Market => self.submit_market_pegged_order(meta, spec),
+            PegReference::MidPrice => self.submit_mid_price_pegged_order(meta, spec),
+        }
+    }
+
+    /// Submit a primary pegged order
+    fn submit_primary_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        todo!()
+    }
+
+    /// Submit a market pegged order
+    fn submit_market_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        todo!()
+    }
+
+    /// Submit a mid price pegged order
+    fn submit_mid_price_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
         todo!()
     }
