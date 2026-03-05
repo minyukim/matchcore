@@ -50,6 +50,79 @@ impl OrderBook {
         result
     }
 
+    /// Computes the immediately executable quantity against the current book,
+    /// capped by `requested_quantity`, without mutating state.
+    ///
+    /// Preconditions:
+    /// - `requested_quantity` > 0
+    /// - the book is not empty on the maker side
+    ///
+    /// Returns `requested_quantity` if fully executable; otherwise returns the
+    /// available executable quantity.
+    pub(super) fn max_executable_quantity_unchecked(
+        &self,
+        taker_side: Side,
+        requested_quantity: Quantity,
+    ) -> Quantity {
+        debug_assert!(!requested_quantity.is_zero());
+        debug_assert!(!self.is_side_empty(taker_side.opposite()));
+
+        let mut remaining = requested_quantity;
+
+        // MidPrice peg level is active if the spread is less than or equal to 1
+        let mid_active = self.spread().is_some_and(|spread| spread <= 1);
+
+        match taker_side {
+            Side::Buy => {
+                // Iterate over the limit ask price levels
+                for level in self.limit.ask_levels.values() {
+                    remaining = remaining.saturating_sub(level.total_quantity());
+                    if remaining.is_zero() {
+                        return requested_quantity;
+                    }
+                }
+                // Primary peg level is always active
+                remaining = remaining.saturating_sub(
+                    self.pegged.ask_levels[PegReference::Primary.as_index()].quantity(),
+                );
+                if remaining.is_zero() {
+                    return requested_quantity;
+                }
+                if mid_active {
+                    remaining = remaining.saturating_sub(
+                        self.pegged.ask_levels[PegReference::MidPrice.as_index()].quantity(),
+                    );
+                    if remaining.is_zero() {
+                        return requested_quantity;
+                    }
+                }
+            }
+            Side::Sell => {
+                // Iterate over the limit bid price levels
+                for level in self.limit.bid_levels.values().rev() {
+                    remaining = remaining.saturating_sub(level.total_quantity());
+                    if remaining.is_zero() {
+                        return requested_quantity;
+                    }
+                }
+                // Primary peg level is always active
+                remaining = remaining.saturating_sub(
+                    self.pegged.bid_levels[PegReference::Primary.as_index()].quantity(),
+                );
+                if mid_active {
+                    remaining = remaining.saturating_sub(
+                        self.pegged.bid_levels[PegReference::MidPrice.as_index()].quantity(),
+                    );
+                    if remaining.is_zero() {
+                        return requested_quantity;
+                    }
+                }
+            }
+        }
+
+        requested_quantity - remaining
+    }
+
     /// Computes the immediately executable quantity with a limit price against the current book,
     /// capped by `requested_quantity`, without mutating state.
     ///
@@ -116,7 +189,6 @@ impl OrderBook {
                 remaining = remaining.saturating_sub(
                     self.pegged.bid_levels[PegReference::Primary.as_index()].quantity(),
                 );
-                // MidPrice peg level is active if the spread is less than or equal to 1
                 if mid_active {
                     remaining = remaining.saturating_sub(
                         self.pegged.bid_levels[PegReference::MidPrice.as_index()].quantity(),
@@ -814,6 +886,194 @@ mod tests_match_order {
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg bid has 5 visible left
         assert_eq!(orderbook.best_bid(), Some(Price(100)));
+    }
+}
+
+#[cfg(test)]
+mod tests_max_executable_quantity_unchecked {
+    use super::*;
+    use crate::{
+        LimitOrderSpec, OrderFlags, PeggedOrderSpec, Quantity, QuantityPolicy, TimeInForce,
+    };
+
+    fn new_test_book() -> OrderBook {
+        OrderBook::new("TEST")
+    }
+
+    fn add_standard_order(
+        book: &mut OrderBook,
+        id: OrderId,
+        price: Price,
+        quantity: Quantity,
+        side: Side,
+    ) {
+        book.add_limit_order(LimitOrder::new(
+            id,
+            LimitOrderSpec::new(
+                price,
+                QuantityPolicy::Standard { quantity },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    fn add_pegged_order(
+        book: &mut OrderBook,
+        id: OrderId,
+        peg: PegReference,
+        quantity: Quantity,
+        side: Side,
+    ) {
+        book.add_pegged_order(PeggedOrder::new(
+            id,
+            PeggedOrderSpec::new(
+                peg,
+                quantity,
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        ));
+    }
+
+    #[test]
+    fn test_buy_fully_executable_returns_requested() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Sell);
+
+        let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(30));
+        assert_eq!(qty, Quantity(30));
+    }
+
+    #[test]
+    fn test_buy_capped_by_available_liquidity() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Sell);
+
+        let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(100));
+        assert_eq!(qty, Quantity(50));
+    }
+
+    #[test]
+    fn test_buy_multiple_limit_levels_summed() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(30), Side::Sell);
+        add_standard_order(&mut book, OrderId(1), Price(101), Quantity(40), Side::Sell);
+
+        // All ask levels: 30 + 40 = 70. Request 100 → 70 executable.
+        let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(100));
+        assert_eq!(qty, Quantity(70));
+    }
+
+    #[test]
+    fn test_sell_fully_executable_returns_requested() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Buy);
+
+        let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(30));
+        assert_eq!(qty, Quantity(30));
+    }
+
+    #[test]
+    fn test_sell_capped_by_available_liquidity() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Buy);
+
+        let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(100));
+        assert_eq!(qty, Quantity(50));
+    }
+
+    #[test]
+    fn test_sell_multiple_limit_levels_summed() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(30), Side::Buy);
+        add_standard_order(&mut book, OrderId(1), Price(99), Quantity(40), Side::Buy);
+
+        // All bid levels (best first): 30 + 40 = 70. Request 100 → 70 executable.
+        let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(100));
+        assert_eq!(qty, Quantity(70));
+    }
+
+    #[test]
+    fn test_buy_includes_primary_peg_ask() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(20), Side::Sell);
+        add_pegged_order(
+            &mut book,
+            OrderId(1),
+            PegReference::Primary,
+            Quantity(15),
+            Side::Sell,
+        );
+
+        // Limit asks 20 + primary peg 15 = 35. Request 50 → 35 executable.
+        let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(50));
+        assert_eq!(qty, Quantity(35));
+    }
+
+    #[test]
+    fn test_sell_includes_primary_peg_bid() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(20), Side::Buy);
+        add_pegged_order(
+            &mut book,
+            OrderId(1),
+            PegReference::Primary,
+            Quantity(15),
+            Side::Buy,
+        );
+
+        // Limit bids 20 + primary peg 15 = 35. Request 50 → 35 executable.
+        let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(50));
+        assert_eq!(qty, Quantity(35));
+    }
+
+    #[test]
+    fn test_buy_includes_mid_price_peg_when_spread_at_most_one() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(10), Side::Buy);
+        add_standard_order(&mut book, OrderId(1), Price(101), Quantity(10), Side::Sell);
+        add_pegged_order(
+            &mut book,
+            OrderId(2),
+            PegReference::Primary,
+            Quantity(5),
+            Side::Sell,
+        );
+        add_pegged_order(
+            &mut book,
+            OrderId(3),
+            PegReference::MidPrice,
+            Quantity(7),
+            Side::Sell,
+        );
+
+        // Spread = 0 (bid 100, ask 100), so mid_active. Limit asks 10 + primary 5 + mid 7 = 22.
+        let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(100));
+        assert_eq!(qty, Quantity(22));
+    }
+
+    #[test]
+    fn test_buy_excludes_mid_price_peg_when_spread_wide() {
+        let mut book = new_test_book();
+        add_standard_order(&mut book, OrderId(0), Price(98), Quantity(10), Side::Buy);
+        add_standard_order(&mut book, OrderId(1), Price(102), Quantity(10), Side::Sell);
+        add_pegged_order(
+            &mut book,
+            OrderId(2),
+            PegReference::Primary,
+            Quantity(5),
+            Side::Sell,
+        );
+        add_pegged_order(
+            &mut book,
+            OrderId(3),
+            PegReference::MidPrice,
+            Quantity(7),
+            Side::Sell,
+        );
+
+        // Spread = 4 > 1, so mid_active = false. Only limit asks 10 + primary 5 = 15.
+        let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(100));
+        assert_eq!(qty, Quantity(15));
     }
 }
 
