@@ -1,4 +1,4 @@
-use crate::{LimitOrderSpec, MarketOrder, PeggedOrderSpec, Side, TimeInForce};
+use crate::{LimitOrder, MarketOrder, PeggedOrderSpec, Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ pub enum NewOrder {
     /// A new market order
     Market(MarketOrder),
     /// A new limit order
-    Limit(LimitOrderSpec),
+    Limit(LimitOrder),
     /// A new pegged order
     Pegged(PeggedOrderSpec),
 }

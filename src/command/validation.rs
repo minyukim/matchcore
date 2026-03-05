@@ -11,7 +11,7 @@ impl MarketOrder {
     }
 }
 
-impl LimitOrderSpec {
+impl LimitOrder {
     /// Validate the order specification
     pub fn validate(&self) -> Result<(), CommandError> {
         validate_limit_order_invariants(
