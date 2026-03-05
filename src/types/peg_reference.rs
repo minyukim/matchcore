@@ -27,6 +27,11 @@ impl PegReference {
     }
 
     #[inline]
+    pub const fn is_always_taker(self) -> bool {
+        matches!(self, PegReference::Market)
+    }
+
+    #[inline]
     pub const fn can_be_taker(self) -> bool {
         matches!(self, PegReference::Market)
     }
