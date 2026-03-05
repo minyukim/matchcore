@@ -82,18 +82,21 @@ impl PegLevel {
         self.order_ids.pop_front()
     }
 
-    /// Push a pegged order to the peg level and add it to the order book
+    /// Update the level when an order is added
     #[allow(unused)]
-    pub(super) fn push_order(
-        &mut self,
-        pegged_orders: &mut HashMap<OrderId, PeggedOrder>,
-        pegged_order: PeggedOrder,
-    ) {
-        self.quantity += pegged_order.quantity();
+    pub(super) fn on_order_added(&mut self, id: OrderId, quantity: Quantity) {
+        self.quantity += quantity;
 
-        self.push(pegged_order.id());
+        self.push(id);
         self.increment_order_count();
-        pegged_orders.insert(pegged_order.id(), pegged_order);
+    }
+
+    /// Update the level when an order is removed
+    /// Note that it does not remove the order ID from the queue.
+    /// The stale order ID will be cleaned up when the order is peeked from the queue.
+    pub(super) fn on_order_removed(&mut self, quantity: Quantity) {
+        self.quantity -= quantity;
+        self.decrement_order_count();
     }
 
     /// Attempt to peek the first order ID in the peg level without removing it
@@ -137,22 +140,6 @@ impl PegLevel {
         pegged_orders.remove(&order_id);
         self.decrement_order_count();
     }
-
-    /// Remove an order from the peg level and remove it from the order book
-    /// If the order is not found, do nothing
-    /// Note that it does not remove the order ID from the queue,
-    /// the stale order ID will be cleaned up when the order is peeked from the queue.
-    pub(super) fn remove_order(
-        &mut self,
-        pegged_orders: &mut HashMap<OrderId, PeggedOrder>,
-        order_id: OrderId,
-    ) {
-        let Some(order) = pegged_orders.remove(&order_id) else {
-            return;
-        };
-        self.quantity -= order.quantity();
-        self.decrement_order_count();
-    }
 }
 
 #[cfg(test)]
@@ -177,53 +164,50 @@ mod tests {
     }
 
     #[test]
-    fn test_push_order() {
-        let mut limit_orders = HashMap::new();
+    fn test_on_order_added_and_removed() {
         let mut peg_level = PegLevel::new();
-        assert_eq!(peg_level.quantity, Quantity(0));
+        assert_eq!(peg_level.quantity(), Quantity(0));
         assert_eq!(peg_level.order_count(), 0);
 
-        peg_level.push_order(
-            &mut limit_orders,
-            PeggedOrder::new(
-                OrderId(0),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(10),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(10));
+        peg_level.on_order_added(OrderId(0), Quantity(10));
+        assert_eq!(peg_level.quantity(), Quantity(10));
         assert_eq!(peg_level.order_count(), 1);
 
-        peg_level.push_order(
-            &mut limit_orders,
-            PeggedOrder::new(
-                OrderId(1),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(20),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(30));
+        peg_level.on_order_added(OrderId(1), Quantity(20));
+        assert_eq!(peg_level.quantity(), Quantity(30));
         assert_eq!(peg_level.order_count(), 2);
 
-        peg_level.push_order(
-            &mut limit_orders,
-            PeggedOrder::new(
-                OrderId(2),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(30),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(60));
+        peg_level.on_order_added(OrderId(2), Quantity(30));
+        assert_eq!(peg_level.quantity(), Quantity(60));
         assert_eq!(peg_level.order_count(), 3);
+
+        peg_level.on_order_added(OrderId(3), Quantity(40));
+        assert_eq!(peg_level.quantity(), Quantity(100));
+        assert_eq!(peg_level.order_count(), 4);
+
+        peg_level.on_order_added(OrderId(4), Quantity(50));
+        assert_eq!(peg_level.quantity(), Quantity(150));
+        assert_eq!(peg_level.order_count(), 5);
+
+        peg_level.on_order_removed(Quantity(10));
+        assert_eq!(peg_level.quantity(), Quantity(140));
+        assert_eq!(peg_level.order_count(), 4);
+
+        peg_level.on_order_removed(Quantity(20));
+        assert_eq!(peg_level.quantity(), Quantity(120));
+        assert_eq!(peg_level.order_count(), 3);
+
+        peg_level.on_order_removed(Quantity(30));
+        assert_eq!(peg_level.quantity(), Quantity(90));
+        assert_eq!(peg_level.order_count(), 2);
+
+        peg_level.on_order_removed(Quantity(40));
+        assert_eq!(peg_level.quantity(), Quantity(50));
+        assert_eq!(peg_level.order_count(), 1);
+
+        peg_level.on_order_removed(Quantity(50));
+        assert_eq!(peg_level.quantity(), Quantity(0));
+        assert_eq!(peg_level.order_count(), 0);
     }
 
     #[test]
@@ -233,8 +217,9 @@ mod tests {
         let mut peg_level = PegLevel::new();
         assert!(peg_level.peek_order_id(&pegged_orders).is_none());
 
-        peg_level.push_order(
-            &mut pegged_orders,
+        // Push order 0
+        pegged_orders.insert(
+            OrderId(0),
             PeggedOrder::new(
                 OrderId(0),
                 PeggedOrderSpec::new(
@@ -244,10 +229,12 @@ mod tests {
                 ),
             ),
         );
+        peg_level.on_order_added(OrderId(0), Quantity(100));
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(0)));
 
-        peg_level.push_order(
-            &mut pegged_orders,
+        // Push order 1, order 0 is still at the head of the queue
+        pegged_orders.insert(
+            OrderId(1),
             PeggedOrder::new(
                 OrderId(1),
                 PeggedOrderSpec::new(
@@ -257,7 +244,18 @@ mod tests {
                 ),
             ),
         );
+        peg_level.on_order_added(OrderId(1), Quantity(100));
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(0)));
+
+        // Remove order 0, order 1 is now at the head of the queue
+        pegged_orders.remove(&OrderId(0));
+        peg_level.on_order_removed(Quantity(100));
+        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
+
+        // Remove order 1, the peg level is empty
+        pegged_orders.remove(&OrderId(1));
+        peg_level.on_order_removed(Quantity(100));
+        assert!(peg_level.peek_order_id(&pegged_orders).is_none());
     }
 
     #[test]
@@ -275,11 +273,12 @@ mod tests {
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
-        peg_level.push_order(&mut pegged_orders, order.clone());
+        pegged_orders.insert(OrderId(0), order.clone());
+        peg_level.on_order_added(OrderId(0), Quantity(100));
         assert_eq!(peg_level.peek_order(&mut pegged_orders), Some(&mut order));
 
-        peg_level.push_order(
-            &mut pegged_orders,
+        pegged_orders.insert(
+            OrderId(1),
             PeggedOrder::new(
                 OrderId(1),
                 PeggedOrderSpec::new(
@@ -289,6 +288,7 @@ mod tests {
                 ),
             ),
         );
+        peg_level.on_order_added(OrderId(1), Quantity(100));
         assert_eq!(peg_level.peek_order(&mut pegged_orders), Some(&mut order));
     }
 
@@ -299,8 +299,8 @@ mod tests {
         let mut peg_level = PegLevel::new();
         assert!(peg_level.peek_order_id(&pegged_orders).is_none());
 
-        peg_level.push_order(
-            &mut pegged_orders,
+        pegged_orders.insert(
+            OrderId(0),
             PeggedOrder::new(
                 OrderId(0),
                 PeggedOrderSpec::new(
@@ -310,13 +310,14 @@ mod tests {
                 ),
             ),
         );
+        peg_level.on_order_added(OrderId(0), Quantity(100));
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(0)));
 
         peg_level.remove_head_order(&mut pegged_orders);
         assert!(peg_level.peek_order_id(&pegged_orders).is_none());
 
-        peg_level.push_order(
-            &mut pegged_orders,
+        pegged_orders.insert(
+            OrderId(1),
             PeggedOrder::new(
                 OrderId(1),
                 PeggedOrderSpec::new(
@@ -326,10 +327,11 @@ mod tests {
                 ),
             ),
         );
+        peg_level.on_order_added(OrderId(1), Quantity(100));
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
 
-        peg_level.push_order(
-            &mut pegged_orders,
+        pegged_orders.insert(
+            OrderId(2),
             PeggedOrder::new(
                 OrderId(2),
                 PeggedOrderSpec::new(
@@ -339,111 +341,13 @@ mod tests {
                 ),
             ),
         );
+        peg_level.on_order_added(OrderId(2), Quantity(100));
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
 
         peg_level.remove_head_order(&mut pegged_orders);
         assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(2)));
 
         peg_level.remove_head_order(&mut pegged_orders);
-        assert!(peg_level.peek_order_id(&pegged_orders).is_none());
-    }
-
-    #[test]
-    fn test_remove_order() {
-        let mut pegged_orders = HashMap::new();
-
-        let mut peg_level = PegLevel::new();
-        assert_eq!(peg_level.quantity, Quantity(0));
-        assert_eq!(peg_level.order_count(), 0);
-        assert!(peg_level.peek_order_id(&pegged_orders).is_none());
-
-        peg_level.push_order(
-            &mut pegged_orders,
-            PeggedOrder::new(
-                OrderId(0),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(10),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(10));
-        assert_eq!(peg_level.order_count(), 1);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(0)));
-
-        peg_level.remove_order(&mut pegged_orders, OrderId(0));
-        assert_eq!(peg_level.quantity, Quantity(0));
-        assert_eq!(peg_level.order_count(), 0);
-        assert!(peg_level.peek_order_id(&pegged_orders).is_none());
-
-        peg_level.push_order(
-            &mut pegged_orders,
-            PeggedOrder::new(
-                OrderId(1),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(20),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(20));
-        assert_eq!(peg_level.order_count(), 1);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
-
-        peg_level.push_order(
-            &mut pegged_orders,
-            PeggedOrder::new(
-                OrderId(2),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(30),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(50));
-        assert_eq!(peg_level.order_count(), 2);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
-
-        peg_level.push_order(
-            &mut pegged_orders,
-            PeggedOrder::new(
-                OrderId(3),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(40),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(peg_level.quantity, Quantity(90));
-        assert_eq!(peg_level.order_count(), 3);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
-
-        // Remove the second order
-        peg_level.remove_order(&mut pegged_orders, OrderId(2));
-        assert_eq!(peg_level.quantity, Quantity(60));
-        assert_eq!(peg_level.order_count(), 2);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
-
-        // No order found, do nothing
-        peg_level.remove_order(&mut pegged_orders, OrderId(2));
-        assert_eq!(peg_level.quantity, Quantity(60));
-        assert_eq!(peg_level.order_count(), 2);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(1)));
-
-        // Remove the first order
-        peg_level.remove_order(&mut pegged_orders, OrderId(1));
-        assert_eq!(peg_level.quantity, Quantity(40));
-        assert_eq!(peg_level.order_count(), 1);
-        assert_eq!(peg_level.peek_order_id(&pegged_orders), Some(OrderId(3)));
-
-        // Remove the last remaining order
-        peg_level.remove_order(&mut pegged_orders, OrderId(3));
-        assert_eq!(peg_level.quantity, Quantity(0));
-        assert_eq!(peg_level.order_count(), 0);
         assert!(peg_level.peek_order_id(&pegged_orders).is_none());
     }
 }
