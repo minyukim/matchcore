@@ -106,7 +106,7 @@ impl OrderBook {
         }
 
         if spec.time_in_force() == TimeInForce::Fok {
-            let executable_quantity = self.max_executable_quantity_unchecked(
+            let executable_quantity = self.max_executable_quantity_with_limit_price_unchecked(
                 spec.side(),
                 spec.price(),
                 spec.total_quantity(),
@@ -128,6 +128,17 @@ impl OrderBook {
         if remaining_quantity.is_zero() {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
+            ));
+        }
+
+        if spec.time_in_force() == TimeInForce::Ioc {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id)
+                    .with_match_result(result)
+                    .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested_quantity: spec.total_quantity(),
+                        available_quantity: executed_quantity,
+                    }),
             ));
         }
 
@@ -184,9 +195,113 @@ impl OrderBook {
     /// Submit a pegged order
     fn submit_pegged_order(
         &mut self,
-        _meta: CommandMeta,
-        _spec: &PeggedOrderSpec,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        todo!()
+        spec.validate().map_err(RejectReason::CommandError)?;
+
+        if spec.is_expired(meta.timestamp) {
+            return Err(RejectReason::CommandError(CommandError::Expired));
+        }
+
+        match spec.peg_reference() {
+            PegReference::Primary => self.submit_primary_pegged_order(meta, spec),
+            PegReference::Market => self.submit_market_pegged_order(meta, spec),
+            PegReference::MidPrice => self.submit_mid_price_pegged_order(meta, spec),
+        }
+    }
+
+    /// Submit a primary pegged order
+    fn submit_primary_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        self.submit_unmarketable_pegged_order(meta, spec)
+    }
+
+    /// Submit a market pegged order
+    fn submit_market_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        let order_id = OrderId::from(meta.sequence_number);
+
+        if self.is_side_empty(spec.side().opposite()) {
+            if spec.is_immediate() {
+                return Err(RejectReason::NoLiquidity);
+            }
+
+            self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
+
+            return Ok(SubmitReport::new(OrderProcessingResult::new(order_id)));
+        }
+
+        if spec.time_in_force() == TimeInForce::Fok {
+            let executable_quantity =
+                self.max_executable_quantity_unchecked(spec.side(), spec.quantity());
+            if executable_quantity < spec.quantity() {
+                return Err(RejectReason::InsufficientLiquidity {
+                    requested_quantity: spec.quantity(),
+                    available_quantity: executable_quantity,
+                });
+            }
+        }
+
+        let result = self.match_order(spec.side(), None, spec.quantity());
+
+        let executed_quantity = result.executed_quantity();
+        let remaining_quantity = spec.quantity() - executed_quantity;
+        if remaining_quantity.is_zero() {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id).with_match_result(result),
+            ));
+        }
+
+        if spec.time_in_force() == TimeInForce::Ioc {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id)
+                    .with_match_result(result)
+                    .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested_quantity: spec.quantity(),
+                        available_quantity: executed_quantity,
+                    }),
+            ));
+        }
+
+        self.add_pegged_order(PeggedOrder::new(
+            order_id,
+            PeggedOrderSpec::new(
+                spec.peg_reference(),
+                remaining_quantity,
+                spec.flags().clone(),
+            ),
+        ));
+
+        Ok(SubmitReport::new(
+            OrderProcessingResult::new(order_id).with_match_result(result),
+        ))
+    }
+
+    /// Submit a mid price pegged order
+    fn submit_mid_price_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        self.submit_unmarketable_pegged_order(meta, spec)
+    }
+
+    /// Submit an unmarketable pegged order
+    fn submit_unmarketable_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        let order_id = OrderId::from(meta.sequence_number);
+        self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
+
+        Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }
 }

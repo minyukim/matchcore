@@ -19,6 +19,8 @@ pub enum CommandError {
     PostOnlyImmediateTif,
     /// The pegged order cannot be a taker but has an immediate time in force
     PeggedNonTakerImmediateTif,
+    /// The pegged order is always a taker but is post-only
+    PeggedAlwaysTakerPostOnly,
     /// The patch is empty
     EmptyPatch,
     /// The command has expired
@@ -45,6 +47,9 @@ impl fmt::Display for CommandError {
                     f,
                     "Pegged order cannot be a taker but has an immediate time in force"
                 )
+            }
+            CommandError::PeggedAlwaysTakerPostOnly => {
+                write!(f, "Pegged order is always a taker but is post-only")
             }
             CommandError::EmptyPatch => write!(f, "Patch is empty"),
             CommandError::Expired => write!(f, "Command has expired"),
