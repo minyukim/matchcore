@@ -1,4 +1,4 @@
-use crate::{LimitOrderSpec, MarketOrderSpec, PeggedOrderSpec, Side, TimeInForce};
+use crate::{LimitOrder, MarketOrder, PeggedOrder, Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,11 +13,11 @@ pub struct SubmitCmd {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NewOrder {
     /// A new market order
-    Market(MarketOrderSpec),
+    Market(MarketOrder),
     /// A new limit order
-    Limit(LimitOrderSpec),
+    Limit(LimitOrder),
     /// A new pegged order
-    Pegged(PeggedOrderSpec),
+    Pegged(PeggedOrder),
 }
 
 /// Represents the shared core data for all order types

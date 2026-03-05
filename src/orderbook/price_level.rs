@@ -129,18 +129,6 @@ impl PriceLevel {
         }
     }
 
-    /// Attempt to peek the first order in the price level without removing it
-    /// It cleans up stale order IDs in the price level
-    /// Returns a mutable reference to the order if it is found
-    pub(super) fn peek_order<'a>(
-        &mut self,
-        limit_orders: &'a mut HashMap<OrderId, LimitOrder>,
-    ) -> Option<&'a mut LimitOrder> {
-        let order_id = self.peek_order_id(limit_orders)?;
-
-        limit_orders.get_mut(&order_id)
-    }
-
     /// Pop the first order ID from the price level and remove it from the order book
     /// If the price level is empty, do nothing
     /// Note that it does not update the quantity of the price level
@@ -173,9 +161,7 @@ impl PriceLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        LimitOrder, LimitOrderSpec, OrderFlags, Price, Quantity, QuantityPolicy, Side, TimeInForce,
-    };
+    use crate::{LimitOrder, OrderFlags, Price, Quantity, QuantityPolicy, Side, TimeInForce};
 
     use std::collections::HashMap;
 
@@ -273,14 +259,11 @@ mod tests {
         limit_orders.insert(
             OrderId(0),
             LimitOrder::new(
-                OrderId(0),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
@@ -290,14 +273,11 @@ mod tests {
         limit_orders.insert(
             OrderId(1),
             LimitOrder::new(
-                OrderId(1),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(20),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
@@ -315,44 +295,6 @@ mod tests {
     }
 
     #[test]
-    fn test_peek_order() {
-        let mut limit_orders = HashMap::new();
-
-        let mut price_level = PriceLevel::new();
-        assert!(price_level.peek_order(&mut limit_orders).is_none());
-
-        let mut order = LimitOrder::new(
-            OrderId(0),
-            LimitOrderSpec::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            ),
-        );
-        limit_orders.insert(OrderId(0), order.clone());
-        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
-        assert_eq!(price_level.peek_order(&mut limit_orders), Some(&mut order));
-
-        limit_orders.insert(
-            OrderId(1),
-            LimitOrder::new(
-                OrderId(1),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
-        assert_eq!(price_level.peek_order(&mut limit_orders), Some(&mut order));
-    }
-
-    #[test]
     fn test_remove_head_order() {
         let mut limit_orders = HashMap::new();
 
@@ -362,14 +304,11 @@ mod tests {
         limit_orders.insert(
             OrderId(0),
             LimitOrder::new(
-                OrderId(0),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
@@ -381,14 +320,11 @@ mod tests {
         limit_orders.insert(
             OrderId(1),
             LimitOrder::new(
-                OrderId(1),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(20),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
@@ -397,14 +333,11 @@ mod tests {
         limit_orders.insert(
             OrderId(2),
             LimitOrder::new(
-                OrderId(2),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(30),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(30),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(2), Quantity(30), Quantity(0));
@@ -430,16 +363,13 @@ mod tests {
         limit_orders.insert(
             OrderId(0),
             LimitOrder::new(
-                OrderId(0),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Iceberg {
-                        visible_quantity: Quantity(0),
-                        hidden_quantity: Quantity(100),
-                        replenish_quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Iceberg {
+                    visible_quantity: Quantity(0),
+                    hidden_quantity: Quantity(100),
+                    replenish_quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(0), Quantity(0), Quantity(100));
@@ -457,14 +387,11 @@ mod tests {
         limit_orders.insert(
             OrderId(1),
             LimitOrder::new(
-                OrderId(1),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(20),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));

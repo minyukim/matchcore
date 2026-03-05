@@ -1,5 +1,5 @@
 use super::{OrderFlags, OrderKind};
-use crate::{OrderId, PegReference, Quantity};
+use crate::{PegReference, Quantity};
 
 use std::{
     fmt,
@@ -11,76 +11,6 @@ use serde::{Deserialize, Serialize};
 /// Pegged order that adjusts based on reference price
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeggedOrder {
-    /// The ID of the order
-    id: OrderId,
-    /// The specification of the order
-    spec: PeggedOrderSpec,
-}
-
-impl PeggedOrder {
-    /// Create a new pegged order
-    pub fn new(id: OrderId, spec: PeggedOrderSpec) -> Self {
-        Self { id, spec }
-    }
-
-    /// Get the order ID
-    pub fn id(&self) -> OrderId {
-        self.id
-    }
-
-    /// Get the specification of the order
-    pub fn spec(&self) -> &PeggedOrderSpec {
-        &self.spec
-    }
-
-    /// Get the kind of the order
-    pub fn kind(&self) -> OrderKind {
-        OrderKind::Pegged
-    }
-
-    /// Matches this order against an incoming quantity
-    ///
-    /// Returns the quantity consumed from the incoming order
-    pub(crate) fn match_against(&mut self, incoming_quantity: Quantity) -> Quantity {
-        let new_quantity = self.quantity.saturating_sub(incoming_quantity);
-        let consumed = self.quantity - new_quantity;
-
-        self.quantity = new_quantity;
-        consumed
-    }
-}
-
-impl Deref for PeggedOrder {
-    type Target = PeggedOrderSpec;
-
-    fn deref(&self) -> &Self::Target {
-        &self.spec
-    }
-}
-impl DerefMut for PeggedOrder {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.spec
-    }
-}
-
-impl fmt::Display for PeggedOrder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Pegged: id={} peg_reference={} quantity={} side={} post_only={} time_in_force={}",
-            self.id(),
-            self.peg_reference(),
-            self.quantity(),
-            self.side(),
-            self.post_only(),
-            self.time_in_force()
-        )
-    }
-}
-
-/// Specification of a pegged order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PeggedOrderSpec {
     /// Reference price to track
     peg_reference: PegReference,
     /// The quantity of the order
@@ -89,7 +19,7 @@ pub struct PeggedOrderSpec {
     flags: OrderFlags,
 }
 
-impl PeggedOrderSpec {
+impl PeggedOrder {
     /// Create a new pegged order specification
     pub fn new(peg_reference: PegReference, quantity: Quantity, flags: OrderFlags) -> Self {
         Self {
@@ -97,6 +27,11 @@ impl PeggedOrderSpec {
             quantity,
             flags,
         }
+    }
+
+    /// Get the kind of the order
+    pub fn kind(&self) -> OrderKind {
+        OrderKind::Pegged
     }
 
     /// Get the peg reference type
@@ -128,18 +63,43 @@ impl PeggedOrderSpec {
     pub fn flags(&self) -> &OrderFlags {
         &self.flags
     }
+
+    /// Matches this order against an incoming quantity
+    ///
+    /// Returns the quantity consumed from the incoming order
+    pub(crate) fn match_against(&mut self, incoming_quantity: Quantity) -> Quantity {
+        let new_quantity = self.quantity.saturating_sub(incoming_quantity);
+        let consumed = self.quantity - new_quantity;
+
+        self.quantity = new_quantity;
+        consumed
+    }
 }
 
-impl Deref for PeggedOrderSpec {
+impl Deref for PeggedOrder {
     type Target = OrderFlags;
 
     fn deref(&self) -> &Self::Target {
         &self.flags
     }
 }
-impl DerefMut for PeggedOrderSpec {
+impl DerefMut for PeggedOrder {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.flags
+    }
+}
+
+impl fmt::Display for PeggedOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Pegged: peg_reference={} quantity={} side={} post_only={} time_in_force={}",
+            self.peg_reference(),
+            self.quantity(),
+            self.side(),
+            self.post_only(),
+            self.time_in_force()
+        )
     }
 }
 
@@ -150,18 +110,10 @@ mod tests {
 
     fn create_pegged_order() -> PeggedOrder {
         PeggedOrder::new(
-            OrderId(0),
-            PeggedOrderSpec::new(
-                PegReference::Primary,
-                Quantity(20),
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            ),
+            PegReference::Primary,
+            Quantity(20),
+            OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
         )
-    }
-
-    #[test]
-    fn test_id() {
-        assert_eq!(create_pegged_order().id(), OrderId(0));
     }
 
     #[test]
@@ -263,7 +215,7 @@ mod tests {
     fn test_display() {
         assert_eq!(
             create_pegged_order().to_string(),
-            "Pegged: id=0 peg_reference=Primary quantity=20 side=BUY post_only=true time_in_force=GTC"
+            "Pegged: peg_reference=Primary quantity=20 side=BUY post_only=true time_in_force=GTC"
         );
     }
 }

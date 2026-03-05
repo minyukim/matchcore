@@ -2,22 +2,19 @@ use crate::{Quantity, Side};
 
 use serde::{Deserialize, Serialize};
 
-/// Specification of a market order
-/// Note that the market order only has a specification, but not the order itself, it is converted
-/// to a limit order if it is not filled immediately and the market_to_limit flag is set.
+/// Market order that is executed immediately and does not reside in the order book
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MarketOrderSpec {
+pub struct MarketOrder {
     /// The quantity of the order
     quantity: Quantity,
     /// The side of the order
     side: Side,
-    /// Whether to convert the order to a limit order
-    /// if it is not filled immediately at the best available price
+    /// Whether to convert the order to a limit order if it is not filled immediately
     market_to_limit: bool,
 }
 
-impl MarketOrderSpec {
-    /// Create a new market order specification
+impl MarketOrder {
+    /// Create a new market order
     pub fn new(quantity: Quantity, side: Side, market_to_limit: bool) -> Self {
         Self {
             quantity,

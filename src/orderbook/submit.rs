@@ -6,9 +6,9 @@ impl OrderBook {
     /// Returns the execution report for the command
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
         let result = match &cmd.order {
-            NewOrder::Market(spec) => self.submit_market_order(meta.sequence_number, spec),
-            NewOrder::Limit(spec) => self.submit_limit_order(meta, spec),
-            NewOrder::Pegged(spec) => self.submit_pegged_order(meta, spec),
+            NewOrder::Market(order) => self.submit_market_order(meta.sequence_number, order),
+            NewOrder::Limit(order) => self.submit_limit_order(meta, order),
+            NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         };
 
         match result {
@@ -21,20 +21,20 @@ impl OrderBook {
     fn submit_market_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &MarketOrderSpec,
+        order: &MarketOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        spec.validate().map_err(RejectReason::CommandError)?;
+        order.validate().map_err(RejectReason::CommandError)?;
 
-        if self.is_side_empty(spec.side().opposite()) {
+        if self.is_side_empty(order.side().opposite()) {
             return Err(RejectReason::NoLiquidity);
         }
 
         let order_id = OrderId::from(sequence_number);
 
-        let result = self.match_order(spec.side(), None, spec.quantity());
+        let result = self.match_order(order.side(), None, order.quantity());
 
         let executed_quantity = result.executed_quantity();
-        let remaining_quantity = spec.quantity() - executed_quantity;
+        let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
@@ -43,22 +43,22 @@ impl OrderBook {
 
         // If the order is a market to limit order and there is a remaining quantity,
         // convert it to a limit order at the last trade price
-        if spec.market_to_limit() {
+        if order.market_to_limit() {
             // The last trade price is guaranteed to exist because the order was matched
             let price = self.last_trade_price.unwrap();
 
-            self.add_limit_order(LimitOrder::new(
+            self.add_limit_order(
                 order_id,
-                LimitOrderSpec::new(
+                LimitOrder::new(
                     price,
                     QuantityPolicy::Standard {
                         quantity: remaining_quantity,
                     },
-                    OrderFlags::new(spec.side(), false, TimeInForce::Gtc),
+                    OrderFlags::new(order.side(), false, TimeInForce::Gtc),
                 ),
-            ));
+            );
 
-            let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
+            let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
@@ -70,7 +70,7 @@ impl OrderBook {
             OrderProcessingResult::new(order_id)
                 .with_match_result(result)
                 .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                    requested_quantity: spec.quantity(),
+                    requested_quantity: order.quantity(),
                     available_quantity: executed_quantity,
                 }),
         ))
@@ -80,18 +80,18 @@ impl OrderBook {
     fn submit_limit_order(
         &mut self,
         meta: CommandMeta,
-        spec: &LimitOrderSpec,
+        order: &LimitOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        spec.validate().map_err(RejectReason::CommandError)?;
+        order.validate().map_err(RejectReason::CommandError)?;
 
-        if spec.is_expired(meta.timestamp) {
+        if order.is_expired(meta.timestamp) {
             return Err(RejectReason::CommandError(CommandError::Expired));
         }
 
-        if self.has_crossable_order(spec.side(), spec.price()) {
-            self.submit_crossable_order(meta.sequence_number, spec)
+        if self.has_crossable_order(order.side(), order.price()) {
+            self.submit_crossable_order(meta.sequence_number, order)
         } else {
-            self.submit_non_crossable_order(meta.sequence_number, spec)
+            self.submit_non_crossable_order(meta.sequence_number, order)
         }
     }
 
@@ -99,21 +99,21 @@ impl OrderBook {
     fn submit_crossable_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &LimitOrderSpec,
+        order: &LimitOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        if spec.post_only() {
+        if order.post_only() {
             return Err(RejectReason::PostOnlyWouldTake);
         }
 
-        if spec.time_in_force() == TimeInForce::Fok {
+        if order.time_in_force() == TimeInForce::Fok {
             let executable_quantity = self.max_executable_quantity_with_limit_price_unchecked(
-                spec.side(),
-                spec.price(),
-                spec.total_quantity(),
+                order.side(),
+                order.price(),
+                order.total_quantity(),
             );
-            if executable_quantity < spec.total_quantity() {
+            if executable_quantity < order.total_quantity() {
                 return Err(RejectReason::InsufficientLiquidity {
-                    requested_quantity: spec.total_quantity(),
+                    requested_quantity: order.total_quantity(),
                     available_quantity: executable_quantity,
                 });
             }
@@ -121,28 +121,28 @@ impl OrderBook {
 
         let order_id = OrderId::from(sequence_number);
 
-        let result = self.match_order(spec.side(), None, spec.total_quantity());
+        let result = self.match_order(order.side(), None, order.total_quantity());
 
         let executed_quantity = result.executed_quantity();
-        let remaining_quantity = spec.total_quantity() - executed_quantity;
+        let remaining_quantity = order.total_quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
             ));
         }
 
-        if spec.time_in_force() == TimeInForce::Ioc {
+        if order.time_in_force() == TimeInForce::Ioc {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                        requested_quantity: spec.total_quantity(),
+                        requested_quantity: order.total_quantity(),
                         available_quantity: executed_quantity,
                     }),
             ));
         }
 
-        let quantity_policy = match spec.quantity_policy() {
+        let quantity_policy = match order.quantity_policy() {
             QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
                 quantity: remaining_quantity,
             },
@@ -160,12 +160,12 @@ impl OrderBook {
             }
         };
 
-        self.add_limit_order(LimitOrder::new(
+        self.add_limit_order(
             order_id,
-            LimitOrderSpec::new(spec.price(), quantity_policy, spec.flags().clone()),
-        ));
+            LimitOrder::new(order.price(), quantity_policy, order.flags().clone()),
+        );
 
-        let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
+        let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
         Ok(
             SubmitReport::new(OrderProcessingResult::new(order_id).with_match_result(result))
@@ -177,17 +177,17 @@ impl OrderBook {
     fn submit_non_crossable_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &LimitOrderSpec,
+        order: &LimitOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        if spec.is_immediate() {
+        if order.is_immediate() {
             return Err(RejectReason::NoLiquidity);
         }
 
         let order_id = OrderId::from(sequence_number);
 
-        self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
+        self.add_limit_order(order_id, order.clone());
 
-        let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
+        let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
         Ok(SubmitReport::new(OrderProcessingResult::new(order_id))
             .with_triggered_orders(triggered_orders))
@@ -197,19 +197,19 @@ impl OrderBook {
     fn submit_pegged_order(
         &mut self,
         meta: CommandMeta,
-        spec: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        spec.validate().map_err(RejectReason::CommandError)?;
+        order.validate().map_err(RejectReason::CommandError)?;
 
-        if spec.is_expired(meta.timestamp) {
+        if order.is_expired(meta.timestamp) {
             return Err(RejectReason::CommandError(CommandError::Expired));
         }
 
-        match spec.peg_reference() {
-            PegReference::Primary => self.submit_primary_pegged_order(meta.sequence_number, spec),
-            PegReference::Market => self.submit_market_pegged_order(meta.sequence_number, spec),
+        match order.peg_reference() {
+            PegReference::Primary => self.submit_primary_pegged_order(meta.sequence_number, order),
+            PegReference::Market => self.submit_market_pegged_order(meta.sequence_number, order),
             PegReference::MidPrice => {
-                self.submit_mid_price_pegged_order(meta.sequence_number, spec)
+                self.submit_mid_price_pegged_order(meta.sequence_number, order)
             }
         }
     }
@@ -218,69 +218,69 @@ impl OrderBook {
     fn submit_primary_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        self.submit_unmarketable_pegged_order(sequence_number, spec)
+        self.submit_unmarketable_pegged_order(sequence_number, order)
     }
 
     /// Submit a market pegged order
     fn submit_market_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         let order_id = OrderId::from(sequence_number);
 
-        if self.is_side_empty(spec.side().opposite()) {
-            if spec.is_immediate() {
+        if self.is_side_empty(order.side().opposite()) {
+            if order.is_immediate() {
                 return Err(RejectReason::NoLiquidity);
             }
 
-            self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
+            self.add_pegged_order(order_id, order.clone());
 
             return Ok(SubmitReport::new(OrderProcessingResult::new(order_id)));
         }
 
-        if spec.time_in_force() == TimeInForce::Fok {
+        if order.time_in_force() == TimeInForce::Fok {
             let executable_quantity =
-                self.max_executable_quantity_unchecked(spec.side(), spec.quantity());
-            if executable_quantity < spec.quantity() {
+                self.max_executable_quantity_unchecked(order.side(), order.quantity());
+            if executable_quantity < order.quantity() {
                 return Err(RejectReason::InsufficientLiquidity {
-                    requested_quantity: spec.quantity(),
+                    requested_quantity: order.quantity(),
                     available_quantity: executable_quantity,
                 });
             }
         }
 
-        let result = self.match_order(spec.side(), None, spec.quantity());
+        let result = self.match_order(order.side(), None, order.quantity());
 
         let executed_quantity = result.executed_quantity();
-        let remaining_quantity = spec.quantity() - executed_quantity;
+        let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id).with_match_result(result),
             ));
         }
 
-        if spec.time_in_force() == TimeInForce::Ioc {
+        if order.time_in_force() == TimeInForce::Ioc {
             return Ok(SubmitReport::new(
                 OrderProcessingResult::new(order_id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                        requested_quantity: spec.quantity(),
+                        requested_quantity: order.quantity(),
                         available_quantity: executed_quantity,
                     }),
             ));
         }
 
-        self.add_pegged_order(PeggedOrder::new(
+        self.add_pegged_order(
             order_id,
-            PeggedOrderSpec::new(
-                spec.peg_reference(),
+            PeggedOrder::new(
+                order.peg_reference(),
                 remaining_quantity,
-                spec.flags().clone(),
+                order.flags().clone(),
             ),
-        ));
+        );
 
         Ok(SubmitReport::new(
             OrderProcessingResult::new(order_id).with_match_result(result),
@@ -291,20 +291,20 @@ impl OrderBook {
     fn submit_mid_price_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
-        self.submit_unmarketable_pegged_order(sequence_number, spec)
+        self.submit_unmarketable_pegged_order(sequence_number, order)
     }
 
     /// Submit an unmarketable pegged order
     fn submit_unmarketable_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         let order_id = OrderId::from(sequence_number);
 
-        self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
+        self.add_pegged_order(order_id, order.clone());
 
         Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }

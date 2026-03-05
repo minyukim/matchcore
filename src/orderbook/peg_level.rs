@@ -145,9 +145,7 @@ impl PegLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        OrderFlags, PegReference, PeggedOrder, PeggedOrderSpec, Quantity, Side, TimeInForce,
-    };
+    use crate::{OrderFlags, PegReference, PeggedOrder, Quantity, Side, TimeInForce};
 
     use std::collections::HashMap;
 
@@ -221,12 +219,9 @@ mod tests {
         pegged_orders.insert(
             OrderId(0),
             PeggedOrder::new(
-                OrderId(0),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(100),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         peg_level.on_order_added(OrderId(0), Quantity(100));
@@ -236,12 +231,9 @@ mod tests {
         pegged_orders.insert(
             OrderId(1),
             PeggedOrder::new(
-                OrderId(1),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(100),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         peg_level.on_order_added(OrderId(1), Quantity(100));
@@ -266,12 +258,9 @@ mod tests {
         assert!(peg_level.peek_order(&mut pegged_orders).is_none());
 
         let mut order = PeggedOrder::new(
-            OrderId(0),
-            PeggedOrderSpec::new(
-                PegReference::Primary,
-                Quantity(100),
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            ),
+            PegReference::Primary,
+            Quantity(100),
+            OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
         );
         pegged_orders.insert(OrderId(0), order.clone());
         peg_level.on_order_added(OrderId(0), Quantity(100));
@@ -280,12 +269,9 @@ mod tests {
         pegged_orders.insert(
             OrderId(1),
             PeggedOrder::new(
-                OrderId(1),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(100),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         peg_level.on_order_added(OrderId(1), Quantity(100));
@@ -302,12 +288,9 @@ mod tests {
         pegged_orders.insert(
             OrderId(0),
             PeggedOrder::new(
-                OrderId(0),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(100),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         peg_level.on_order_added(OrderId(0), Quantity(100));
@@ -319,12 +302,9 @@ mod tests {
         pegged_orders.insert(
             OrderId(1),
             PeggedOrder::new(
-                OrderId(1),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(100),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         peg_level.on_order_added(OrderId(1), Quantity(100));
@@ -333,12 +313,9 @@ mod tests {
         pegged_orders.insert(
             OrderId(2),
             PeggedOrder::new(
-                OrderId(2),
-                PeggedOrderSpec::new(
-                    PegReference::Primary,
-                    Quantity(100),
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
         peg_level.on_order_added(OrderId(2), Quantity(100));

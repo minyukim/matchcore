@@ -253,8 +253,8 @@ pub(super) fn match_order(
         // Iterate over the orders at the price level
         while !remaining_quantity.is_zero() {
             // The price level is guaranteed to have at least one order
-            let order = price_level.peek_order(limit_orders).unwrap();
-            let order_id = order.id();
+            let order_id = price_level.peek_order_id(limit_orders).unwrap();
+            let order = limit_orders.get_mut(&order_id).unwrap();
 
             let (consumed, replenished) = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
@@ -343,7 +343,7 @@ pub(super) fn match_order(
 #[cfg(test)]
 mod tests_match_order {
     use super::*;
-    use crate::{LimitOrderSpec, Notional, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
+    use crate::{LimitOrder, Notional, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
 
     /// Helper function to create a new test order book
     fn new_test_book() -> OrderBook {
@@ -358,14 +358,14 @@ mod tests_match_order {
         quantity: Quantity,
         side: Side,
     ) {
-        book.add_limit_order(LimitOrder::new(
+        book.add_limit_order(
             id,
-            LimitOrderSpec::new(
+            LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
     /// Helper function to add an iceberg limit order to the book
@@ -378,9 +378,9 @@ mod tests_match_order {
         replenish_quantity: Quantity,
         side: Side,
     ) {
-        book.add_limit_order(LimitOrder::new(
+        book.add_limit_order(
             id,
-            LimitOrderSpec::new(
+            LimitOrder::new(
                 price,
                 QuantityPolicy::Iceberg {
                     visible_quantity,
@@ -389,7 +389,7 @@ mod tests_match_order {
                 },
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
     #[test]
@@ -892,14 +892,14 @@ mod tests_match_order {
 #[cfg(test)]
 mod tests_max_executable_quantity_unchecked {
     use super::*;
-    use crate::{
-        LimitOrderSpec, OrderFlags, PeggedOrderSpec, Quantity, QuantityPolicy, TimeInForce,
-    };
+    use crate::{LimitOrder, OrderFlags, PeggedOrder, Quantity, QuantityPolicy, TimeInForce};
 
+    // Helper function to create a new test order book
     fn new_test_book() -> OrderBook {
         OrderBook::new("TEST")
     }
 
+    // Helper function to add a standard limit order to the book
     fn add_standard_order(
         book: &mut OrderBook,
         id: OrderId,
@@ -907,16 +907,17 @@ mod tests_max_executable_quantity_unchecked {
         quantity: Quantity,
         side: Side,
     ) {
-        book.add_limit_order(LimitOrder::new(
+        book.add_limit_order(
             id,
-            LimitOrderSpec::new(
+            LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
+    // Helper function to add a pegged order to the book
     fn add_pegged_order(
         book: &mut OrderBook,
         id: OrderId,
@@ -924,14 +925,14 @@ mod tests_max_executable_quantity_unchecked {
         quantity: Quantity,
         side: Side,
     ) {
-        book.add_pegged_order(PeggedOrder::new(
+        book.add_pegged_order(
             id,
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 peg,
                 quantity,
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
     #[test]
@@ -1080,7 +1081,7 @@ mod tests_max_executable_quantity_unchecked {
 #[cfg(test)]
 mod tests_max_executable_quantity_with_limit_price_unchecked {
     use super::*;
-    use crate::{LimitOrderSpec, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
+    use crate::{LimitOrder, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
 
     /// Helper function to create a new test order book
     fn new_test_book() -> OrderBook {
@@ -1095,14 +1096,14 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         quantity: Quantity,
         side: Side,
     ) {
-        book.add_limit_order(LimitOrder::new(
+        book.add_limit_order(
             id,
-            LimitOrderSpec::new(
+            LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
     /// Helper function to add an iceberg limit order to the book
@@ -1115,9 +1116,9 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         replenish_quantity: Quantity,
         side: Side,
     ) {
-        book.add_limit_order(LimitOrder::new(
+        book.add_limit_order(
             id,
-            LimitOrderSpec::new(
+            LimitOrder::new(
                 price,
                 QuantityPolicy::Iceberg {
                     visible_quantity,
@@ -1126,7 +1127,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
                 },
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
     #[test]
