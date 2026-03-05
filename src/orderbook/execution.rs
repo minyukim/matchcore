@@ -129,8 +129,8 @@ impl OrderBook {
 mod tests {
     use super::*;
     use crate::{
-        LimitOrder, OrderFlags, OrderId, PegReference, PeggedOrder, PeggedOrderSpec, Price,
-        Quantity, QuantityPolicy, Side, TimeInForce, Timestamp,
+        LimitOrder, OrderFlags, OrderId, PegReference, PeggedOrder, Price, Quantity,
+        QuantityPolicy, Side, TimeInForce, Timestamp,
     };
 
     #[test]
@@ -347,14 +347,14 @@ mod tests {
         assert_eq!(book.pegged.orders.len(), 0);
         assert_eq!(book.pegged.expiration_queue.len(), 0);
 
-        book.add_pegged_order(PeggedOrder::new(
+        book.add_pegged_order(
             OrderId(0),
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
             ),
-        ));
+        );
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 0),
@@ -372,14 +372,14 @@ mod tests {
         assert_eq!(book.pegged.orders.len(), 1);
         assert_eq!(book.pegged.expiration_queue.len(), 1);
 
-        book.add_pegged_order(PeggedOrder::new(
+        book.add_pegged_order(
             OrderId(1),
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 PegReference::Market,
                 Quantity(10),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
             ),
-        ));
+        );
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 1),
@@ -397,14 +397,14 @@ mod tests {
         assert_eq!(book.pegged.orders.len(), 2);
         assert_eq!(book.pegged.expiration_queue.len(), 2);
 
-        book.add_pegged_order(PeggedOrder::new(
+        book.add_pegged_order(
             OrderId(2),
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 PegReference::MidPrice,
                 Quantity(10),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1001))),
             ),
-        ));
+        );
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 1),
@@ -422,14 +422,14 @@ mod tests {
         assert_eq!(book.pegged.orders.len(), 3);
         assert_eq!(book.pegged.expiration_queue.len(), 3);
 
-        book.add_pegged_order(PeggedOrder::new(
+        book.add_pegged_order(
             OrderId(3),
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
                 OrderFlags::new(Side::Sell, false, TimeInForce::Gtd(Timestamp(1002))),
             ),
-        ));
+        );
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 1),

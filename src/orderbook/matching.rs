@@ -892,12 +892,14 @@ mod tests_match_order {
 #[cfg(test)]
 mod tests_max_executable_quantity_unchecked {
     use super::*;
-    use crate::{LimitOrder, OrderFlags, PeggedOrderSpec, Quantity, QuantityPolicy, TimeInForce};
+    use crate::{LimitOrder, OrderFlags, PeggedOrder, Quantity, QuantityPolicy, TimeInForce};
 
+    // Helper function to create a new test order book
     fn new_test_book() -> OrderBook {
         OrderBook::new("TEST")
     }
 
+    // Helper function to add a standard limit order to the book
     fn add_standard_order(
         book: &mut OrderBook,
         id: OrderId,
@@ -915,6 +917,7 @@ mod tests_max_executable_quantity_unchecked {
         );
     }
 
+    // Helper function to add a pegged order to the book
     fn add_pegged_order(
         book: &mut OrderBook,
         id: OrderId,
@@ -922,14 +925,14 @@ mod tests_max_executable_quantity_unchecked {
         quantity: Quantity,
         side: Side,
     ) {
-        book.add_pegged_order(PeggedOrder::new(
+        book.add_pegged_order(
             id,
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 peg,
                 quantity,
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
-        ));
+        );
     }
 
     #[test]

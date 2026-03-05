@@ -1,4 +1,4 @@
-use crate::{LimitOrder, MarketOrder, PeggedOrderSpec, Side, TimeInForce};
+use crate::{LimitOrder, MarketOrder, PeggedOrder, Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ pub enum NewOrder {
     /// A new limit order
     Limit(LimitOrder),
     /// A new pegged order
-    Pegged(PeggedOrderSpec),
+    Pegged(PeggedOrder),
 }
 
 /// Represents the shared core data for all order types

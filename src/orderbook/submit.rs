@@ -197,7 +197,7 @@ impl OrderBook {
     fn submit_pegged_order(
         &mut self,
         meta: CommandMeta,
-        order: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         order.validate().map_err(RejectReason::CommandError)?;
 
@@ -218,7 +218,7 @@ impl OrderBook {
     fn submit_primary_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        order: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         self.submit_unmarketable_pegged_order(sequence_number, order)
     }
@@ -227,7 +227,7 @@ impl OrderBook {
     fn submit_market_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        order: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         let order_id = OrderId::from(sequence_number);
 
@@ -236,7 +236,7 @@ impl OrderBook {
                 return Err(RejectReason::NoLiquidity);
             }
 
-            self.add_pegged_order(PeggedOrder::new(order_id, order.clone()));
+            self.add_pegged_order(order_id, order.clone());
 
             return Ok(SubmitReport::new(OrderProcessingResult::new(order_id)));
         }
@@ -273,14 +273,14 @@ impl OrderBook {
             ));
         }
 
-        self.add_pegged_order(PeggedOrder::new(
+        self.add_pegged_order(
             order_id,
-            PeggedOrderSpec::new(
+            PeggedOrder::new(
                 order.peg_reference(),
                 remaining_quantity,
                 order.flags().clone(),
             ),
-        ));
+        );
 
         Ok(SubmitReport::new(
             OrderProcessingResult::new(order_id).with_match_result(result),
@@ -291,7 +291,7 @@ impl OrderBook {
     fn submit_mid_price_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        order: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         self.submit_unmarketable_pegged_order(sequence_number, order)
     }
@@ -300,11 +300,11 @@ impl OrderBook {
     fn submit_unmarketable_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
-        order: &PeggedOrderSpec,
+        order: &PeggedOrder,
     ) -> Result<SubmitReport, RejectReason> {
         let order_id = OrderId::from(sequence_number);
 
-        self.add_pegged_order(PeggedOrder::new(order_id, order.clone()));
+        self.add_pegged_order(order_id, order.clone());
 
         Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }

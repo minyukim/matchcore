@@ -23,7 +23,7 @@ impl LimitOrder {
     }
 }
 
-impl PeggedOrderSpec {
+impl PeggedOrder {
     /// Validate the order specification
     pub fn validate(&self) -> Result<(), CommandError> {
         validate_pegged_order_invariants(
