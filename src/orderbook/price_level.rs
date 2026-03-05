@@ -93,18 +93,22 @@ impl PriceLevel {
         self.order_ids.pop_front()
     }
 
-    /// Push a limit order to the price level and add it to the order book
-    pub(super) fn push_order(
-        &mut self,
-        limit_orders: &mut HashMap<OrderId, LimitOrder>,
-        limit_order: LimitOrder,
-    ) {
-        self.visible_quantity += limit_order.visible_quantity();
-        self.hidden_quantity += limit_order.hidden_quantity();
+    /// Update the level when an order is added
+    pub(super) fn on_order_added(&mut self, id: OrderId, visible: Quantity, hidden: Quantity) {
+        self.visible_quantity += visible;
+        self.hidden_quantity += hidden;
 
-        self.push(limit_order.id());
+        self.push(id);
         self.increment_order_count();
-        limit_orders.insert(limit_order.id(), limit_order);
+    }
+
+    /// Update the level when an order is removed
+    /// Note that it does not remove the order ID from the queue.
+    /// The stale order ID will be cleaned up when the order is peeked from the queue.
+    pub(super) fn on_order_removed(&mut self, visible: Quantity, hidden: Quantity) {
+        self.visible_quantity -= visible;
+        self.hidden_quantity -= hidden;
+        self.decrement_order_count();
     }
 
     /// Attempt to peek the first order ID in the price level without removing it
@@ -164,23 +168,6 @@ impl PriceLevel {
         };
         self.push(order_id);
     }
-
-    /// Remove an order from the price level and remove it from the order book
-    /// If the order is not found, do nothing
-    /// Note that it does not remove the order ID from the queue,
-    /// the stale order ID will be cleaned up when the order is peeked from the queue.
-    pub(super) fn remove_order(
-        &mut self,
-        limit_orders: &mut HashMap<OrderId, LimitOrder>,
-        order_id: OrderId,
-    ) {
-        let Some(order) = limit_orders.remove(&order_id) else {
-            return;
-        };
-        self.visible_quantity -= order.visible_quantity();
-        self.hidden_quantity -= order.hidden_quantity();
-        self.decrement_order_count();
-    }
 }
 
 #[cfg(test)]
@@ -218,65 +205,61 @@ mod tests {
     }
 
     #[test]
-    fn test_push_order() {
-        let mut limit_orders = HashMap::new();
+    fn test_on_order_added_and_removed() {
         let mut price_level = PriceLevel::new();
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
 
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(0),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
+        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(10));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 1);
 
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(1),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
+        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(30));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 2);
 
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(2),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Iceberg {
-                        visible_quantity: Quantity(10),
-                        hidden_quantity: Quantity(20),
-                        replenish_quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(price_level.visible_quantity, Quantity(40));
-        assert_eq!(price_level.hidden_quantity, Quantity(20));
+        price_level.on_order_added(OrderId(2), Quantity(30), Quantity(0));
+        assert_eq!(price_level.visible_quantity, Quantity(60));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 3);
+
+        price_level.on_order_added(OrderId(3), Quantity(40), Quantity(0));
+        assert_eq!(price_level.visible_quantity, Quantity(100));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
+        assert_eq!(price_level.order_count(), 4);
+
+        price_level.on_order_added(OrderId(4), Quantity(50), Quantity(50));
+        assert_eq!(price_level.visible_quantity, Quantity(150));
+        assert_eq!(price_level.hidden_quantity, Quantity(50));
+        assert_eq!(price_level.order_count(), 5);
+
+        price_level.on_order_removed(Quantity(10), Quantity(0));
+        assert_eq!(price_level.visible_quantity, Quantity(140));
+        assert_eq!(price_level.hidden_quantity, Quantity(50));
+        assert_eq!(price_level.order_count(), 4);
+
+        price_level.on_order_removed(Quantity(20), Quantity(0));
+        assert_eq!(price_level.visible_quantity, Quantity(120));
+        assert_eq!(price_level.hidden_quantity, Quantity(50));
+        assert_eq!(price_level.order_count(), 3);
+
+        price_level.on_order_removed(Quantity(30), Quantity(0));
+        assert_eq!(price_level.visible_quantity, Quantity(90));
+        assert_eq!(price_level.hidden_quantity, Quantity(50));
+        assert_eq!(price_level.order_count(), 2);
+
+        price_level.on_order_removed(Quantity(40), Quantity(0));
+        assert_eq!(price_level.visible_quantity, Quantity(50));
+        assert_eq!(price_level.hidden_quantity, Quantity(50));
+        assert_eq!(price_level.order_count(), 1);
+
+        price_level.on_order_removed(Quantity(50), Quantity(50));
+        assert_eq!(price_level.visible_quantity, Quantity(0));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
+        assert_eq!(price_level.order_count(), 0);
     }
 
     #[test]
@@ -286,8 +269,9 @@ mod tests {
         let mut price_level = PriceLevel::new();
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push_order(
-            &mut limit_orders,
+        // Push order 0
+        limit_orders.insert(
+            OrderId(0),
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
@@ -299,10 +283,12 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        price_level.push_order(
-            &mut limit_orders,
+        // Push order 1, order 0 is still at the head of the queue
+        limit_orders.insert(
+            OrderId(1),
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
@@ -314,7 +300,18 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
+
+        // Remove order 0, order 1 is now at the head of the queue
+        limit_orders.remove(&OrderId(0));
+        price_level.on_order_removed(Quantity(10), Quantity(0));
+        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
+
+        // Remove order 1, the price level is empty
+        limit_orders.remove(&OrderId(1));
+        price_level.on_order_removed(Quantity(20), Quantity(0));
+        assert!(price_level.peek_order_id(&limit_orders).is_none());
     }
 
     #[test]
@@ -334,11 +331,12 @@ mod tests {
                 OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
             ),
         );
-        price_level.push_order(&mut limit_orders, order.clone());
+        limit_orders.insert(OrderId(0), order.clone());
+        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
         assert_eq!(price_level.peek_order(&mut limit_orders), Some(&mut order));
 
-        price_level.push_order(
-            &mut limit_orders,
+        limit_orders.insert(
+            OrderId(1),
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
@@ -350,6 +348,7 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
         assert_eq!(price_level.peek_order(&mut limit_orders), Some(&mut order));
     }
 
@@ -360,8 +359,8 @@ mod tests {
         let mut price_level = PriceLevel::new();
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push_order(
-            &mut limit_orders,
+        limit_orders.insert(
+            OrderId(0),
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
@@ -373,13 +372,14 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
         price_level.remove_head_order(&mut limit_orders);
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push_order(
-            &mut limit_orders,
+        limit_orders.insert(
+            OrderId(1),
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
@@ -391,10 +391,11 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
 
-        price_level.push_order(
-            &mut limit_orders,
+        limit_orders.insert(
+            OrderId(2),
             LimitOrder::new(
                 OrderId(2),
                 LimitOrderSpec::new(
@@ -406,6 +407,7 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(2), Quantity(30), Quantity(0));
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
 
         price_level.remove_head_order(&mut limit_orders);
@@ -425,8 +427,8 @@ mod tests {
         assert_eq!(price_level.order_count(), 0);
         assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        price_level.push_order(
-            &mut limit_orders,
+        limit_orders.insert(
+            OrderId(0),
             LimitOrder::new(
                 OrderId(0),
                 LimitOrderSpec::new(
@@ -440,6 +442,7 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(0), Quantity(0), Quantity(100));
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(100));
         assert_eq!(price_level.order_count(), 1);
@@ -451,8 +454,8 @@ mod tests {
         assert_eq!(price_level.order_count(), 1);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        price_level.push_order(
-            &mut limit_orders,
+        limit_orders.insert(
+            OrderId(1),
             LimitOrder::new(
                 OrderId(1),
                 LimitOrderSpec::new(
@@ -464,6 +467,7 @@ mod tests {
                 ),
             ),
         );
+        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(30));
         assert_eq!(price_level.hidden_quantity, Quantity(90));
         assert_eq!(price_level.order_count(), 2);
@@ -474,126 +478,5 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(80));
         assert_eq!(price_level.order_count(), 2);
         assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
-    }
-
-    #[test]
-    fn test_remove_order() {
-        let mut limit_orders = HashMap::new();
-
-        let mut price_level = PriceLevel::new();
-        assert_eq!(price_level.visible_quantity, Quantity(0));
-        assert_eq!(price_level.hidden_quantity, Quantity(0));
-        assert_eq!(price_level.order_count(), 0);
-        assert!(price_level.peek_order_id(&limit_orders).is_none());
-
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(0),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(price_level.visible_quantity, Quantity(10));
-        assert_eq!(price_level.hidden_quantity, Quantity(0));
-        assert_eq!(price_level.order_count(), 1);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
-
-        price_level.remove_order(&mut limit_orders, OrderId(0));
-        assert_eq!(price_level.visible_quantity, Quantity(0));
-        assert_eq!(price_level.hidden_quantity, Quantity(0));
-        assert_eq!(price_level.order_count(), 0);
-        assert!(price_level.peek_order_id(&limit_orders).is_none());
-
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(1),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(price_level.visible_quantity, Quantity(20));
-        assert_eq!(price_level.hidden_quantity, Quantity(0));
-        assert_eq!(price_level.order_count(), 1);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
-
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(2),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Iceberg {
-                        visible_quantity: Quantity(10),
-                        hidden_quantity: Quantity(20),
-                        replenish_quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(price_level.visible_quantity, Quantity(30));
-        assert_eq!(price_level.hidden_quantity, Quantity(20));
-        assert_eq!(price_level.order_count(), 2);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
-
-        price_level.push_order(
-            &mut limit_orders,
-            LimitOrder::new(
-                OrderId(3),
-                LimitOrderSpec::new(
-                    Price(100),
-                    QuantityPolicy::Iceberg {
-                        visible_quantity: Quantity(20),
-                        hidden_quantity: Quantity(40),
-                        replenish_quantity: Quantity(20),
-                    },
-                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-                ),
-            ),
-        );
-        assert_eq!(price_level.visible_quantity, Quantity(50));
-        assert_eq!(price_level.hidden_quantity, Quantity(60));
-        assert_eq!(price_level.order_count(), 3);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
-
-        // Remove the second order
-        price_level.remove_order(&mut limit_orders, OrderId(2));
-        assert_eq!(price_level.visible_quantity, Quantity(40));
-        assert_eq!(price_level.hidden_quantity, Quantity(40));
-        assert_eq!(price_level.order_count(), 2);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
-
-        // No order found, do nothing
-        price_level.remove_order(&mut limit_orders, OrderId(2));
-        assert_eq!(price_level.visible_quantity, Quantity(40));
-        assert_eq!(price_level.hidden_quantity, Quantity(40));
-        assert_eq!(price_level.order_count(), 2);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
-
-        // Remove the first order
-        price_level.remove_order(&mut limit_orders, OrderId(1));
-        assert_eq!(price_level.visible_quantity, Quantity(20));
-        assert_eq!(price_level.hidden_quantity, Quantity(40));
-        assert_eq!(price_level.order_count(), 1);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(3)));
-
-        // Remove the last remaining order
-        price_level.remove_order(&mut limit_orders, OrderId(3));
-        assert_eq!(price_level.visible_quantity, Quantity(0));
-        assert_eq!(price_level.hidden_quantity, Quantity(0));
-        assert_eq!(price_level.order_count(), 0);
-        assert!(price_level.peek_order_id(&limit_orders).is_none());
     }
 }

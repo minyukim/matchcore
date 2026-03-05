@@ -1,5 +1,5 @@
 use super::{LimitBook, OrderBook, PeggedBook};
-use crate::{LimitOrder, PeggedOrder, PriceLevel, Side};
+use crate::{LimitOrder, OrderId, PeggedOrder, PriceLevel, Side};
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
 
@@ -7,6 +7,11 @@ impl OrderBook {
     /// Add a limit order to the order book
     pub(super) fn add_limit_order(&mut self, order: LimitOrder) {
         self.limit.add_order(order);
+    }
+
+    /// Remove a limit order from the order book
+    pub(super) fn remove_limit_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
+        self.limit.remove_order(order_id)
     }
 
     /// Add a pegged order to the order book
@@ -24,23 +29,47 @@ impl LimitBook {
                 .push(Reverse((expires_at, order.id())));
         }
 
-        let orders = &mut self.orders;
+        let (id, price, visible, hidden, side) = (
+            order.id(),
+            order.price(),
+            order.visible_quantity(),
+            order.hidden_quantity(),
+            order.side(),
+        );
+        self.orders.insert(id, order);
+
+        let levels = match side {
+            Side::Buy => &mut self.bid_levels,
+            Side::Sell => &mut self.ask_levels,
+        };
+        match levels.entry(price) {
+            Entry::Occupied(mut e) => {
+                e.get_mut().on_order_added(id, visible, hidden);
+            }
+            Entry::Vacant(e) => {
+                let mut price_level = PriceLevel::new();
+                price_level.on_order_added(id, visible, hidden);
+                e.insert(price_level);
+            }
+        }
+    }
+
+    /// Remove a limit order from the order book
+    pub(super) fn remove_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
+        let order = self.orders.remove(&order_id)?;
 
         let levels = match order.side() {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
         };
+        let level = levels.get_mut(&order.price()).unwrap();
 
-        match levels.entry(order.price()) {
-            Entry::Occupied(mut e) => {
-                e.get_mut().push_order(orders, order);
-            }
-            Entry::Vacant(e) => {
-                let mut price_level = PriceLevel::new();
-                price_level.push_order(orders, order);
-                e.insert(price_level);
-            }
+        level.on_order_removed(order.visible_quantity(), order.hidden_quantity());
+        if level.is_empty() {
+            levels.remove(&order.price());
         }
+
+        Some(order)
     }
 }
 

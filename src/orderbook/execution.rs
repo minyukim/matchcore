@@ -82,8 +82,8 @@ impl OrderBook {
             if *expires_at > timestamp {
                 break;
             }
-            let (expired, side, price) = match self.limit.orders.get(order_id) {
-                Some(order) => (order.is_expired(timestamp), order.side(), order.price()),
+            let expired = match self.limit.orders.get(order_id) {
+                Some(order) => order.is_expired(timestamp),
                 None => {
                     self.limit.expiration_queue.pop();
                     continue;
@@ -93,16 +93,7 @@ impl OrderBook {
             // Check if the order is actually expired, as the TIF of the order may have changed
             // since the order was added to the expiration queue
             if expired {
-                let price_levels = match side {
-                    Side::Buy => &mut self.limit.bid_levels,
-                    Side::Sell => &mut self.limit.ask_levels,
-                };
-                let price_level = price_levels.get_mut(&price).unwrap();
-
-                price_level.remove_order(&mut self.limit.orders, *order_id);
-                if price_level.is_empty() {
-                    price_levels.remove(&price);
-                }
+                self.remove_limit_order(*order_id);
             }
 
             self.limit.expiration_queue.pop();
