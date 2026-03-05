@@ -551,7 +551,7 @@ mod tests {
                 order: PeggedOrder::new(
                     OrderId(1),
                     PeggedOrderSpec::new(
-                        PegReference::Market,
+                        PegReference::Primary,
                         Quantity(10),
                         OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                     ),
@@ -629,6 +629,21 @@ mod tests {
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
             },
             Case {
+                name: "invalid: peg reference Market + post-only",
+                order: PeggedOrder::new(
+                    OrderId(1),
+                    PeggedOrderSpec::new(
+                        PegReference::Primary,
+                        Quantity(10),
+                        OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                    ),
+                ),
+                patch: PeggedOrderPatch::new()
+                    .with_peg_reference(PegReference::Market)
+                    .with_post_only(true),
+                expected: Err(CommandError::PeggedAlwaysTakerPostOnly),
+            },
+            Case {
                 name: "valid patch + valid order → invalid: order is post_only, patch sets immediate TIF",
                 order: PeggedOrder::new(
                     OrderId(1),
@@ -653,6 +668,19 @@ mod tests {
                 ),
                 patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order is post-only, patch sets peg reference to Market",
+                order: PeggedOrder::new(
+                    OrderId(1),
+                    PeggedOrderSpec::new(
+                        PegReference::Primary,
+                        Quantity(10),
+                        OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                    ),
+                ),
+                patch: PeggedOrderPatch::new().with_peg_reference(PegReference::Market),
+                expected: Err(CommandError::PeggedAlwaysTakerPostOnly),
             },
         ];
 

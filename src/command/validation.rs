@@ -90,9 +90,14 @@ pub(super) fn validate_pegged_order_invariants(
         return Err(CommandError::ZeroQuantity);
     }
 
-    if !peg_reference.can_be_taker() && time_in_force.is_immediate() {
+    if peg_reference.is_always_taker() {
+        if post_only {
+            return Err(CommandError::PeggedAlwaysTakerPostOnly);
+        }
+    } else if !peg_reference.can_be_taker() && time_in_force.is_immediate() {
         return Err(CommandError::PeggedNonTakerImmediateTif);
     }
+
     Ok(())
 }
 
@@ -321,7 +326,7 @@ mod tests {
             },
             Case {
                 name: "post-only pegged order",
-                peg_reference: PegReference::Market,
+                peg_reference: PegReference::Primary,
                 quantity: Quantity(100),
                 post_only: true,
                 time_in_force: TimeInForce::Gtc,
@@ -350,6 +355,14 @@ mod tests {
                 post_only: false,
                 time_in_force: TimeInForce::Ioc,
                 expected: Err(CommandError::PeggedNonTakerImmediateTif),
+            },
+            Case {
+                name: "always taker post-only",
+                peg_reference: PegReference::Market,
+                quantity: Quantity(100),
+                post_only: true,
+                time_in_force: TimeInForce::Gtc,
+                expected: Err(CommandError::PeggedAlwaysTakerPostOnly),
             },
         ];
 
