@@ -6,7 +6,7 @@ impl OrderBook {
     /// Returns the execution report for the command
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
         let result = match &cmd.order {
-            NewOrder::Market(spec) => self.submit_market_order(meta, spec),
+            NewOrder::Market(spec) => self.submit_market_order(meta.sequence_number, spec),
             NewOrder::Limit(spec) => self.submit_limit_order(meta, spec),
             NewOrder::Pegged(spec) => self.submit_pegged_order(meta, spec),
         };
@@ -20,7 +20,7 @@ impl OrderBook {
     /// Submit a market order
     fn submit_market_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &MarketOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
         spec.validate().map_err(RejectReason::CommandError)?;
@@ -29,7 +29,7 @@ impl OrderBook {
             return Err(RejectReason::NoLiquidity);
         }
 
-        let order_id = OrderId::from(meta.sequence_number);
+        let order_id = OrderId::from(sequence_number);
 
         let result = self.match_order(spec.side(), None, spec.quantity());
 
@@ -89,16 +89,16 @@ impl OrderBook {
         }
 
         if self.has_crossable_order(spec.side(), spec.price()) {
-            self.submit_crossable_order(meta, spec)
+            self.submit_crossable_order(meta.sequence_number, spec)
         } else {
-            self.submit_non_crossable_order(meta, spec)
+            self.submit_non_crossable_order(meta.sequence_number, spec)
         }
     }
 
     /// Submit a crossable order
     fn submit_crossable_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &LimitOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
         if spec.post_only() {
@@ -119,7 +119,7 @@ impl OrderBook {
             }
         }
 
-        let order_id = OrderId::from(meta.sequence_number);
+        let order_id = OrderId::from(sequence_number);
 
         let result = self.match_order(spec.side(), None, spec.total_quantity());
 
@@ -176,14 +176,15 @@ impl OrderBook {
     /// Submit a non-crossable order
     fn submit_non_crossable_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &LimitOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
         if spec.is_immediate() {
             return Err(RejectReason::NoLiquidity);
         }
 
-        let order_id = OrderId::from(meta.sequence_number);
+        let order_id = OrderId::from(sequence_number);
+
         self.add_limit_order(LimitOrder::new(order_id, spec.clone()));
 
         let triggered_orders = self.trigger_opposite_side_takers(spec.side().opposite());
@@ -205,28 +206,30 @@ impl OrderBook {
         }
 
         match spec.peg_reference() {
-            PegReference::Primary => self.submit_primary_pegged_order(meta, spec),
-            PegReference::Market => self.submit_market_pegged_order(meta, spec),
-            PegReference::MidPrice => self.submit_mid_price_pegged_order(meta, spec),
+            PegReference::Primary => self.submit_primary_pegged_order(meta.sequence_number, spec),
+            PegReference::Market => self.submit_market_pegged_order(meta.sequence_number, spec),
+            PegReference::MidPrice => {
+                self.submit_mid_price_pegged_order(meta.sequence_number, spec)
+            }
         }
     }
 
     /// Submit a primary pegged order
     fn submit_primary_pegged_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        self.submit_unmarketable_pegged_order(meta, spec)
+        self.submit_unmarketable_pegged_order(sequence_number, spec)
     }
 
     /// Submit a market pegged order
     fn submit_market_pegged_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        let order_id = OrderId::from(meta.sequence_number);
+        let order_id = OrderId::from(sequence_number);
 
         if self.is_side_empty(spec.side().opposite()) {
             if spec.is_immediate() {
@@ -287,19 +290,20 @@ impl OrderBook {
     /// Submit a mid price pegged order
     fn submit_mid_price_pegged_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        self.submit_unmarketable_pegged_order(meta, spec)
+        self.submit_unmarketable_pegged_order(sequence_number, spec)
     }
 
     /// Submit an unmarketable pegged order
     fn submit_unmarketable_pegged_order(
         &mut self,
-        meta: CommandMeta,
+        sequence_number: SequenceNumber,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        let order_id = OrderId::from(meta.sequence_number);
+        let order_id = OrderId::from(sequence_number);
+
         self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
 
         Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
