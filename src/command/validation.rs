@@ -1,7 +1,7 @@
 use super::CommandError;
 use crate::{PegReference, Price, Quantity, QuantityPolicy, TimeInForce, orders::*};
 
-impl MarketOrderSpec {
+impl MarketOrder {
     /// Validate the order specification
     pub fn validate(&self) -> Result<(), CommandError> {
         if self.quantity().is_zero() {
@@ -121,19 +121,19 @@ mod tests {
     fn test_validate_market_order_spec() {
         struct Case {
             name: &'static str,
-            spec: MarketOrderSpec,
+            spec: MarketOrder,
             expected: Result<(), CommandError>,
         }
 
         let cases = [
             Case {
                 name: "valid market order",
-                spec: MarketOrderSpec::new(Quantity(100), Side::Buy, true),
+                spec: MarketOrder::new(Quantity(100), Side::Buy, true),
                 expected: Ok(()),
             },
             Case {
                 name: "zero quantity",
-                spec: MarketOrderSpec::new(Quantity(0), Side::Buy, true),
+                spec: MarketOrder::new(Quantity(0), Side::Buy, true),
                 expected: Err(CommandError::ZeroQuantity),
             },
         ];

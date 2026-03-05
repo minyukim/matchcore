@@ -1,4 +1,4 @@
-use crate::{LimitOrderSpec, MarketOrderSpec, PeggedOrderSpec, Side, TimeInForce};
+use crate::{LimitOrderSpec, MarketOrder, PeggedOrderSpec, Side, TimeInForce};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub struct SubmitCmd {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NewOrder {
     /// A new market order
-    Market(MarketOrderSpec),
+    Market(MarketOrder),
     /// A new limit order
     Limit(LimitOrderSpec),
     /// A new pegged order

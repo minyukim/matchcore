@@ -21,7 +21,7 @@ impl OrderBook {
     fn submit_market_order(
         &mut self,
         sequence_number: SequenceNumber,
-        spec: &MarketOrderSpec,
+        spec: &MarketOrder,
     ) -> Result<SubmitReport, RejectReason> {
         spec.validate().map_err(RejectReason::CommandError)?;
 
