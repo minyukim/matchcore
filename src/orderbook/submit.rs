@@ -206,7 +206,7 @@ impl OrderBook {
         meta: CommandMeta,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        todo!()
+        self.submit_unmarketable_pegged_order(meta, spec)
     }
 
     /// Submit a market pegged order
@@ -224,6 +224,18 @@ impl OrderBook {
         meta: CommandMeta,
         spec: &PeggedOrderSpec,
     ) -> Result<SubmitReport, RejectReason> {
-        todo!()
+        self.submit_unmarketable_pegged_order(meta, spec)
+    }
+
+    /// Submit an unmarketable pegged order
+    fn submit_unmarketable_pegged_order(
+        &mut self,
+        meta: CommandMeta,
+        spec: &PeggedOrderSpec,
+    ) -> Result<SubmitReport, RejectReason> {
+        let order_id = OrderId::from(meta.sequence_number);
+        self.add_pegged_order(PeggedOrder::new(order_id, spec.clone()));
+
+        Ok(SubmitReport::new(OrderProcessingResult::new(order_id)))
     }
 }
