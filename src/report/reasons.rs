@@ -9,12 +9,15 @@ use serde::{Deserialize, Serialize};
 pub enum RejectReason {
     /// The command is invalid
     CommandError(CommandError),
+    /// The order was not found
+    OrderNotFound,
 }
 
 impl fmt::Display for RejectReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RejectReason::CommandError(e) => write!(f, "Command error: {e}"),
+            RejectReason::OrderNotFound => write!(f, "Order not found"),
         }
     }
 }
@@ -54,6 +57,7 @@ mod tests {
             RejectReason::CommandError(CommandError::ZeroPrice).to_string(),
             "Command error: Price is zero"
         );
+        assert_eq!(RejectReason::OrderNotFound.to_string(), "Order not found");
     }
 
     #[test]
