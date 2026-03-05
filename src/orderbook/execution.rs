@@ -1,5 +1,5 @@
 use super::{ExecutionError, OrderBook};
-use crate::{SequenceNumber, Side, Timestamp, command::*, report::*};
+use crate::{SequenceNumber, Timestamp, command::*, report::*};
 
 use std::cmp::Reverse;
 
@@ -106,19 +106,18 @@ impl OrderBook {
             if *expires_at > timestamp {
                 break;
             }
-            let Some(order) = self.pegged.orders.get(order_id) else {
-                self.pegged.expiration_queue.pop();
-                continue;
+            let expired = match self.pegged.orders.get(order_id) {
+                Some(order) => order.is_expired(timestamp),
+                None => {
+                    self.pegged.expiration_queue.pop();
+                    continue;
+                }
             };
 
             // Check if the order is actually expired, as the TIF of the order may have changed
             // since the order was added to the expiration queue
-            if order.is_expired(timestamp) {
-                let peg_level = match order.side() {
-                    Side::Buy => &mut self.pegged.bid_levels[order.peg_reference().as_index()],
-                    Side::Sell => &mut self.pegged.ask_levels[order.peg_reference().as_index()],
-                };
-                peg_level.remove_order(&mut self.pegged.orders, *order_id);
+            if expired {
+                self.remove_pegged_order(*order_id);
             }
 
             self.pegged.expiration_queue.pop();

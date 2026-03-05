@@ -19,6 +19,11 @@ impl OrderBook {
     pub(super) fn add_pegged_order(&mut self, order: PeggedOrder) {
         self.pegged.add_order(order);
     }
+
+    /// Remove a pegged order from the order book
+    pub(super) fn remove_pegged_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
+        self.pegged.remove_order(order_id)
+    }
 }
 
 impl LimitBook {
@@ -81,13 +86,32 @@ impl PeggedBook {
                 .push(Reverse((expires_at, order.id())));
         }
 
-        let orders = &mut self.orders;
+        let (id, peg_reference, quantity, side) = (
+            order.id(),
+            order.peg_reference(),
+            order.quantity(),
+            order.side(),
+        );
+        self.orders.insert(id, order);
+
+        let levels = match side {
+            Side::Buy => &mut self.bid_levels,
+            Side::Sell => &mut self.ask_levels,
+        };
+        levels[peg_reference.as_index()].on_order_added(id, quantity);
+    }
+
+    /// Remove a pegged order from the order book
+    pub(super) fn remove_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
+        let order = self.orders.remove(&order_id)?;
 
         let levels = match order.side() {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
         };
-        levels[order.peg_reference().as_index()].push_order(orders, order);
+        levels[order.peg_reference().as_index()].on_order_removed(order.quantity());
+
+        Some(order)
     }
 }
 
