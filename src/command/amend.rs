@@ -81,10 +81,6 @@ impl LimitOrderPatch {
     /// Apply the patch to the order if the patch does not conflict with the order
     #[allow(unused)]
     pub(crate) fn apply(&self, order: &mut LimitOrder) -> Result<(), CommandError> {
-        if self.is_empty() {
-            return Err(CommandError::EmptyPatch);
-        }
-
         let new_price = self.price.unwrap_or(order.price());
         let new_quantity_policy = self.quantity_policy.unwrap_or(order.quantity_policy());
         let new_post_only = self.flags.post_only.unwrap_or(order.post_only());
@@ -160,10 +156,6 @@ impl PeggedOrderPatch {
     /// Apply the patch to the order if the patch does not conflict with the order
     #[allow(unused)]
     pub(crate) fn apply(&self, order: &mut PeggedOrder) -> Result<(), CommandError> {
-        if self.is_empty() {
-            return Err(CommandError::EmptyPatch);
-        }
-
         let new_peg_reference = self.peg_reference.unwrap_or(order.peg_reference());
         let new_quantity = self.quantity.unwrap_or(order.quantity());
         let new_post_only = self.flags.post_only.unwrap_or(order.post_only());
@@ -213,7 +205,27 @@ mod tests {
     use crate::{LimitOrder, OrderFlags, PeggedOrder, Side};
 
     #[test]
-    fn test_apply_limit_patch() {
+    fn test_is_empty_limit_order_patch() {
+        let patch = LimitOrderPatch::new();
+        assert!(patch.is_empty());
+        let patch = LimitOrderPatch::new().with_price(Price(100));
+        assert!(!patch.is_empty());
+        let patch = LimitOrderPatch::new().with_quantity_policy(QuantityPolicy::Standard {
+            quantity: Quantity(10),
+        });
+        assert!(!patch.is_empty());
+        let patch = LimitOrderPatch::new().with_post_only(true);
+        assert!(!patch.is_empty());
+        let patch = LimitOrderPatch::new().with_time_in_force(TimeInForce::Gtc);
+        assert!(!patch.is_empty());
+        let patch = LimitOrderPatch::new()
+            .with_post_only(true)
+            .with_time_in_force(TimeInForce::Gtc);
+        assert!(!patch.is_empty());
+    }
+
+    #[test]
+    fn test_apply_limit_order_patch() {
         struct Case {
             name: &'static str,
             order: LimitOrder,
@@ -287,18 +299,6 @@ mod tests {
                 ),
                 patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
-            },
-            Case {
-                name: "invalid: empty patch",
-                order: LimitOrder::new(
-                    Price(100),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-                ),
-                patch: LimitOrderPatch::new(),
-                expected: Err(CommandError::EmptyPatch),
             },
             Case {
                 name: "invalid: post-only with immediate TIF",
@@ -457,7 +457,25 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_pegged_patch() {
+    fn test_is_empty_pegged_order_patch() {
+        let patch = PeggedOrderPatch::new();
+        assert!(patch.is_empty());
+        let patch = PeggedOrderPatch::new().with_peg_reference(PegReference::Market);
+        assert!(!patch.is_empty());
+        let patch = PeggedOrderPatch::new().with_quantity(Quantity(10));
+        assert!(!patch.is_empty());
+        let patch = PeggedOrderPatch::new().with_post_only(true);
+        assert!(!patch.is_empty());
+        let patch = PeggedOrderPatch::new().with_time_in_force(TimeInForce::Gtc);
+        assert!(!patch.is_empty());
+        let patch = PeggedOrderPatch::new()
+            .with_post_only(true)
+            .with_time_in_force(TimeInForce::Gtc);
+        assert!(!patch.is_empty());
+    }
+
+    #[test]
+    fn test_apply_pegged_order_patch() {
         struct Case {
             name: &'static str,
             order: PeggedOrder,
@@ -517,16 +535,6 @@ mod tests {
                 ),
                 patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Ok(()),
-            },
-            Case {
-                name: "invalid: empty patch",
-                order: PeggedOrder::new(
-                    PegReference::Market,
-                    Quantity(10),
-                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-                ),
-                patch: PeggedOrderPatch::new(),
-                expected: Err(CommandError::EmptyPatch),
             },
             Case {
                 name: "invalid: post-only with immediate TIF",
