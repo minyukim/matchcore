@@ -131,6 +131,17 @@ impl OrderBook {
             ));
         }
 
+        if spec.time_in_force() == TimeInForce::Ioc {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id)
+                    .with_match_result(result)
+                    .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested_quantity: spec.total_quantity(),
+                        available_quantity: executed_quantity,
+                    }),
+            ));
+        }
+
         let quantity_policy = match spec.quantity_policy() {
             QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
                 quantity: remaining_quantity,
