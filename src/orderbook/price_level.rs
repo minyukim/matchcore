@@ -140,20 +140,31 @@ impl PriceLevel {
         self.decrement_order_count();
     }
 
-    /// Handle the replenishment of the order
-    /// If the replenishment quantity is 0, do nothing
-    /// Otherwise, add the order back to the price level
-    pub(super) fn handle_replenishment(&mut self, replenished_quantity: Quantity) {
-        if replenished_quantity.is_zero() {
-            return;
-        }
+    /// Handle the replenishment of an order in this price level
+    /// It applies the replenished quantity and cycles the front order to the back.
+    ///
+    /// # Panics
+    /// Panics if the queue is empty.
+    pub(super) fn handle_replenishment(&mut self, replenished: Quantity) {
+        self.apply_replenishment(replenished);
+        self.cycle_front();
+    }
 
-        self.visible_quantity += replenished_quantity;
-        self.hidden_quantity -= replenished_quantity;
+    /// Apply the replenished quantity to the price level
+    fn apply_replenishment(&mut self, replenished: Quantity) {
+        self.visible_quantity += replenished;
+        self.hidden_quantity -= replenished;
+    }
 
-        let Some(order_id) = self.pop() else {
-            return;
-        };
+    /// Rotates the queue by moving the front order ID to the back.
+    ///
+    /// This is used to preserve time priority when the front order
+    /// remains active but should yield priority to other orders.
+    ///
+    /// # Panics
+    /// Panics if the queue is empty.
+    fn cycle_front(&mut self) {
+        let order_id = self.pop().unwrap();
         self.push(order_id);
     }
 }
@@ -351,59 +362,73 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_replenishment() {
-        let mut limit_orders = HashMap::new();
+    fn test_cycle_front() {
+        let mut price_level = PriceLevel::new();
+        assert_eq!(price_level.peek(), None);
 
+        price_level.push(OrderId(0));
+        assert_eq!(price_level.peek(), Some(OrderId(0)));
+
+        price_level.cycle_front();
+        assert_eq!(price_level.peek(), Some(OrderId(0)));
+
+        price_level.push(OrderId(1));
+        assert_eq!(price_level.peek(), Some(OrderId(0)));
+
+        price_level.cycle_front();
+        assert_eq!(price_level.peek(), Some(OrderId(1)));
+
+        price_level.cycle_front();
+        assert_eq!(price_level.peek(), Some(OrderId(0)));
+    }
+
+    #[test]
+    fn test_apply_replenishment() {
         let mut price_level = PriceLevel::new();
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
-        assert_eq!(price_level.order_count(), 0);
-        assert!(price_level.peek_order_id(&limit_orders).is_none());
 
-        limit_orders.insert(
-            OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Iceberg {
-                    visible_quantity: Quantity(0),
-                    hidden_quantity: Quantity(100),
-                    replenish_quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            ),
-        );
-        price_level.on_order_added(OrderId(0), Quantity(0), Quantity(100));
-        assert_eq!(price_level.visible_quantity, Quantity(0));
-        assert_eq!(price_level.hidden_quantity, Quantity(100));
-        assert_eq!(price_level.order_count(), 1);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
+        price_level.visible_quantity = Quantity(10);
+        price_level.hidden_quantity = Quantity(100);
 
-        price_level.handle_replenishment(Quantity(10));
-        assert_eq!(price_level.visible_quantity, Quantity(10));
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(20));
         assert_eq!(price_level.hidden_quantity, Quantity(90));
-        assert_eq!(price_level.order_count(), 1);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
 
-        limit_orders.insert(
-            OrderId(1),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(20),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            ),
-        );
-        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
+        price_level.apply_replenishment(Quantity(10));
         assert_eq!(price_level.visible_quantity, Quantity(30));
-        assert_eq!(price_level.hidden_quantity, Quantity(90));
-        assert_eq!(price_level.order_count(), 2);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(0)));
-
-        price_level.handle_replenishment(Quantity(10));
-        assert_eq!(price_level.visible_quantity, Quantity(40));
         assert_eq!(price_level.hidden_quantity, Quantity(80));
-        assert_eq!(price_level.order_count(), 2);
-        assert_eq!(price_level.peek_order_id(&limit_orders), Some(OrderId(1)));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(40));
+        assert_eq!(price_level.hidden_quantity, Quantity(70));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(50));
+        assert_eq!(price_level.hidden_quantity, Quantity(60));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(60));
+        assert_eq!(price_level.hidden_quantity, Quantity(50));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(70));
+        assert_eq!(price_level.hidden_quantity, Quantity(40));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(80));
+        assert_eq!(price_level.hidden_quantity, Quantity(30));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(90));
+        assert_eq!(price_level.hidden_quantity, Quantity(20));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(100));
+        assert_eq!(price_level.hidden_quantity, Quantity(10));
+
+        price_level.apply_replenishment(Quantity(10));
+        assert_eq!(price_level.visible_quantity, Quantity(110));
+        assert_eq!(price_level.hidden_quantity, Quantity(0));
     }
 }
