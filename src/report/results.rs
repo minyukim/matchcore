@@ -107,8 +107,7 @@ mod tests_order_processing_result {
         assert_eq!(order_processing_result.cancel_reason(), None);
 
         let cancel_reason = CancelReason::InsufficientLiquidity {
-            requested_quantity: Quantity(100),
-            available_quantity: Quantity(50),
+            available: Quantity(50),
         };
         order_processing_result = order_processing_result.with_cancel_reason(cancel_reason.clone());
         assert_eq!(

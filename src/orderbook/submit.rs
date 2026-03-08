@@ -25,11 +25,17 @@ impl OrderBook {
     ) -> Result<SubmitReport, RejectReason> {
         order.validate().map_err(RejectReason::CommandError)?;
 
-        if self.is_side_empty(order.side().opposite()) {
-            return Err(RejectReason::NoLiquidity);
-        }
-
         let order_id = OrderId::from(sequence_number);
+
+        if self.is_side_empty(order.side().opposite()) {
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id).with_cancel_reason(
+                    CancelReason::InsufficientLiquidity {
+                        available: Quantity(0),
+                    },
+                ),
+            ));
+        }
 
         let result = self.match_order(order.side(), None, order.quantity());
 
@@ -70,8 +76,7 @@ impl OrderBook {
             OrderProcessingResult::new(order_id)
                 .with_match_result(result)
                 .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                    requested_quantity: order.quantity(),
-                    available_quantity: executed_quantity,
+                    available: executed_quantity,
                 }),
         ))
     }
@@ -101,8 +106,13 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         order: &LimitOrder,
     ) -> Result<SubmitReport, RejectReason> {
+        let order_id = OrderId::from(sequence_number);
+
         if order.post_only() {
-            return Err(RejectReason::PostOnlyWouldTake);
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(order_id)
+                    .with_cancel_reason(CancelReason::PostOnlyWouldTake),
+            ));
         }
 
         if order.time_in_force() == TimeInForce::Fok {
@@ -112,14 +122,15 @@ impl OrderBook {
                 order.total_quantity(),
             );
             if executable_quantity < order.total_quantity() {
-                return Err(RejectReason::InsufficientLiquidity {
-                    requested_quantity: order.total_quantity(),
-                    available_quantity: executable_quantity,
-                });
+                return Ok(SubmitReport::new(
+                    OrderProcessingResult::new(order_id).with_cancel_reason(
+                        CancelReason::InsufficientLiquidity {
+                            available: executable_quantity,
+                        },
+                    ),
+                ));
             }
         }
-
-        let order_id = OrderId::from(sequence_number);
 
         let result = self.match_order(order.side(), None, order.total_quantity());
 
@@ -136,8 +147,7 @@ impl OrderBook {
                 OrderProcessingResult::new(order_id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                        requested_quantity: order.total_quantity(),
-                        available_quantity: executed_quantity,
+                        available: executed_quantity,
                     }),
             ));
         }
@@ -180,7 +190,13 @@ impl OrderBook {
         order: &LimitOrder,
     ) -> Result<SubmitReport, RejectReason> {
         if order.is_immediate() {
-            return Err(RejectReason::NoLiquidity);
+            return Ok(SubmitReport::new(
+                OrderProcessingResult::new(OrderId::from(sequence_number)).with_cancel_reason(
+                    CancelReason::InsufficientLiquidity {
+                        available: Quantity(0),
+                    },
+                ),
+            ));
         }
 
         let order_id = OrderId::from(sequence_number);
@@ -233,7 +249,13 @@ impl OrderBook {
 
         if self.is_side_empty(order.side().opposite()) {
             if order.is_immediate() {
-                return Err(RejectReason::NoLiquidity);
+                return Ok(SubmitReport::new(
+                    OrderProcessingResult::new(order_id).with_cancel_reason(
+                        CancelReason::InsufficientLiquidity {
+                            available: Quantity(0),
+                        },
+                    ),
+                ));
             }
 
             self.add_pegged_order(order_id, order.clone());
@@ -245,10 +267,13 @@ impl OrderBook {
             let executable_quantity =
                 self.max_executable_quantity_unchecked(order.side(), order.quantity());
             if executable_quantity < order.quantity() {
-                return Err(RejectReason::InsufficientLiquidity {
-                    requested_quantity: order.quantity(),
-                    available_quantity: executable_quantity,
-                });
+                return Ok(SubmitReport::new(
+                    OrderProcessingResult::new(order_id).with_cancel_reason(
+                        CancelReason::InsufficientLiquidity {
+                            available: executable_quantity,
+                        },
+                    ),
+                ));
             }
         }
 
@@ -267,8 +292,7 @@ impl OrderBook {
                 OrderProcessingResult::new(order_id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                        requested_quantity: order.quantity(),
-                        available_quantity: executed_quantity,
+                        available: executed_quantity,
                     }),
             ));
         }
