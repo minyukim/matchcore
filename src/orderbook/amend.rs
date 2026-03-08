@@ -1,5 +1,7 @@
 use super::OrderBook;
-use crate::{OrderId, command::*, report::*};
+use crate::{OrderId, Quantity, Side, TimeInForce, command::*, report::*};
+
+use std::cmp::Reverse;
 
 impl OrderBook {
     /// Execute an amend command against the order book
@@ -19,11 +21,96 @@ impl OrderBook {
     /// Amend a limit order
     fn amend_limit_order(
         &mut self,
-        _meta: CommandMeta,
-        _order_id: OrderId,
-        _patch: &LimitOrderPatch,
+        meta: CommandMeta,
+        order_id: OrderId,
+        patch: &LimitOrderPatch,
     ) -> Result<AmendReport, RejectReason> {
-        todo!()
+        if patch.is_empty() {
+            return Err(RejectReason::CommandError(CommandError::EmptyPatch));
+        }
+
+        if patch.has_expired_time_in_force(meta.timestamp) {
+            return Err(RejectReason::CommandError(CommandError::Expired));
+        }
+
+        let order = self
+            .limit
+            .orders
+            .get_mut(&order_id)
+            .ok_or(RejectReason::OrderNotFound)?;
+
+        let (old_price, old_visible_quantity, old_hidden_quantity, old_expires_at) = (
+            order.price(),
+            order.visible_quantity(),
+            order.hidden_quantity(),
+            order.time_in_force().expires_at(),
+        );
+
+        patch.apply(order).map_err(RejectReason::CommandError)?;
+
+        // Price change: move the order to the new price level
+        if let Some(price) = patch.price
+            && price != old_price
+        {
+            let order = self.remove_limit_order(order_id).unwrap();
+
+            let new_id = OrderId::from(meta.sequence_number);
+            let submit_report = self.submit_validated_limit_order(new_id, &order);
+
+            return Ok(AmendReport::from(submit_report).with_new_order_id(new_id));
+        }
+
+        if let Some(time_in_force) = patch.time_in_force {
+            match time_in_force {
+                // An existing order cannot be matched immediately without price change
+                TimeInForce::Ioc | TimeInForce::Fok => {
+                    self.remove_limit_order(order_id).unwrap();
+                    return Ok(AmendReport::new(
+                        OrderProcessingResult::new(order_id).with_cancel_reason(
+                            CancelReason::InsufficientLiquidity {
+                                available: Quantity(0),
+                            },
+                        ),
+                    ));
+                }
+                // New expires at
+                TimeInForce::Gtd(expires_at)
+                    if old_expires_at
+                        .is_some_and(|old_expires_at| old_expires_at != expires_at) =>
+                {
+                    self.limit
+                        .expiration_queue
+                        .push(Reverse((expires_at, order_id)))
+                }
+                _ => (),
+            }
+        }
+
+        let mut report = AmendReport::new(OrderProcessingResult::new(order_id));
+
+        if let Some(quantity_policy) = patch.quantity_policy {
+            let level = match order.side() {
+                Side::Buy => self.limit.bid_levels.get_mut(&order.price()).unwrap(),
+                Side::Sell => self.limit.ask_levels.get_mut(&order.price()).unwrap(),
+            };
+            level.visible_quantity =
+                level.visible_quantity + quantity_policy.visible_quantity() - old_visible_quantity;
+            level.hidden_quantity =
+                level.hidden_quantity + quantity_policy.hidden_quantity() - old_hidden_quantity;
+
+            // Lose time-priority due to quantity increase
+            if quantity_policy.visible_quantity() > old_visible_quantity {
+                let new_id = OrderId::from(meta.sequence_number);
+                level.push(new_id);
+
+                let order = self.remove_limit_order(order_id).unwrap();
+                self.limit.add_order(new_id, order);
+
+                report = report.with_new_order_id(new_id);
+            }
+        }
+
+        Ok(report)
     }
 
     /// Amend a pegged order
