@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level
-    visible_quantity: Quantity,
+    pub(super) visible_quantity: Quantity,
     /// Total hidden quantity at this price level
-    hidden_quantity: Quantity,
+    pub(super) hidden_quantity: Quantity,
     /// Number of orders at this price level
     order_count: u64,
     /// Queue of order IDs at this price level
@@ -39,11 +39,6 @@ impl PriceLevel {
     /// Get the visible quantity at this price level
     pub fn visible_quantity(&self) -> Quantity {
         self.visible_quantity
-    }
-
-    /// Consume the quantity at this price level
-    pub(super) fn consume(&mut self, quantity: Quantity) {
-        self.visible_quantity = self.visible_quantity.saturating_sub(quantity);
     }
 
     /// Get the hidden quantity at this price level
@@ -79,7 +74,7 @@ impl PriceLevel {
 
 impl PriceLevel {
     /// Push an order ID to the queue
-    fn push(&mut self, order_id: OrderId) {
+    pub(super) fn push(&mut self, order_id: OrderId) {
         self.order_ids.push_back(order_id);
     }
 
