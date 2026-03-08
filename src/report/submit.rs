@@ -37,3 +37,9 @@ impl SubmitReport {
         self.order_processing_results.triggered_orders()
     }
 }
+
+impl From<SubmitReport> for OrderProcessingResults {
+    fn from(report: SubmitReport) -> Self {
+        report.order_processing_results
+    }
+}

@@ -258,14 +258,14 @@ pub(super) fn match_order(
 
             let (consumed, replenished) = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
-
-            price_level.consume(consumed);
-            price_level.handle_replenishment(replenished);
+            price_level.visible_quantity -= consumed;
 
             match_result.add_trade(Trade::new(order_id, price, consumed));
 
-            // The order is filled, remove it from the price level
-            if order.is_filled() {
+            if !replenished.is_zero() {
+                price_level.handle_replenishment(replenished);
+            } else if order.is_filled() {
+                // The order is filled, remove it from the price level
                 price_level.remove_head_order(limit_orders);
                 if price_level.is_empty() {
                     maker_side_price_levels.remove(&price);

@@ -93,13 +93,20 @@ impl OrderBook {
             return Err(RejectReason::CommandError(CommandError::Expired));
         }
 
-        let order_id = OrderId::from(meta.sequence_number);
+        Ok(self.submit_validated_limit_order(OrderId::from(meta.sequence_number), order))
+    }
 
-        Ok(if self.has_crossable_order(order.side(), order.price()) {
-            self.submit_crossable_order(order_id, order)
+    /// Submit a validated limit order
+    pub(super) fn submit_validated_limit_order(
+        &mut self,
+        id: OrderId,
+        order: &LimitOrder,
+    ) -> SubmitReport {
+        if self.has_crossable_order(order.side(), order.price()) {
+            self.submit_crossable_order(id, order)
         } else {
-            self.submit_non_crossable_order(order_id, order)
-        })
+            self.submit_non_crossable_order(id, order)
+        }
     }
 
     /// Submit a crossable order
@@ -201,13 +208,20 @@ impl OrderBook {
             return Err(RejectReason::CommandError(CommandError::Expired));
         }
 
-        let order_id = OrderId::from(meta.sequence_number);
+        Ok(self.submit_validated_pegged_order(OrderId::from(meta.sequence_number), order))
+    }
 
-        Ok(match order.peg_reference() {
-            PegReference::Primary => self.submit_primary_pegged_order(order_id, order),
-            PegReference::Market => self.submit_market_pegged_order(order_id, order),
-            PegReference::MidPrice => self.submit_mid_price_pegged_order(order_id, order),
-        })
+    /// Submit a validated pegged order
+    pub(super) fn submit_validated_pegged_order(
+        &mut self,
+        id: OrderId,
+        order: &PeggedOrder,
+    ) -> SubmitReport {
+        match order.peg_reference() {
+            PegReference::Primary => self.submit_primary_pegged_order(id, order),
+            PegReference::Market => self.submit_market_pegged_order(id, order),
+            PegReference::MidPrice => self.submit_mid_price_pegged_order(id, order),
+        }
     }
 
     /// Submit a primary pegged order
