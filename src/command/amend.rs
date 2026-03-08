@@ -7,6 +7,8 @@ use crate::{
     Timestamp,
 };
 
+use std::ops::{Deref, DerefMut};
+
 use serde::{Deserialize, Serialize};
 
 /// Represents a command to amend an existing order
@@ -102,6 +104,19 @@ impl LimitOrderPatch {
     }
 }
 
+impl Deref for LimitOrderPatch {
+    type Target = OrderFlagsPatch;
+
+    fn deref(&self) -> &Self::Target {
+        &self.flags
+    }
+}
+impl DerefMut for LimitOrderPatch {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.flags
+    }
+}
+
 /// Represents the patch to a pegged order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PeggedOrderPatch {
@@ -174,6 +189,19 @@ impl PeggedOrderPatch {
         order.update_time_in_force(new_time_in_force);
 
         Ok(())
+    }
+}
+
+impl Deref for PeggedOrderPatch {
+    type Target = OrderFlagsPatch;
+
+    fn deref(&self) -> &Self::Target {
+        &self.flags
+    }
+}
+impl DerefMut for PeggedOrderPatch {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.flags
     }
 }
 
