@@ -4,53 +4,28 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+/// Reason for rejecting a command that cannot be executed
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RejectReason {
     /// The command is invalid
     CommandError(CommandError),
-    /// No liquidity available to fill the immediate order
-    NoLiquidity,
-    /// Insufficient liquidity for FOK orders
-    InsufficientLiquidity {
-        /// The quantity of the order that was requested to be filled
-        requested_quantity: Quantity,
-        /// The quantity of the order that was available to be filled
-        available_quantity: Quantity,
-    },
-    /// The post-only order would remove liquidity
-    PostOnlyWouldTake,
 }
 
 impl fmt::Display for RejectReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RejectReason::CommandError(e) => write!(f, "Command error: {e}"),
-            RejectReason::NoLiquidity => {
-                write!(f, "No liquidity available to fill the immediate order")
-            }
-            RejectReason::InsufficientLiquidity {
-                requested_quantity,
-                available_quantity,
-            } => write!(
-                f,
-                "Insufficient liquidity: requested={} available={}",
-                requested_quantity, available_quantity
-            ),
-            RejectReason::PostOnlyWouldTake => {
-                write!(f, "Post-only order would remove liquidity")
-            }
         }
     }
 }
 
+/// Reason for cancelling an order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelReason {
-    /// Insufficient liquidity for market orders and IOC orders
+    /// Insufficient liquidity for immediate orders
     InsufficientLiquidity {
-        /// The quantity of the order that was requested to be filled
-        requested_quantity: Quantity,
         /// The quantity of the order that was available to be filled
-        available_quantity: Quantity,
+        available: Quantity,
     },
     /// The post-only order would remove liquidity
     PostOnlyWouldTake,
@@ -59,14 +34,9 @@ pub enum CancelReason {
 impl fmt::Display for CancelReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CancelReason::InsufficientLiquidity {
-                requested_quantity,
-                available_quantity,
-            } => write!(
-                f,
-                "Insufficient liquidity: requested={} available={}",
-                requested_quantity, available_quantity
-            ),
+            CancelReason::InsufficientLiquidity { available } => {
+                write!(f, "Insufficient liquidity: available={}", available)
+            }
             CancelReason::PostOnlyWouldTake => {
                 write!(f, "Post-only order would remove liquidity")
             }
@@ -84,21 +54,16 @@ mod tests {
             RejectReason::CommandError(CommandError::ZeroPrice).to_string(),
             "Command error: Price is zero"
         );
-        assert_eq!(
-            RejectReason::NoLiquidity.to_string(),
-            "No liquidity available to fill the immediate order"
-        );
     }
 
     #[test]
     fn test_display_cancel_reason() {
         assert_eq!(
             CancelReason::InsufficientLiquidity {
-                requested_quantity: Quantity(100),
-                available_quantity: Quantity(50),
+                available: Quantity(50),
             }
             .to_string(),
-            "Insufficient liquidity: requested=100 available=50"
+            "Insufficient liquidity: available=50"
         );
         assert_eq!(
             CancelReason::PostOnlyWouldTake.to_string(),
