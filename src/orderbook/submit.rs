@@ -303,3 +303,450 @@ impl OrderBook {
         SubmitReport::new(OrderProcessingResult::new(id))
     }
 }
+
+#[cfg(test)]
+mod tests_submit_market_order {
+    use super::*;
+
+    fn submit(book: &mut OrderBook, seq: u64, ts: u64, order: MarketOrder) -> CommandOutcome {
+        book.execute_submit(
+            CommandMeta {
+                sequence_number: SequenceNumber(seq),
+                timestamp: Timestamp(ts),
+            },
+            &SubmitCmd {
+                order: NewOrder::Market(order),
+            },
+        )
+    }
+
+    fn unwrap_submit_report(outcome: CommandOutcome) -> SubmitReport {
+        match outcome {
+            CommandOutcome::Applied(CommandReport::Submit(report)) => report,
+            other => panic!("expected applied submit, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_order_on_empty_opposite_side() {
+        let mut book = OrderBook::new("TEST");
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            0,
+            0,
+            MarketOrder::new(Quantity(10), Side::Buy, false),
+        ));
+
+        assert_eq!(
+            report.submitted_order().cancel_reason(),
+            Some(&CancelReason::InsufficientLiquidity {
+                available: Quantity(0)
+            })
+        );
+        assert!(report.submitted_order().match_result().is_none());
+    }
+
+    #[test]
+    fn market_to_limit_converts_remaining_to_limit_at_last_trade() {
+        let mut book = OrderBook::new("TEST");
+
+        // Seed sell-side liquidity at 100 for 5 units.
+        book.add_limit_order(
+            OrderId(10),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            0,
+            0,
+            MarketOrder::new(Quantity(10), Side::Buy, true),
+        ));
+
+        let submitted = report.submitted_order();
+        assert_eq!(submitted.order_id(), OrderId(0));
+        assert_eq!(
+            submitted.match_result().unwrap().executed_quantity(),
+            Quantity(5)
+        );
+        assert!(submitted.cancel_reason().is_none());
+        assert_eq!(book.last_trade_price(), Some(Price(100)));
+
+        // Remaining quantity should become a resting buy limit at last trade price.
+        assert!(book.limit.orders.contains_key(&submitted.order_id()));
+        let resting = book.limit.orders.get(&submitted.order_id()).unwrap();
+        assert_eq!(resting.side(), Side::Buy);
+        assert_eq!(resting.price(), Price(100));
+        assert_eq!(resting.total_quantity(), Quantity(5));
+    }
+}
+
+#[cfg(test)]
+mod tests_submit_limit_order {
+    use super::*;
+
+    fn submit(book: &mut OrderBook, seq: u64, ts: u64, order: LimitOrder) -> CommandOutcome {
+        book.execute_submit(
+            CommandMeta {
+                sequence_number: SequenceNumber(seq),
+                timestamp: Timestamp(ts),
+            },
+            &SubmitCmd {
+                order: NewOrder::Limit(order),
+            },
+        )
+    }
+
+    fn unwrap_submit_report(outcome: CommandOutcome) -> SubmitReport {
+        match outcome {
+            CommandOutcome::Applied(CommandReport::Submit(report)) => report,
+            other => panic!("expected applied submit, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reject_expired_order() {
+        let mut book = OrderBook::new("TEST");
+
+        let outcome = submit(
+            &mut book,
+            0,
+            1000,
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
+            ),
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(RejectReason::CommandError(CommandError::Expired)) => {}
+            other => panic!("expected expired rejection, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_immediate_order_on_non_crossable() {
+        let mut book = OrderBook::new("TEST");
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            0,
+            0,
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
+            ),
+        ));
+
+        assert_eq!(
+            report.submitted_order().cancel_reason(),
+            Some(&CancelReason::InsufficientLiquidity {
+                available: Quantity(0)
+            })
+        );
+        assert!(report.submitted_order().match_result().is_none());
+        assert!(book.limit.orders.is_empty());
+    }
+
+    #[test]
+    fn cancel_post_only_order_on_crossable() {
+        let mut book = OrderBook::new("TEST");
+
+        // Seed sell-side best ask at 100.
+        book.add_limit_order(
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            1,
+            0,
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            ),
+        ));
+
+        assert_eq!(
+            report.submitted_order().cancel_reason(),
+            Some(&CancelReason::PostOnlyWouldTake)
+        );
+        assert!(report.submitted_order().match_result().is_none());
+    }
+
+    #[test]
+    fn cancel_fok_order_on_crossable_insufficient_liquidity() {
+        let mut book = OrderBook::new("TEST");
+
+        // Seed sell-side liquidity at 100 for 5.
+        book.add_limit_order(
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            1,
+            0,
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Fok),
+            ),
+        ));
+
+        assert_eq!(
+            report.submitted_order().cancel_reason(),
+            Some(&CancelReason::InsufficientLiquidity {
+                available: Quantity(5)
+            })
+        );
+        assert!(report.submitted_order().match_result().is_none());
+        assert_eq!(book.last_trade_price(), None);
+    }
+
+    #[test]
+    fn cancel_ioc_order_on_crossable_after_partial_match() {
+        let mut book = OrderBook::new("TEST");
+
+        book.add_limit_order(
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            1,
+            0,
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
+            ),
+        ));
+
+        let submitted = report.submitted_order();
+        assert_eq!(
+            submitted.match_result().unwrap().executed_quantity(),
+            Quantity(5)
+        );
+        assert_eq!(
+            submitted.cancel_reason(),
+            Some(&CancelReason::InsufficientLiquidity {
+                available: Quantity(5)
+            })
+        );
+        assert!(!book.limit.orders.contains_key(&submitted.order_id()));
+    }
+
+    #[test]
+    fn rest_remaining_order_on_crossable_after_partial_match() {
+        let mut book = OrderBook::new("TEST");
+
+        book.add_limit_order(
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            1,
+            0,
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        ));
+
+        let submitted = report.submitted_order();
+        assert_eq!(
+            submitted.match_result().unwrap().executed_quantity(),
+            Quantity(5)
+        );
+        assert!(submitted.cancel_reason().is_none());
+        assert_eq!(book.last_trade_price(), Some(Price(100)));
+
+        let resting = book.limit.orders.get(&submitted.order_id()).unwrap();
+        assert_eq!(resting.side(), Side::Buy);
+        assert_eq!(resting.price(), Price(100));
+        assert_eq!(resting.total_quantity(), Quantity(5));
+    }
+}
+
+#[cfg(test)]
+mod tests_submit_pegged_order {
+    use super::*;
+
+    fn submit(book: &mut OrderBook, seq: u64, ts: u64, order: PeggedOrder) -> CommandOutcome {
+        book.execute_submit(
+            CommandMeta {
+                sequence_number: SequenceNumber(seq),
+                timestamp: Timestamp(ts),
+            },
+            &SubmitCmd {
+                order: NewOrder::Pegged(order),
+            },
+        )
+    }
+
+    fn unwrap_submit_report(outcome: CommandOutcome) -> SubmitReport {
+        match outcome {
+            CommandOutcome::Applied(CommandReport::Submit(report)) => report,
+            other => panic!("expected applied submit, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reject_expired_order() {
+        let mut book = OrderBook::new("TEST");
+
+        let outcome = submit(
+            &mut book,
+            0,
+            1000,
+            PeggedOrder::new(
+                PegReference::Primary,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
+            ),
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(RejectReason::CommandError(CommandError::Expired)) => {}
+            other => panic!("expected expired rejection, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_primary_pegged_order_to_book() {
+        let mut book = OrderBook::new("TEST");
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            0,
+            0,
+            PeggedOrder::new(
+                PegReference::Primary,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        ));
+
+        let id = report.submitted_order().order_id();
+        assert!(book.pegged.orders.contains_key(&id));
+        assert!(report.submitted_order().match_result().is_none());
+        assert!(report.submitted_order().cancel_reason().is_none());
+    }
+
+    #[test]
+    fn cancel_immediate_order_on_empty_opposite_side() {
+        let mut book = OrderBook::new("TEST");
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            0,
+            0,
+            PeggedOrder::new(
+                PegReference::Market,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Ioc),
+            ),
+        ));
+
+        assert_eq!(
+            report.submitted_order().cancel_reason(),
+            Some(&CancelReason::InsufficientLiquidity {
+                available: Quantity(0)
+            })
+        );
+        assert!(book.pegged.orders.is_empty());
+    }
+
+    #[test]
+    fn rest_remaining_market_pegged_order_after_partial_match() {
+        let mut book = OrderBook::new("TEST");
+
+        // Provide sell-side liquidity so the market-pegged buy can match.
+        book.add_limit_order(
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let report = unwrap_submit_report(submit(
+            &mut book,
+            0,
+            0,
+            PeggedOrder::new(
+                PegReference::Market,
+                Quantity(10),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        ));
+
+        let submitted = report.submitted_order();
+        assert_eq!(
+            submitted.match_result().unwrap().executed_quantity(),
+            Quantity(5)
+        );
+        assert!(submitted.cancel_reason().is_none());
+
+        let resting = book.pegged.orders.get(&submitted.order_id()).unwrap();
+        assert_eq!(resting.peg_reference(), PegReference::Market);
+        assert_eq!(resting.side(), Side::Buy);
+        assert_eq!(resting.quantity(), Quantity(5));
+    }
+}
