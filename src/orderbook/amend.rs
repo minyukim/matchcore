@@ -46,19 +46,22 @@ impl OrderBook {
             order.time_in_force().expires_at(),
         );
 
-        patch.apply(order).map_err(RejectReason::CommandError)?;
-
         // Price change: move the order to the new price level
         if let Some(price) = patch.price
             && price != old_price
         {
-            let order = self.remove_limit_order(id).unwrap();
+            let mut order = self.remove_limit_order(id).unwrap();
+            patch
+                .apply(&mut order)
+                .map_err(RejectReason::CommandError)?;
 
             let new_id = OrderId::from(meta.sequence_number);
             let submit_report = self.submit_validated_limit_order(new_id, &order);
 
             return Ok(AmendReport::from(submit_report).with_new_order_id(new_id));
         }
+
+        patch.apply(order).map_err(RejectReason::CommandError)?;
 
         if let Some(time_in_force) = patch.time_in_force {
             match time_in_force {
@@ -141,19 +144,22 @@ impl OrderBook {
             order.time_in_force().expires_at(),
         );
 
-        patch.apply(order).map_err(RejectReason::CommandError)?;
-
         // Peg reference change: move the order to the new peg level
         if let Some(peg_reference) = patch.peg_reference
             && peg_reference != old_peg_reference
         {
-            let order = self.remove_pegged_order(id).unwrap();
+            let mut order = self.remove_pegged_order(id).unwrap();
+            patch
+                .apply(&mut order)
+                .map_err(RejectReason::CommandError)?;
 
             let new_id = OrderId::from(meta.sequence_number);
             let submit_report = self.submit_validated_pegged_order(new_id, &order);
 
             return Ok(AmendReport::from(submit_report).with_new_order_id(new_id));
         }
+
+        patch.apply(order).map_err(RejectReason::CommandError)?;
 
         if let Some(time_in_force) = patch.time_in_force {
             match time_in_force {
