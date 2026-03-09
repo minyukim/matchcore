@@ -78,8 +78,7 @@ impl OrderBook {
                 }
                 // New expires at
                 TimeInForce::Gtd(expires_at)
-                    if old_expires_at
-                        .is_some_and(|old_expires_at| old_expires_at != expires_at) =>
+                    if old_expires_at.is_none_or(|old_expires_at| old_expires_at != expires_at) =>
                 {
                     self.limit.expiration_queue.push(Reverse((expires_at, id)))
                 }
@@ -176,8 +175,7 @@ impl OrderBook {
                 }
                 // New expires at
                 TimeInForce::Gtd(expires_at)
-                    if old_expires_at
-                        .is_some_and(|old_expires_at| old_expires_at != expires_at) =>
+                    if old_expires_at.is_none_or(|old_expires_at| old_expires_at != expires_at) =>
                 {
                     self.pegged.expiration_queue.push(Reverse((expires_at, id)))
                 }
