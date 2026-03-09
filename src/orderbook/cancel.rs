@@ -25,7 +25,10 @@ impl OrderBook {
     }
 
     /// Cancel a pegged order
-    fn cancel_pegged_order(&mut self, _order_id: OrderId) -> Result<(), RejectReason> {
-        todo!()
+    fn cancel_pegged_order(&mut self, id: OrderId) -> Result<(), RejectReason> {
+        self.remove_pegged_order(id)
+            .ok_or(RejectReason::OrderNotFound)?;
+
+        Ok(())
     }
 }
