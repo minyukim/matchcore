@@ -22,7 +22,7 @@ impl OrderBook {
     fn amend_limit_order(
         &mut self,
         meta: CommandMeta,
-        order_id: OrderId,
+        id: OrderId,
         patch: &LimitOrderPatch,
     ) -> Result<AmendReport, RejectReason> {
         if patch.is_empty() {
@@ -36,7 +36,7 @@ impl OrderBook {
         let order = self
             .limit
             .orders
-            .get_mut(&order_id)
+            .get_mut(&id)
             .ok_or(RejectReason::OrderNotFound)?;
 
         let (old_price, old_visible_quantity, old_hidden_quantity, old_expires_at) = (
@@ -52,7 +52,7 @@ impl OrderBook {
         if let Some(price) = patch.price
             && price != old_price
         {
-            let order = self.remove_limit_order(order_id).unwrap();
+            let order = self.remove_limit_order(id).unwrap();
 
             let new_id = OrderId::from(meta.sequence_number);
             let submit_report = self.submit_validated_limit_order(new_id, &order);
@@ -64,9 +64,9 @@ impl OrderBook {
             match time_in_force {
                 // An existing order cannot be matched immediately while staying at the same level
                 TimeInForce::Ioc | TimeInForce::Fok => {
-                    self.remove_limit_order(order_id).unwrap();
+                    self.remove_limit_order(id).unwrap();
                     return Ok(AmendReport::new(
-                        OrderProcessingResult::new(order_id).with_cancel_reason(
+                        OrderProcessingResult::new(id).with_cancel_reason(
                             CancelReason::InsufficientLiquidity {
                                 available: Quantity(0),
                             },
@@ -78,15 +78,13 @@ impl OrderBook {
                     if old_expires_at
                         .is_some_and(|old_expires_at| old_expires_at != expires_at) =>
                 {
-                    self.limit
-                        .expiration_queue
-                        .push(Reverse((expires_at, order_id)))
+                    self.limit.expiration_queue.push(Reverse((expires_at, id)))
                 }
                 _ => (),
             }
         }
 
-        let mut report = AmendReport::new(OrderProcessingResult::new(order_id));
+        let mut report = AmendReport::new(OrderProcessingResult::new(id));
 
         if let Some(quantity_policy) = patch.quantity_policy
             && (quantity_policy.visible_quantity() != old_visible_quantity
@@ -106,7 +104,7 @@ impl OrderBook {
                 let new_id = OrderId::from(meta.sequence_number);
                 level.push(new_id);
 
-                let order = self.remove_limit_order(order_id).unwrap();
+                let order = self.remove_limit_order(id).unwrap();
                 self.limit.add_order(new_id, order);
 
                 report = report.with_new_order_id(new_id);
@@ -120,7 +118,7 @@ impl OrderBook {
     fn amend_pegged_order(
         &mut self,
         meta: CommandMeta,
-        order_id: OrderId,
+        id: OrderId,
         patch: &PeggedOrderPatch,
     ) -> Result<AmendReport, RejectReason> {
         if patch.is_empty() {
@@ -134,7 +132,7 @@ impl OrderBook {
         let order = self
             .pegged
             .orders
-            .get_mut(&order_id)
+            .get_mut(&id)
             .ok_or(RejectReason::OrderNotFound)?;
 
         let (old_peg_reference, old_quantity, old_expires_at) = (
@@ -149,7 +147,7 @@ impl OrderBook {
         if let Some(peg_reference) = patch.peg_reference
             && peg_reference != old_peg_reference
         {
-            let order = self.remove_pegged_order(order_id).unwrap();
+            let order = self.remove_pegged_order(id).unwrap();
 
             let new_id = OrderId::from(meta.sequence_number);
             let submit_report = self.submit_validated_pegged_order(new_id, &order);
@@ -161,9 +159,9 @@ impl OrderBook {
             match time_in_force {
                 // An existing order cannot be matched immediately while staying at the same level
                 TimeInForce::Ioc | TimeInForce::Fok => {
-                    self.remove_pegged_order(order_id).unwrap();
+                    self.remove_pegged_order(id).unwrap();
                     return Ok(AmendReport::new(
-                        OrderProcessingResult::new(order_id).with_cancel_reason(
+                        OrderProcessingResult::new(id).with_cancel_reason(
                             CancelReason::InsufficientLiquidity {
                                 available: Quantity(0),
                             },
@@ -175,15 +173,13 @@ impl OrderBook {
                     if old_expires_at
                         .is_some_and(|old_expires_at| old_expires_at != expires_at) =>
                 {
-                    self.pegged
-                        .expiration_queue
-                        .push(Reverse((expires_at, order_id)))
+                    self.pegged.expiration_queue.push(Reverse((expires_at, id)))
                 }
                 _ => (),
             }
         }
 
-        let mut report = AmendReport::new(OrderProcessingResult::new(order_id));
+        let mut report = AmendReport::new(OrderProcessingResult::new(id));
 
         if let Some(quantity) = patch.quantity
             && quantity != old_quantity
@@ -199,7 +195,7 @@ impl OrderBook {
                 let new_id = OrderId::from(meta.sequence_number);
                 level.push(new_id);
 
-                let order = self.remove_pegged_order(order_id).unwrap();
+                let order = self.remove_pegged_order(id).unwrap();
                 self.pegged.add_order(new_id, order);
 
                 report = report.with_new_order_id(new_id);
