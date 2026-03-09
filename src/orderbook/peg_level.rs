@@ -17,7 +17,7 @@ pub(super) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
     /// Total quantity at this pegged order level
-    quantity: Quantity,
+    pub(super) quantity: Quantity,
     /// Number of orders at this pegged order level
     order_count: u64,
     /// Queue of order IDs at this pegged order level
@@ -45,11 +45,6 @@ impl PegLevel {
         self.quantity
     }
 
-    /// Consume the quantity at this peg level
-    pub(super) fn consume(&mut self, quantity: Quantity) {
-        self.quantity = self.quantity.saturating_sub(quantity);
-    }
-
     /// Get the number of orders at this peg level
     pub fn order_count(&self) -> u64 {
         self.order_count
@@ -68,7 +63,7 @@ impl PegLevel {
 
 impl PegLevel {
     /// Push an order ID to the queue
-    fn push(&mut self, order_id: OrderId) {
+    pub(super) fn push(&mut self, order_id: OrderId) {
         self.order_ids.push_back(order_id);
     }
 
@@ -83,7 +78,6 @@ impl PegLevel {
     }
 
     /// Update the level when an order is added
-    #[allow(unused)]
     pub(super) fn on_order_added(&mut self, id: OrderId, quantity: Quantity) {
         self.quantity += quantity;
 
@@ -115,19 +109,6 @@ impl PegLevel {
             // Stale order ID in the price level, remove it
             self.pop();
         }
-    }
-
-    /// Attempt to peek the first order in the peg level without removing it
-    /// It cleans up stale order IDs in the peg level
-    /// Returns a mutable reference to the order if it is found
-    #[allow(unused)]
-    pub(super) fn peek_order<'a>(
-        &mut self,
-        pegged_orders: &'a mut HashMap<OrderId, PeggedOrder>,
-    ) -> Option<&'a mut PeggedOrder> {
-        let order_id = self.peek_order_id(pegged_orders)?;
-
-        pegged_orders.get_mut(&order_id)
     }
 
     /// Pop the first order ID from the peg level and remove it from the order book
@@ -248,34 +229,6 @@ mod tests {
         pegged_orders.remove(&OrderId(1));
         peg_level.on_order_removed(Quantity(100));
         assert!(peg_level.peek_order_id(&pegged_orders).is_none());
-    }
-
-    #[test]
-    fn test_peek_order() {
-        let mut pegged_orders = HashMap::new();
-
-        let mut peg_level = PegLevel::new();
-        assert!(peg_level.peek_order(&mut pegged_orders).is_none());
-
-        let mut order = PeggedOrder::new(
-            PegReference::Primary,
-            Quantity(100),
-            OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-        );
-        pegged_orders.insert(OrderId(0), order.clone());
-        peg_level.on_order_added(OrderId(0), Quantity(100));
-        assert_eq!(peg_level.peek_order(&mut pegged_orders), Some(&mut order));
-
-        pegged_orders.insert(
-            OrderId(1),
-            PeggedOrder::new(
-                PegReference::Primary,
-                Quantity(100),
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            ),
-        );
-        peg_level.on_order_added(OrderId(1), Quantity(100));
-        assert_eq!(peg_level.peek_order(&mut pegged_orders), Some(&mut order));
     }
 
     #[test]

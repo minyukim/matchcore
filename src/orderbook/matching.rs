@@ -325,8 +325,7 @@ pub(super) fn match_order(
 
             let consumed = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
-
-            peg_level.consume(consumed);
+            peg_level.quantity -= consumed;
 
             match_result.add_trade(Trade::new(order_id, price, consumed));
 
