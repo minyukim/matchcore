@@ -1,5 +1,6 @@
 use std::{
     fmt,
+    iter::Sum,
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
@@ -21,6 +22,11 @@ impl Quantity {
     /// Check if the quantity is zero
     pub fn is_zero(self) -> bool {
         self.0 == 0
+    }
+
+    /// Convert the quantity to a f64
+    pub fn as_f64(self) -> f64 {
+        self.0 as f64
     }
 }
 
@@ -52,6 +58,18 @@ impl SubAssign for Quantity {
     }
 }
 
+impl Sum for Quantity {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self(0), |acc, x| acc.saturating_add(x))
+    }
+}
+
+impl<'a> Sum<&'a Quantity> for Quantity {
+    fn sum<I: Iterator<Item = &'a Quantity>>(iter: I) -> Self {
+        iter.fold(Self(0), |acc, x| acc.saturating_add(*x))
+    }
+}
+
 impl fmt::Display for Quantity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
@@ -61,13 +79,6 @@ impl fmt::Display for Quantity {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_is_zero() {
-        assert!(Quantity(0).is_zero());
-        assert!(!Quantity(1).is_zero());
-        assert!(!Quantity(100).is_zero());
-    }
 
     #[test]
     fn test_saturating_add() {
@@ -86,6 +97,20 @@ mod tests {
             Quantity(0)
         );
         assert_eq!(Quantity(300).saturating_sub(Quantity(200)), Quantity(100));
+    }
+
+    #[test]
+    fn test_is_zero() {
+        assert!(Quantity(0).is_zero());
+        assert!(!Quantity(1).is_zero());
+        assert!(!Quantity(100).is_zero());
+    }
+
+    #[test]
+    fn test_as_f64() {
+        assert_eq!(Quantity(100).as_f64(), 100.0);
+        assert_eq!(Quantity(1000).as_f64(), 1000.0);
+        assert_eq!(Quantity(10000).as_f64(), 10000.0);
     }
 
     #[test]
@@ -115,6 +140,16 @@ mod tests {
         let mut quantity = Quantity(100);
         quantity -= Quantity(100);
         assert_eq!(quantity, Quantity(0));
+    }
+
+    #[test]
+    fn test_sum() {
+        assert_eq!(
+            [Quantity(100), Quantity(100), Quantity(100)]
+                .iter()
+                .sum::<Quantity>(),
+            Quantity(300)
+        );
     }
 
     #[test]
