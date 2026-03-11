@@ -1,4 +1,4 @@
-use crate::{Notional, OrderBook, PegReference, Price, Quantity, Side};
+use crate::{Level2, Notional, OrderBook, PegReference, Price, Quantity, Side};
 
 use serde::{Deserialize, Serialize};
 
@@ -137,6 +137,77 @@ impl MarketImpact {
                 for (price, level) in book.limit.bid_levels.iter().rev() {
                     let available = level.total_quantity();
                     let fill_qty = remaining.min(available);
+                    impact.total_cost = impact.total_cost.saturating_add(*price * fill_qty);
+                    impact.available_quantity = impact.available_quantity.saturating_add(fill_qty);
+                    impact.worst_price = *price;
+                    impact.consumed_price_levels += 1;
+
+                    remaining = remaining.saturating_sub(fill_qty);
+                    if remaining.is_zero() {
+                        return impact;
+                    }
+                }
+
+                impact
+            }
+        }
+    }
+
+    /// Compute the market impact of a market order from a level 2 market data snapshot
+    pub(crate) fn compute_from_level2(
+        level2: &Level2,
+        taker_side: Side,
+        quantity: Quantity,
+    ) -> Self {
+        let mut impact = Self {
+            requested_quantity: quantity,
+            available_quantity: Quantity(0),
+            total_cost: Notional(0),
+            best_price: Price(0),
+            worst_price: Price(0),
+            consumed_price_levels: 0,
+        };
+
+        if quantity.is_zero() {
+            return impact;
+        }
+
+        let mut remaining = quantity;
+
+        match taker_side {
+            Side::Buy => {
+                // No liquidity
+                let Some(best_ask) = level2.best_ask_price() else {
+                    return impact;
+                };
+                impact.best_price = best_ask;
+
+                // Iterate over the limit ask price levels
+                for (price, quantity) in level2.ask_levels().iter() {
+                    let fill_qty = remaining.min(*quantity);
+                    impact.total_cost = impact.total_cost.saturating_add(*price * fill_qty);
+                    impact.available_quantity = impact.available_quantity.saturating_add(fill_qty);
+                    impact.worst_price = *price;
+                    impact.consumed_price_levels += 1;
+
+                    remaining = remaining.saturating_sub(fill_qty);
+                    if remaining.is_zero() {
+                        return impact;
+                    }
+                }
+
+                impact
+            }
+            Side::Sell => {
+                // No liquidity
+                let Some(best_bid) = level2.best_bid_price() else {
+                    return impact;
+                };
+                impact.best_price = best_bid;
+
+                // Iterate over the limit ask price levels
+                for (price, quantity) in level2.bid_levels().iter() {
+                    let fill_qty = remaining.min(*quantity);
                     impact.total_cost = impact.total_cost.saturating_add(*price * fill_qty);
                     impact.available_quantity = impact.available_quantity.saturating_add(fill_qty);
                     impact.worst_price = *price;
