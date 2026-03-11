@@ -13,17 +13,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LimitBook {
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
-    pub(super) bid_levels: BTreeMap<Price, PriceLevel>,
+    pub(crate) bid_levels: BTreeMap<Price, PriceLevel>,
 
     /// Ask side price levels, stored in a ordered map with O(log N) ordering
-    pub(super) ask_levels: BTreeMap<Price, PriceLevel>,
+    pub(crate) ask_levels: BTreeMap<Price, PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(super) orders: HashMap<OrderId, LimitOrder>,
+    pub(crate) orders: HashMap<OrderId, LimitOrder>,
 
     /// Queue of limit order IDs to be expired, stored in a min heap of tuples of
     /// (expires_at, order_id) with O(log N) ordering
-    pub(super) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
+    pub(crate) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 
 impl LimitBook {

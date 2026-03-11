@@ -5,9 +5,9 @@ use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
 
 /// Maker side array for primary peg reference price
-pub(super) static MAKER_ARRAY_PRIMARY: [PegReference; 1] = [PegReference::Primary];
+pub(crate) static MAKER_ARRAY_PRIMARY: [PegReference; 1] = [PegReference::Primary];
 /// Maker side array for primary mid price peg reference price
-pub(super) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
+pub(crate) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
     [PegReference::Primary, PegReference::MidPrice];
 
 /// Pegged order level that manages the status of the orders with the same pegged reference price.
@@ -17,7 +17,7 @@ pub(super) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
     /// Total quantity at this pegged order level
-    pub(super) quantity: Quantity,
+    pub(crate) quantity: Quantity,
     /// Number of orders at this pegged order level
     order_count: u64,
     /// Queue of order IDs at this pegged order level
@@ -51,19 +51,19 @@ impl PegLevel {
     }
 
     /// Increment the number of orders at this peg level
-    pub(super) fn increment_order_count(&mut self) {
+    pub(crate) fn increment_order_count(&mut self) {
         self.order_count += 1;
     }
 
     /// Decrement the number of orders at this peg level
-    pub(super) fn decrement_order_count(&mut self) {
+    pub(crate) fn decrement_order_count(&mut self) {
         self.order_count -= 1;
     }
 }
 
 impl PegLevel {
     /// Push an order ID to the queue
-    pub(super) fn push(&mut self, order_id: OrderId) {
+    pub(crate) fn push(&mut self, order_id: OrderId) {
         self.order_ids.push_back(order_id);
     }
 
@@ -78,7 +78,7 @@ impl PegLevel {
     }
 
     /// Update the level when an order is added
-    pub(super) fn on_order_added(&mut self, id: OrderId, quantity: Quantity) {
+    pub(crate) fn on_order_added(&mut self, id: OrderId, quantity: Quantity) {
         self.quantity += quantity;
 
         self.push(id);
@@ -88,7 +88,7 @@ impl PegLevel {
     /// Update the level when an order is removed
     /// Note that it does not remove the order ID from the queue.
     /// The stale order ID will be cleaned up when the order is peeked from the queue.
-    pub(super) fn on_order_removed(&mut self, quantity: Quantity) {
+    pub(crate) fn on_order_removed(&mut self, quantity: Quantity) {
         self.quantity -= quantity;
         self.decrement_order_count();
     }
@@ -96,7 +96,7 @@ impl PegLevel {
     /// Attempt to peek the first order ID in the peg level without removing it
     /// It cleans up stale order IDs in the peg level
     /// Returns the order ID if it is found
-    pub(super) fn peek_order_id(
+    pub(crate) fn peek_order_id(
         &mut self,
         pegged_orders: &HashMap<OrderId, PeggedOrder>,
     ) -> Option<OrderId> {
@@ -114,7 +114,7 @@ impl PegLevel {
     /// Pop the first order ID from the peg level and remove it from the order book
     /// If the peg level is empty, do nothing
     /// Note that it does not update the quantity of the peg level
-    pub(super) fn remove_head_order(&mut self, pegged_orders: &mut HashMap<OrderId, PeggedOrder>) {
+    pub(crate) fn remove_head_order(&mut self, pegged_orders: &mut HashMap<OrderId, PeggedOrder>) {
         let Some(order_id) = self.pop() else {
             return;
         };
@@ -125,7 +125,7 @@ impl PegLevel {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::*;
     use crate::{OrderFlags, PegReference, PeggedOrder, Quantity, Side, TimeInForce};
 
     use std::collections::HashMap;

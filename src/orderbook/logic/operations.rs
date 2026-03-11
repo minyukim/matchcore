@@ -1,34 +1,32 @@
-use super::{LimitBook, OrderBook, PeggedBook};
-use crate::{LimitOrder, OrderId, PeggedOrder, PriceLevel, Side};
+use crate::{LimitBook, LimitOrder, OrderBook, OrderId, PeggedBook, PeggedOrder, PriceLevel, Side};
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
 
 impl OrderBook {
     /// Add a limit order to the order book
-    pub(super) fn add_limit_order(&mut self, id: OrderId, order: LimitOrder) {
+    pub(crate) fn add_limit_order(&mut self, id: OrderId, order: LimitOrder) {
         self.limit.add_order(id, order);
     }
 
     /// Remove a limit order from the order book
-    pub(super) fn remove_limit_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
+    pub(crate) fn remove_limit_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
         self.limit.remove_order(order_id)
     }
 
     /// Add a pegged order to the order book
-    #[allow(unused)]
-    pub(super) fn add_pegged_order(&mut self, id: OrderId, order: PeggedOrder) {
+    pub(crate) fn add_pegged_order(&mut self, id: OrderId, order: PeggedOrder) {
         self.pegged.add_order(id, order);
     }
 
     /// Remove a pegged order from the order book
-    pub(super) fn remove_pegged_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
+    pub(crate) fn remove_pegged_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
         self.pegged.remove_order(order_id)
     }
 }
 
 impl LimitBook {
     /// Add a limit order to the order book
-    pub(super) fn add_order(&mut self, id: OrderId, order: LimitOrder) {
+    pub(crate) fn add_order(&mut self, id: OrderId, order: LimitOrder) {
         if let Some(expires_at) = order.expires_at() {
             self.expiration_queue.push(Reverse((expires_at, id)));
         }
@@ -58,7 +56,7 @@ impl LimitBook {
     }
 
     /// Remove a limit order from the order book
-    pub(super) fn remove_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
+    pub(crate) fn remove_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
         let order = self.orders.remove(&order_id)?;
 
         let levels = match order.side() {
@@ -78,7 +76,7 @@ impl LimitBook {
 
 impl PeggedBook {
     /// Add a pegged order to the order book
-    pub(super) fn add_order(&mut self, id: OrderId, order: PeggedOrder) {
+    pub(crate) fn add_order(&mut self, id: OrderId, order: PeggedOrder) {
         if let Some(expires_at) = order.expires_at() {
             self.expiration_queue.push(Reverse((expires_at, id)));
         }
@@ -95,7 +93,7 @@ impl PeggedBook {
     }
 
     /// Remove a pegged order from the order book
-    pub(super) fn remove_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
+    pub(crate) fn remove_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
         let order = self.orders.remove(&order_id)?;
 
         let levels = match order.side() {
@@ -110,7 +108,7 @@ impl PeggedBook {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::*;
     use crate::{
         OrderBook, OrderFlags, OrderId, PegReference, PeggedOrder, Price, Quantity, QuantityPolicy,
         TimeInForce,

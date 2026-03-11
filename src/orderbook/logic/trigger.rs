@@ -1,5 +1,5 @@
-use super::{OrderBook, matching::match_order};
-use crate::{CancelReason, OrderProcessingResult, types::*};
+use super::matching::match_order;
+use crate::{CancelReason, OrderBook, OrderProcessingResult, types::*};
 
 impl OrderBook {
     /// Trigger the opposite side of the conditional orders to become active takers.
@@ -8,7 +8,7 @@ impl OrderBook {
     /// the orders in the maker side. It stops when any one side is exhausted.
     ///
     /// Returns a vector of `OrderProcessingResult` structs containing the results of the matching.
-    pub(super) fn trigger_opposite_side_takers(
+    pub(crate) fn trigger_opposite_side_takers(
         &mut self,
         taker_side: Side,
     ) -> Vec<OrderProcessingResult> {

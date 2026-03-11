@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level
-    pub(super) visible_quantity: Quantity,
+    pub(crate) visible_quantity: Quantity,
     /// Total hidden quantity at this price level
-    pub(super) hidden_quantity: Quantity,
+    pub(crate) hidden_quantity: Quantity,
     /// Number of orders at this price level
     order_count: u64,
     /// Queue of order IDs at this price level
@@ -57,24 +57,24 @@ impl PriceLevel {
     }
 
     /// Increment the number of orders at this price level
-    pub(super) fn increment_order_count(&mut self) {
+    pub(crate) fn increment_order_count(&mut self) {
         self.order_count += 1;
     }
 
     /// Decrement the number of orders at this price level
-    pub(super) fn decrement_order_count(&mut self) {
+    pub(crate) fn decrement_order_count(&mut self) {
         self.order_count -= 1;
     }
 
     /// Check if the price level is empty
-    pub(super) fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.order_count == 0
     }
 }
 
 impl PriceLevel {
     /// Push an order ID to the queue
-    pub(super) fn push(&mut self, order_id: OrderId) {
+    pub(crate) fn push(&mut self, order_id: OrderId) {
         self.order_ids.push_back(order_id);
     }
 
@@ -89,7 +89,7 @@ impl PriceLevel {
     }
 
     /// Update the level when an order is added
-    pub(super) fn on_order_added(&mut self, id: OrderId, visible: Quantity, hidden: Quantity) {
+    pub(crate) fn on_order_added(&mut self, id: OrderId, visible: Quantity, hidden: Quantity) {
         self.visible_quantity += visible;
         self.hidden_quantity += hidden;
 
@@ -100,7 +100,7 @@ impl PriceLevel {
     /// Update the level when an order is removed
     /// Note that it does not remove the order ID from the queue.
     /// The stale order ID will be cleaned up when the order is peeked from the queue.
-    pub(super) fn on_order_removed(&mut self, visible: Quantity, hidden: Quantity) {
+    pub(crate) fn on_order_removed(&mut self, visible: Quantity, hidden: Quantity) {
         self.visible_quantity -= visible;
         self.hidden_quantity -= hidden;
         self.decrement_order_count();
@@ -109,7 +109,7 @@ impl PriceLevel {
     /// Attempt to peek the first order ID in the price level without removing it
     /// It cleans up stale order IDs in the price level
     /// Returns the order ID if it is found
-    pub(super) fn peek_order_id(
+    pub(crate) fn peek_order_id(
         &mut self,
         limit_orders: &HashMap<OrderId, LimitOrder>,
     ) -> Option<OrderId> {
@@ -127,7 +127,7 @@ impl PriceLevel {
     /// Pop the first order ID from the price level and remove it from the order book
     /// If the price level is empty, do nothing
     /// Note that it does not update the quantity of the price level
-    pub(super) fn remove_head_order(&mut self, limit_orders: &mut HashMap<OrderId, LimitOrder>) {
+    pub(crate) fn remove_head_order(&mut self, limit_orders: &mut HashMap<OrderId, LimitOrder>) {
         let Some(order_id) = self.pop() else {
             return;
         };
@@ -140,7 +140,7 @@ impl PriceLevel {
     ///
     /// # Panics
     /// Panics if the queue is empty.
-    pub(super) fn handle_replenishment(&mut self, replenished: Quantity) {
+    pub(crate) fn handle_replenishment(&mut self, replenished: Quantity) {
         self.apply_replenishment(replenished);
         self.cycle_front();
     }
@@ -166,7 +166,7 @@ impl PriceLevel {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::*;
     use crate::{LimitOrder, OrderFlags, Price, Quantity, QuantityPolicy, Side, TimeInForce};
 
     use std::collections::HashMap;

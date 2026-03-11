@@ -1,10 +1,4 @@
-use super::{
-    OrderBook, PegLevel, PriceLevel,
-    peg_level::{MAKER_ARRAY_PRIMARY, MAKER_ARRAY_PRIMARY_MID_PRICE},
-};
-use crate::{
-    LimitOrder, MatchResult, OrderId, PegReference, PeggedOrder, Price, Quantity, Side, Trade,
-};
+use crate::{orderbook::*, orders::*, report::*, types::*};
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -15,7 +9,7 @@ impl OrderBook {
     /// the entire order book mutably.
     ///
     /// Returns a `MatchResult` struct containing the result of the match.
-    pub(super) fn match_order(
+    pub(crate) fn match_order(
         &mut self,
         taker_side: Side,
         limit_price: Option<Price>,
@@ -59,7 +53,7 @@ impl OrderBook {
     ///
     /// Returns `requested_quantity` if fully executable; otherwise returns the
     /// available executable quantity.
-    pub(super) fn max_executable_quantity_unchecked(
+    pub(crate) fn max_executable_quantity_unchecked(
         &self,
         taker_side: Side,
         requested_quantity: Quantity,
@@ -132,7 +126,7 @@ impl OrderBook {
     ///
     /// Returns `requested_quantity` if fully executable; otherwise returns the
     /// available executable quantity.
-    pub(super) fn max_executable_quantity_with_limit_price_unchecked(
+    pub(crate) fn max_executable_quantity_with_limit_price_unchecked(
         &self,
         taker_side: Side,
         limit_price: Price,
@@ -214,7 +208,7 @@ impl OrderBook {
 ///
 /// Returns a `MatchResult` struct containing the result of the match.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn match_order(
+pub(crate) fn match_order(
     taker_side: Side,
     taker_side_best_price: Option<Price>,
     maker_side_price_levels: &mut BTreeMap<Price, PriceLevel>,
@@ -341,7 +335,7 @@ pub(super) fn match_order(
 
 #[cfg(test)]
 mod tests_match_order {
-    use super::*;
+    use crate::*;
     use crate::{LimitOrder, Notional, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
 
     /// Helper function to create a new test order book
@@ -890,7 +884,7 @@ mod tests_match_order {
 
 #[cfg(test)]
 mod tests_max_executable_quantity_unchecked {
-    use super::*;
+    use crate::*;
     use crate::{LimitOrder, OrderFlags, PeggedOrder, Quantity, QuantityPolicy, TimeInForce};
 
     // Helper function to create a new test order book
@@ -1079,7 +1073,7 @@ mod tests_max_executable_quantity_unchecked {
 
 #[cfg(test)]
 mod tests_max_executable_quantity_with_limit_price_unchecked {
-    use super::*;
+    use crate::*;
     use crate::{LimitOrder, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
 
     /// Helper function to create a new test order book

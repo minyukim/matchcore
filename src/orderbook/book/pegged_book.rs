@@ -13,17 +13,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PeggedBook {
     /// Pegged bid side levels, one for each reference price type
-    pub(super) bid_levels: [PegLevel; PegReference::COUNT],
+    pub(crate) bid_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged ask side levels, one for each reference price type
-    pub(super) ask_levels: [PegLevel; PegReference::COUNT],
+    pub(crate) ask_levels: [PegLevel; PegReference::COUNT],
 
     /// Pegged orders indexed by order ID for O(1) lookup
-    pub(super) orders: HashMap<OrderId, PeggedOrder>,
+    pub(crate) orders: HashMap<OrderId, PeggedOrder>,
 
     /// Queue of pegged order IDs to be expired, stored in a min heap of tuples of
     /// (expires_at, order_id) with O(log N) ordering
-    pub(super) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
+    pub(crate) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 
 impl PeggedBook {
