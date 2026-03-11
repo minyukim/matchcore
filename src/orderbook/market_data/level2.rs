@@ -1,5 +1,7 @@
 use crate::{DepthStatistics, MarketImpact, Notional, OrderBook, Price, Quantity, Side};
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 /// Represents the level 1 market data of the order book
@@ -220,6 +222,22 @@ impl Level2 {
     /// Compute the market impact of a market order
     pub fn market_impact(&self, taker_side: Side, quantity: Quantity) -> MarketImpact {
         MarketImpact::compute_from_level2(self, taker_side, quantity)
+    }
+}
+
+impl fmt::Display for Level2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{:<10} | {:<10} | {:<5}", "Price", "Size", "Side")?;
+        writeln!(f, "{:-<10}-+-{:-<10}-+-{:-<5}", "", "", "")?;
+
+        for (price, quantity) in self.ask_levels.iter().rev() {
+            writeln!(f, "{:<10} | {:<10} | {:<5}", price, quantity, "Ask")?;
+        }
+        for (price, quantity) in self.bid_levels.iter() {
+            writeln!(f, "{:<10} | {:<10} | {:<5}", price, quantity, "Bid")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -763,5 +781,27 @@ mod tests {
         let impact = empty_l2().market_impact(Side::Sell, Quantity(10));
         assert_eq!(impact.available_quantity(), Quantity(0));
         assert_eq!(impact.consumed_price_levels(), 0);
+    }
+
+    // ==================== display ====================
+
+    #[test]
+    fn display_empty() {
+        let l2 = empty_l2();
+        println!("{}", l2);
+        assert_eq!(
+            l2.to_string(),
+            "Price      | Size       | Side \n-----------+------------+------\n"
+        );
+    }
+
+    #[test]
+    fn display_populated() {
+        let l2 = basic_l2();
+        println!("{}", l2);
+        assert_eq!(
+            l2.to_string(),
+            "Price      | Size       | Side \n-----------+------------+------\n102        | 60         | Ask  \n101        | 40         | Ask  \n100        | 50         | Bid  \n99         | 30         | Bid  \n"
+        );
     }
 }

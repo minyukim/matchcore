@@ -94,25 +94,42 @@ impl Level1 {
 
 impl fmt::Display for Level1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "Level1: last_trade_price={} best_bid_price={} best_ask_price={} best_bid_volume={} best_ask_volume={}",
+            "Last Trade Price: {}",
             self.last_trade_price()
                 .map(|p| p.to_string())
-                .unwrap_or("None".to_string()),
+                .unwrap_or("None".to_string())
+        )?;
+        writeln!(
+            f,
+            "Best Bid Price: {}",
             self.best_bid_price()
                 .map(|p| p.to_string())
-                .unwrap_or("None".to_string()),
+                .unwrap_or("None".to_string())
+        )?;
+        writeln!(
+            f,
+            "Best Ask Price: {}",
             self.best_ask_price()
                 .map(|p| p.to_string())
-                .unwrap_or("None".to_string()),
+                .unwrap_or("None".to_string())
+        )?;
+        writeln!(
+            f,
+            "Best Bid Volume: {}",
             self.best_bid_volume()
                 .map(|q| q.to_string())
-                .unwrap_or("None".to_string()),
+                .unwrap_or("None".to_string())
+        )?;
+        writeln!(
+            f,
+            "Best Ask Volume: {}",
             self.best_ask_volume()
                 .map(|q| q.to_string())
                 .unwrap_or("None".to_string())
-        )
+        )?;
+        Ok(())
     }
 }
 
@@ -321,15 +338,17 @@ mod tests {
     #[test]
     fn test_display() {
         let l1 = empty_level1();
+        println!("{}", l1);
         assert_eq!(
             l1.to_string(),
-            "Level1: last_trade_price=None best_bid_price=None best_ask_price=None best_bid_volume=None best_ask_volume=None"
+            "Last Trade Price: None\nBest Bid Price: None\nBest Ask Price: None\nBest Bid Volume: None\nBest Ask Volume: None\n"
         );
 
         let l1 = populated_level1();
+        println!("{}", l1);
         assert_eq!(
             l1.to_string(),
-            "Level1: last_trade_price=150 best_bid_price=100 best_ask_price=200 best_bid_volume=500 best_ask_volume=300"
+            "Last Trade Price: 150\nBest Bid Price: 100\nBest Ask Price: 200\nBest Bid Volume: 500\nBest Ask Volume: 300\n"
         );
     }
 }
