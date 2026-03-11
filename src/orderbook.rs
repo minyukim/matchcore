@@ -1,5 +1,3 @@
-mod amend;
-mod cancel;
 mod error;
 mod execution;
 mod limit;
@@ -9,7 +7,6 @@ mod peg_level;
 mod pegged;
 mod price_level;
 mod query;
-mod submit;
 mod trigger;
 
 pub use error::*;

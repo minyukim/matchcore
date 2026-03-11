@@ -1,3 +1,7 @@
+mod amend;
+mod cancel;
+mod submit;
+
 use super::{ExecutionError, OrderBook};
 use crate::{SequenceNumber, Timestamp, command::*, report::*};
 
