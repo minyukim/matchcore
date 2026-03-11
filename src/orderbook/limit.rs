@@ -32,6 +32,26 @@ impl LimitBook {
         Self::default()
     }
 
+    /// Get the bid side price levels
+    pub fn bid_levels(&self) -> &BTreeMap<Price, PriceLevel> {
+        &self.bid_levels
+    }
+
+    /// Get the ask side price levels
+    pub fn ask_levels(&self) -> &BTreeMap<Price, PriceLevel> {
+        &self.ask_levels
+    }
+
+    /// Get the limit orders indexed by order ID
+    pub fn orders(&self) -> &HashMap<OrderId, LimitOrder> {
+        &self.orders
+    }
+
+    /// Get the queue of limit order IDs to be expired
+    pub fn expiration_queue(&self) -> &BinaryHeap<Reverse<(Timestamp, OrderId)>> {
+        &self.expiration_queue
+    }
+
     /// Get the best bid price, if any
     /// O(1) operation using the last key (highest price) in the BTreeMap
     pub fn best_bid(&self) -> Option<Price> {
