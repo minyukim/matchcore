@@ -32,12 +32,43 @@ impl OrderBook {
         Some(numerator / denominator)
     }
 
+    /// Get the bid volume for the first N price levels
+    pub fn bid_volume(&self, n_levels: usize) -> Quantity {
+        self.limit
+            .bid_levels
+            .values()
+            .rev()
+            .take(n_levels)
+            .map(|level| level.total_quantity())
+            .sum::<Quantity>()
+    }
+
+    /// Get the ask volume for the first N price levels
+    pub fn ask_volume(&self, n_levels: usize) -> Quantity {
+        self.limit
+            .ask_levels
+            .values()
+            .take(n_levels)
+            .map(|level| level.total_quantity())
+            .sum::<Quantity>()
+    }
+
+    /// Check if the order book is thin at the given threshold and number of levels
+    ///
+    /// Included quantities: visible and hidden
+    pub fn is_thin_book(&self, threshold: Quantity, n_levels: usize) -> bool {
+        let bid_volume = self.bid_volume(n_levels);
+        let ask_volume = self.ask_volume(n_levels);
+
+        bid_volume < threshold || ask_volume < threshold
+    }
+
     /// Calculate the order book imbalance ratio for the top N levels
     ///
     /// Included quantities: visible and hidden
     pub fn order_book_imbalance(&self, n_levels: usize) -> f64 {
-        let bid_volume = self.total_depth_at_price_levels(Side::Buy, n_levels);
-        let ask_volume = self.total_depth_at_price_levels(Side::Sell, n_levels);
+        let bid_volume = self.bid_volume(n_levels);
+        let ask_volume = self.ask_volume(n_levels);
 
         let total_volume = bid_volume.saturating_add(ask_volume);
 
@@ -46,56 +77,6 @@ impl OrderBook {
         }
 
         (bid_volume.as_f64() - ask_volume.as_f64()) / total_volume.as_f64()
-    }
-
-    /// Calculate total depth available in the first N price levels
-    ///
-    /// Included quantities: visible and hidden
-    pub fn total_depth_at_price_levels(&self, side: Side, n_levels: usize) -> Quantity {
-        if n_levels == 0 {
-            return Quantity(0);
-        }
-
-        match side {
-            Side::Buy => self
-                .limit
-                .bid_levels
-                .values()
-                .rev()
-                .take(n_levels)
-                .map(|level| level.total_quantity())
-                .sum::<Quantity>(),
-            Side::Sell => self
-                .limit
-                .ask_levels
-                .values()
-                .take(n_levels)
-                .map(|level| level.total_quantity())
-                .sum::<Quantity>(),
-        }
-    }
-
-    /// Check if the order book is thin at the given threshold and number of levels
-    ///
-    /// Included quantities: visible and hidden
-    pub fn is_thin_book(&self, threshold: Quantity, n_levels: usize) -> bool {
-        let bid_volume = self
-            .limit
-            .bid_levels
-            .values()
-            .rev()
-            .take(n_levels)
-            .map(|level| level.total_quantity())
-            .sum::<Quantity>();
-        let ask_volume = self
-            .limit
-            .ask_levels
-            .values()
-            .take(n_levels)
-            .map(|level| level.total_quantity())
-            .sum::<Quantity>();
-
-        bid_volume < threshold || ask_volume < threshold
     }
 
     /// Compute the depth statistics of price levels (0 n_levels means all levels)
@@ -109,18 +90,8 @@ impl OrderBook {
     ///
     /// Included quantities: visible, hidden, and peg levels
     pub fn buy_sell_pressure(&self) -> (Quantity, Quantity) {
-        let buy_limit_pressure = self
-            .limit
-            .bid_levels
-            .values()
-            .map(|level| level.total_quantity())
-            .sum::<Quantity>();
-        let sell_limit_pressure = self
-            .limit
-            .ask_levels
-            .values()
-            .map(|level| level.total_quantity())
-            .sum::<Quantity>();
+        let buy_limit_pressure = self.bid_volume(usize::MAX);
+        let sell_limit_pressure = self.ask_volume(usize::MAX);
         let buy_peg_pressure = self
             .pegged
             .bid_levels
@@ -436,6 +407,85 @@ mod tests {
         assert!((mp - 101.0).abs() < EPS);
     }
 
+    // ==================== bid_volume and ask_volume ====================
+
+    #[test]
+    fn bid_ask_volumes_empty_book() {
+        let book = empty_book();
+        assert_eq!(book.bid_volume(5), Quantity(0));
+        assert_eq!(book.ask_volume(5), Quantity(0));
+    }
+
+    #[test]
+    fn bid_ask_volumes_n_levels_zero() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(0), Quantity(0));
+        assert_eq!(book.ask_volume(0), Quantity(0));
+    }
+
+    #[test]
+    fn bid_ask_volumes_single_level() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(1), Quantity(50));
+        assert_eq!(book.ask_volume(1), Quantity(40));
+    }
+
+    #[test]
+    fn bid_ask_volumes_multiple_levels() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(2), Quantity(80));
+        assert_eq!(book.ask_volume(2), Quantity(100));
+    }
+
+    #[test]
+    fn bid_ask_volumes_exceeding_available_levels() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(100), Quantity(80));
+        assert_eq!(book.ask_volume(100), Quantity(100));
+    }
+
+    #[test]
+    fn bid_ask_volumes_includes_hidden() {
+        let book = book_with_hidden();
+        // Bid 100: 50+10=60, Bid 99: 30+20=50 => total = 110
+        assert_eq!(book.bid_volume(2), Quantity(110));
+        // Ask 101: 40+5=45, Ask 102: 60+15=75 => total = 120
+        assert_eq!(book.ask_volume(2), Quantity(120));
+    }
+
+    // ==================== is_thin_book ====================
+
+    #[test]
+    fn is_thin_book_empty() {
+        assert!(empty_book().is_thin_book(Quantity(1), 1));
+    }
+
+    #[test]
+    fn is_thin_book_sufficient_depth() {
+        let book = basic_book();
+        // Bid top 2: 80, Ask top 2: 100. Threshold 50 => not thin
+        assert!(!book.is_thin_book(Quantity(50), 2));
+    }
+
+    #[test]
+    fn is_thin_book_one_side_thin() {
+        let book = basic_book();
+        // Bid top 1: 50, Ask top 1: 40. Threshold 45 => ask is thin
+        assert!(book.is_thin_book(Quantity(45), 1));
+    }
+
+    #[test]
+    fn is_thin_book_both_sides_sufficient() {
+        let book = basic_book();
+        // Bid top 1: 50, Ask top 1: 40. Threshold 40 => not thin (both >= 40)
+        assert!(!book.is_thin_book(Quantity(40), 1));
+    }
+
+    #[test]
+    fn is_thin_book_threshold_zero() {
+        assert!(!empty_book().is_thin_book(Quantity(0), 1));
+    }
+
     // ==================== order_book_imbalance ====================
 
     #[test]
@@ -484,103 +534,6 @@ mod tests {
     fn order_book_imbalance_n_levels_zero() {
         let book = basic_book();
         assert_eq!(book.order_book_imbalance(0), 0.0);
-    }
-
-    // ==================== total_depth_at_price_levels ====================
-
-    #[test]
-    fn total_depth_empty_book() {
-        let book = empty_book();
-        assert_eq!(book.total_depth_at_price_levels(Side::Buy, 5), Quantity(0));
-        assert_eq!(book.total_depth_at_price_levels(Side::Sell, 5), Quantity(0));
-    }
-
-    #[test]
-    fn total_depth_n_levels_zero() {
-        let book = basic_book();
-        assert_eq!(book.total_depth_at_price_levels(Side::Buy, 0), Quantity(0));
-        assert_eq!(book.total_depth_at_price_levels(Side::Sell, 0), Quantity(0));
-    }
-
-    #[test]
-    fn total_depth_single_level() {
-        let book = basic_book();
-        assert_eq!(book.total_depth_at_price_levels(Side::Buy, 1), Quantity(50));
-        assert_eq!(
-            book.total_depth_at_price_levels(Side::Sell, 1),
-            Quantity(40)
-        );
-    }
-
-    #[test]
-    fn total_depth_multiple_levels() {
-        let book = basic_book();
-        assert_eq!(book.total_depth_at_price_levels(Side::Buy, 2), Quantity(80));
-        assert_eq!(
-            book.total_depth_at_price_levels(Side::Sell, 2),
-            Quantity(100)
-        );
-    }
-
-    #[test]
-    fn total_depth_exceeding_available_levels() {
-        let book = basic_book();
-        assert_eq!(
-            book.total_depth_at_price_levels(Side::Buy, 100),
-            Quantity(80)
-        );
-        assert_eq!(
-            book.total_depth_at_price_levels(Side::Sell, 100),
-            Quantity(100)
-        );
-    }
-
-    #[test]
-    fn total_depth_includes_hidden() {
-        let book = book_with_hidden();
-        // Bid 100: 50+10=60, Bid 99: 30+20=50 => total = 110
-        assert_eq!(
-            book.total_depth_at_price_levels(Side::Buy, 2),
-            Quantity(110)
-        );
-        // Ask 101: 40+5=45, Ask 102: 60+15=75 => total = 120
-        assert_eq!(
-            book.total_depth_at_price_levels(Side::Sell, 2),
-            Quantity(120)
-        );
-    }
-
-    // ==================== is_thin_book ====================
-
-    #[test]
-    fn is_thin_book_empty() {
-        assert!(empty_book().is_thin_book(Quantity(1), 1));
-    }
-
-    #[test]
-    fn is_thin_book_sufficient_depth() {
-        let book = basic_book();
-        // Bid top 2: 80, Ask top 2: 100. Threshold 50 => not thin
-        assert!(!book.is_thin_book(Quantity(50), 2));
-    }
-
-    #[test]
-    fn is_thin_book_one_side_thin() {
-        let book = basic_book();
-        // Bid top 1: 50, Ask top 1: 40. Threshold 45 => ask is thin
-        assert!(book.is_thin_book(Quantity(45), 1));
-    }
-
-    #[test]
-    fn is_thin_book_both_sides_sufficient() {
-        let book = basic_book();
-        // Bid top 1: 50, Ask top 1: 40. Threshold 40 => not thin (both >= 40)
-        assert!(!book.is_thin_book(Quantity(40), 1));
-    }
-
-    #[test]
-    fn is_thin_book_threshold_zero() {
-        assert!(!empty_book().is_thin_book(Quantity(0), 1));
     }
 
     // ==================== depth_statistics ====================
