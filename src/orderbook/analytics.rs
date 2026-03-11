@@ -214,7 +214,7 @@ impl OrderBook {
         match taker_side {
             Side::Buy => {
                 // No liquidity
-                let best_ask = self.best_ask()?;
+                let best_ask = self.best_ask_price()?;
 
                 if mid_active {
                     let available =
@@ -253,7 +253,7 @@ impl OrderBook {
             }
             Side::Sell => {
                 // No liquidity
-                let best_bid = self.best_bid()?;
+                let best_bid = self.best_bid_price()?;
 
                 if mid_active {
                     let available =

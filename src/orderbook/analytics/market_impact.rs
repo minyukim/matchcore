@@ -50,7 +50,7 @@ impl MarketImpact {
         match taker_side {
             Side::Buy => {
                 // No liquidity
-                let Some(best_ask) = book.best_ask() else {
+                let Some(best_ask) = book.best_ask_price() else {
                     return impact;
                 };
                 impact.best_price = best_ask;
@@ -101,7 +101,7 @@ impl MarketImpact {
             }
             Side::Sell => {
                 // No liquidity
-                let Some(best_bid) = book.best_bid() else {
+                let Some(best_bid) = book.best_bid_price() else {
                     return impact;
                 };
                 impact.best_price = best_bid;
