@@ -1,6 +1,6 @@
 use super::{
     OrderBook, PegLevel, PriceLevel,
-    peg_level::{MAKER_ARRAY_PRIMARY, MAKER_ARRAY_PRIMARY_MID_PRICE},
+    book::{MAKER_ARRAY_PRIMARY, MAKER_ARRAY_PRIMARY_MID_PRICE},
 };
 use crate::{
     LimitOrder, MatchResult, OrderId, PegReference, PeggedOrder, Price, Quantity, Side, Trade,
