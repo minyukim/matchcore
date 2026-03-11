@@ -31,4 +31,24 @@ impl PeggedBook {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Get the pegged bid side levels
+    pub fn bid_levels(&self) -> &[PegLevel; PegReference::COUNT] {
+        &self.bid_levels
+    }
+
+    /// Get the pegged ask side levels
+    pub fn ask_levels(&self) -> &[PegLevel; PegReference::COUNT] {
+        &self.ask_levels
+    }
+
+    /// Get the pegged orders indexed by order ID
+    pub fn orders(&self) -> &HashMap<OrderId, PeggedOrder> {
+        &self.orders
+    }
+
+    /// Get the queue of pegged order IDs to be expired
+    pub fn expiration_queue(&self) -> &BinaryHeap<Reverse<(Timestamp, OrderId)>> {
+        &self.expiration_queue
+    }
 }
