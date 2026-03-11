@@ -18,12 +18,12 @@ impl OrderBook {
         let (taker_side_best_price, maker_side_price_levels, maker_side_peg_levels) =
             match taker_side {
                 Side::Buy => (
-                    self.best_bid(),
+                    self.best_bid_price(),
                     &mut self.limit.ask_levels,
                     &mut self.pegged.ask_levels,
                 ),
                 Side::Sell => (
-                    self.best_ask(),
+                    self.best_ask_price(),
                     &mut self.limit.bid_levels,
                     &mut self.pegged.bid_levels,
                 ),
@@ -409,14 +409,14 @@ mod tests_match_order {
 
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Maker fully filled, level removed
-        assert!(orderbook.best_ask().is_none());
+        assert!(orderbook.best_ask_price().is_none());
     }
 
     #[test]
     fn test_single_maker_partial_fill() {
         let mut orderbook = new_test_book();
         assert!(orderbook.last_trade_price().is_none());
-        assert!(orderbook.best_ask().is_none());
+        assert!(orderbook.best_ask_price().is_none());
 
         // Add a sell order (maker) at 100 for 50
         add_standard_order(
@@ -426,7 +426,7 @@ mod tests_match_order {
             Quantity(50),
             Side::Sell,
         );
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
 
         // Match a buy order at 100 for 30 against the book
         let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30));
@@ -442,7 +442,7 @@ mod tests_match_order {
 
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Best ask is still 100 with 20 remaining
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
 
         // Match a buy order at 100 for 40 against the book
         let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40));
@@ -458,7 +458,7 @@ mod tests_match_order {
 
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Maker fully filled, level removed
-        assert!(orderbook.best_ask().is_none());
+        assert!(orderbook.best_ask_price().is_none());
     }
 
     #[test]
@@ -485,7 +485,7 @@ mod tests_match_order {
 
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Best bid is still 100 with 10 remaining
-        assert_eq!(orderbook.best_bid(), Some(Price(100)));
+        assert_eq!(orderbook.best_bid_price(), Some(Price(100)));
 
         // Match a sell order at 100 for 20 against the book
         let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(20));
@@ -501,7 +501,7 @@ mod tests_match_order {
 
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Maker fully filled, level removed
-        assert!(orderbook.best_bid().is_none());
+        assert!(orderbook.best_bid_price().is_none());
     }
 
     #[test]
@@ -533,7 +533,7 @@ mod tests_match_order {
 
         assert_eq!(result.executed_quantity(), Quantity(0));
         assert!(result.trades().is_empty());
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
     }
 
     #[test]
@@ -570,7 +570,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Second maker has 10 left at 100
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
     }
 
     #[test]
@@ -607,7 +607,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(101)));
         // Best ask now 101 with 20 remaining
-        assert_eq!(orderbook.best_ask(), Some(Price(101)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(101)));
     }
 
     #[test]
@@ -657,7 +657,7 @@ mod tests_match_order {
             Trade::new(OrderId(2), Price(102), Quantity(10))
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(102)));
-        assert_eq!(orderbook.best_ask(), Some(Price(102)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(102)));
     }
 
     // --- Iceberg test cases ---
@@ -688,7 +688,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg still has 5 visible + 30 hidden at 100
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
     }
 
     #[test]
@@ -721,7 +721,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg has 5 visible + 10 hidden left
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
     }
 
     #[test]
@@ -762,7 +762,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg has 5 visible left
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
     }
 
     #[test]
@@ -798,7 +798,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg fully filled, level removed
-        assert!(orderbook.best_ask().is_none());
+        assert!(orderbook.best_ask_price().is_none());
     }
 
     #[test]
@@ -841,7 +841,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg has 10 visible left (replenished); standard fully filled
-        assert_eq!(orderbook.best_ask(), Some(Price(100)));
+        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
     }
 
     #[test]
@@ -878,7 +878,7 @@ mod tests_match_order {
         );
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg bid has 5 visible left
-        assert_eq!(orderbook.best_bid(), Some(Price(100)));
+        assert_eq!(orderbook.best_bid_price(), Some(Price(100)));
     }
 }
 

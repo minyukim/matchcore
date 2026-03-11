@@ -21,13 +21,13 @@ impl OrderBook {
             taker_side_peg_levels,
         ) = match taker_side {
             Side::Buy => (
-                self.best_bid(),
+                self.best_bid_price(),
                 &mut self.limit.ask_levels,
                 &mut self.pegged.ask_levels,
                 &mut self.pegged.bid_levels,
             ),
             Side::Sell => (
-                self.best_ask(),
+                self.best_ask_price(),
                 &mut self.limit.bid_levels,
                 &mut self.pegged.bid_levels,
                 &mut self.pegged.ask_levels,

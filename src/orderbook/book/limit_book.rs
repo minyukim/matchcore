@@ -54,27 +54,27 @@ impl LimitBook {
 
     /// Get the best bid price, if any
     /// O(1) operation using the last key (highest price) in the BTreeMap
-    pub fn best_bid(&self) -> Option<Price> {
+    pub fn best_bid_price(&self) -> Option<Price> {
         self.bid_levels.keys().next_back().copied()
     }
 
     /// Get the best ask price, if any
     /// O(1) operation using the first key (lowest price) in the BTreeMap
-    pub fn best_ask(&self) -> Option<Price> {
+    pub fn best_ask_price(&self) -> Option<Price> {
         self.ask_levels.keys().next().copied()
     }
 
     /// Get the mid price (average of best bid and best ask)
     pub fn mid_price(&self) -> Option<f64> {
-        let best_bid = self.best_bid()?;
-        let best_ask = self.best_ask()?;
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
         Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
     }
 
     /// Get the spread (difference between best bid and best ask)
     pub fn spread(&self) -> Option<u64> {
-        let best_bid = self.best_bid()?;
-        let best_ask = self.best_ask()?;
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
         Some(best_ask - best_bid)
     }
 
@@ -89,8 +89,8 @@ impl LimitBook {
     /// Check if there is a crossable order at the given limit price
     pub fn has_crossable_order(&self, taker_side: Side, limit_price: Price) -> bool {
         match taker_side {
-            Side::Buy => self.best_ask().is_some_and(|ask| limit_price >= ask),
-            Side::Sell => self.best_bid().is_some_and(|bid| limit_price <= bid),
+            Side::Buy => self.best_ask_price().is_some_and(|ask| limit_price >= ask),
+            Side::Sell => self.best_bid_price().is_some_and(|bid| limit_price <= bid),
         }
     }
 }

@@ -81,13 +81,13 @@ impl OrderBook {
     }
 
     /// Get the best bid price, if any
-    pub fn best_bid(&self) -> Option<Price> {
-        self.limit.best_bid()
+    pub fn best_bid_price(&self) -> Option<Price> {
+        self.limit.best_bid_price()
     }
 
     /// Get the best ask price, if any
-    pub fn best_ask(&self) -> Option<Price> {
-        self.limit.best_ask()
+    pub fn best_ask_price(&self) -> Option<Price> {
+        self.limit.best_ask_price()
     }
 
     /// Get the mid price (average of best bid and best ask)
