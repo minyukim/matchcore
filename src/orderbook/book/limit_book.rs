@@ -1,5 +1,5 @@
 use super::PriceLevel;
-use crate::{LimitOrder, OrderId, Price, Side, Timestamp};
+use crate::{LimitOrder, OrderId, Price, Quantity, Side, Timestamp};
 
 use std::{
     cmp::Reverse,
@@ -76,6 +76,22 @@ impl LimitBook {
         let best_bid = self.best_bid_price()?;
         let best_ask = self.best_ask_price()?;
         Some(best_ask - best_bid)
+    }
+
+    /// Get the best bid volume, if not empty
+    pub fn best_bid_volume(&self) -> Option<Quantity> {
+        self.bid_levels
+            .values()
+            .next_back()
+            .map(|level| level.total_quantity())
+    }
+
+    /// Get the best ask volume, if not empty
+    pub fn best_ask_volume(&self) -> Option<Quantity> {
+        self.ask_levels
+            .values()
+            .next()
+            .map(|level| level.total_quantity())
     }
 
     /// Check if the side is empty
