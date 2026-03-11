@@ -8,6 +8,7 @@ mod operations;
 mod peg_level;
 mod pegged;
 mod price_level;
+mod query;
 mod submit;
 mod trigger;
 
@@ -16,6 +17,7 @@ pub use limit::*;
 pub use peg_level::*;
 pub use pegged::*;
 pub use price_level::*;
+pub use query::*;
 
 use crate::{Price, SequenceNumber, Side, Timestamp};
 
@@ -77,6 +79,16 @@ impl OrderBook {
     /// Get the last trade price, `None` if no trade has occurred yet
     pub fn last_trade_price(&self) -> Option<Price> {
         self.last_trade_price
+    }
+
+    /// Get the limit order book
+    pub fn limit(&self) -> &LimitBook {
+        &self.limit
+    }
+
+    /// Get the pegged order book
+    pub fn pegged(&self) -> &PeggedBook {
+        &self.pegged
     }
 
     /// Get the best bid price, if any
