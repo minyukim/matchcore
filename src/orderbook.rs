@@ -1,12 +1,12 @@
+mod analytics;
 mod book;
 mod error;
 mod execution;
 mod logic;
-mod query;
 
+pub use analytics::*;
 pub use book::*;
 pub use error::*;
-pub use query::*;
 
 use crate::{Price, SequenceNumber, Side, Timestamp};
 
