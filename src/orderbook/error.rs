@@ -31,7 +31,7 @@ impl fmt::Display for ExecutionError {
                 received_sequence_number,
             } => write!(
                 f,
-                "Invalid sequence number: expected {}, received {}",
+                "invalid sequence number: expected {}, received {}",
                 expected_sequence_number, received_sequence_number
             ),
             ExecutionError::InvalidTimestamp {
@@ -39,7 +39,7 @@ impl fmt::Display for ExecutionError {
                 received_timestamp,
             } => write!(
                 f,
-                "Invalid timestamp: received timestamp {} is before the last seen timestamp {}",
+                "invalid timestamp: received timestamp {} is before the last seen timestamp {}",
                 received_timestamp, last_seen_timestamp
             ),
         }
@@ -58,7 +58,7 @@ mod tests {
                 received_sequence_number: SequenceNumber(2),
             }
             .to_string(),
-            "Invalid sequence number: expected 1, received 2"
+            "invalid sequence number: expected 1, received 2"
         );
         assert_eq!(
             ExecutionError::InvalidTimestamp {
@@ -66,7 +66,7 @@ mod tests {
                 received_timestamp: Timestamp(10),
             }
             .to_string(),
-            "Invalid timestamp: received timestamp 10 is before the last seen timestamp 100"
+            "invalid timestamp: received timestamp 10 is before the last seen timestamp 100"
         );
     }
 }

@@ -16,8 +16,8 @@ pub enum RejectReason {
 impl fmt::Display for RejectReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RejectReason::InvalidCommand(e) => write!(f, "Invalid command: {e}"),
-            RejectReason::OrderNotFound => write!(f, "Order not found"),
+            RejectReason::InvalidCommand(e) => write!(f, "invalid command: {e}"),
+            RejectReason::OrderNotFound => write!(f, "order not found"),
         }
     }
 }
@@ -38,10 +38,10 @@ impl fmt::Display for CancelReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CancelReason::InsufficientLiquidity { available } => {
-                write!(f, "Insufficient liquidity: available={}", available)
+                write!(f, "insufficient liquidity: available={}", available)
             }
             CancelReason::PostOnlyWouldTake => {
-                write!(f, "Post-only order would remove liquidity")
+                write!(f, "post-only order would remove liquidity")
             }
         }
     }
@@ -55,9 +55,9 @@ mod tests {
     fn test_display_reject_reason() {
         assert_eq!(
             RejectReason::InvalidCommand(CommandError::ZeroPrice).to_string(),
-            "Invalid command: Price is zero"
+            "invalid command: price is zero"
         );
-        assert_eq!(RejectReason::OrderNotFound.to_string(), "Order not found");
+        assert_eq!(RejectReason::OrderNotFound.to_string(), "order not found");
     }
 
     #[test]
@@ -67,11 +67,11 @@ mod tests {
                 available: Quantity(50),
             }
             .to_string(),
-            "Insufficient liquidity: available=50"
+            "insufficient liquidity: available=50"
         );
         assert_eq!(
             CancelReason::PostOnlyWouldTake.to_string(),
-            "Post-only order would remove liquidity"
+            "post-only order would remove liquidity"
         );
     }
 }
