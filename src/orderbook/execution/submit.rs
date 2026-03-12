@@ -12,7 +12,7 @@ impl OrderBook {
         };
 
         match result {
-            Ok(report) => CommandOutcome::Applied(CommandReport::Submit(report)),
+            Ok(effects) => CommandOutcome::Applied(AppliedCommand::Submit(effects)),
             Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
@@ -22,14 +22,14 @@ impl OrderBook {
         &mut self,
         sequence_number: SequenceNumber,
         order: &MarketOrder,
-    ) -> Result<SubmitReport, RejectReason> {
-        order.validate().map_err(RejectReason::CommandError)?;
+    ) -> Result<CommandEffects, RejectReason> {
+        order.validate().map_err(RejectReason::InvalidCommand)?;
 
         let order_id = OrderId::from(sequence_number);
 
         if self.is_side_empty(order.side().opposite()) {
-            return Ok(SubmitReport::new(
-                OrderProcessingResult::new(order_id).with_cancel_reason(
+            return Ok(CommandEffects::new(
+                OrderOutcome::new(order_id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
                         available: Quantity(0),
                     },
@@ -42,8 +42,8 @@ impl OrderBook {
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return Ok(SubmitReport::new(
-                OrderProcessingResult::new(order_id).with_match_result(result),
+            return Ok(CommandEffects::new(
+                OrderOutcome::new(order_id).with_match_result(result),
             ));
         }
 
@@ -66,14 +66,14 @@ impl OrderBook {
 
             let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
-            return Ok(SubmitReport::new(
-                OrderProcessingResult::new(order_id).with_match_result(result),
-            )
-            .with_triggered_orders(triggered_orders));
+            return Ok(
+                CommandEffects::new(OrderOutcome::new(order_id).with_match_result(result))
+                    .with_triggered_orders(triggered_orders),
+            );
         }
 
-        Ok(SubmitReport::new(
-            OrderProcessingResult::new(order_id)
+        Ok(CommandEffects::new(
+            OrderOutcome::new(order_id)
                 .with_match_result(result)
                 .with_cancel_reason(CancelReason::InsufficientLiquidity {
                     available: executed_quantity,
@@ -86,11 +86,11 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &LimitOrder,
-    ) -> Result<SubmitReport, RejectReason> {
-        order.validate().map_err(RejectReason::CommandError)?;
+    ) -> Result<CommandEffects, RejectReason> {
+        order.validate().map_err(RejectReason::InvalidCommand)?;
 
         if order.is_expired(meta.timestamp) {
-            return Err(RejectReason::CommandError(CommandError::Expired));
+            return Err(RejectReason::InvalidCommand(CommandError::Expired));
         }
 
         Ok(self.submit_validated_limit_order(OrderId::from(meta.sequence_number), order))
@@ -101,7 +101,7 @@ impl OrderBook {
         &mut self,
         id: OrderId,
         order: &LimitOrder,
-    ) -> SubmitReport {
+    ) -> CommandEffects {
         if self.has_crossable_order(order.side(), order.price()) {
             self.submit_crossable_order(id, order)
         } else {
@@ -110,10 +110,10 @@ impl OrderBook {
     }
 
     /// Submit a crossable order
-    fn submit_crossable_order(&mut self, id: OrderId, order: &LimitOrder) -> SubmitReport {
+    fn submit_crossable_order(&mut self, id: OrderId, order: &LimitOrder) -> CommandEffects {
         if order.post_only() {
-            return SubmitReport::new(
-                OrderProcessingResult::new(id).with_cancel_reason(CancelReason::PostOnlyWouldTake),
+            return CommandEffects::new(
+                OrderOutcome::new(id).with_cancel_reason(CancelReason::PostOnlyWouldTake),
             );
         }
 
@@ -124,7 +124,7 @@ impl OrderBook {
                 order.total_quantity(),
             );
             if executable_quantity < order.total_quantity() {
-                return SubmitReport::new(OrderProcessingResult::new(id).with_cancel_reason(
+                return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
                         available: executable_quantity,
                     },
@@ -137,12 +137,12 @@ impl OrderBook {
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = order.total_quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return SubmitReport::new(OrderProcessingResult::new(id).with_match_result(result));
+            return CommandEffects::new(OrderOutcome::new(id).with_match_result(result));
         }
 
         if order.time_in_force() == TimeInForce::Ioc {
-            return SubmitReport::new(
-                OrderProcessingResult::new(id)
+            return CommandEffects::new(
+                OrderOutcome::new(id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
                         available: executed_quantity,
@@ -175,14 +175,14 @@ impl OrderBook {
 
         let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
-        SubmitReport::new(OrderProcessingResult::new(id).with_match_result(result))
+        CommandEffects::new(OrderOutcome::new(id).with_match_result(result))
             .with_triggered_orders(triggered_orders)
     }
 
     /// Submit a non-crossable order
-    fn submit_non_crossable_order(&mut self, id: OrderId, order: &LimitOrder) -> SubmitReport {
+    fn submit_non_crossable_order(&mut self, id: OrderId, order: &LimitOrder) -> CommandEffects {
         if order.is_immediate() {
-            return SubmitReport::new(OrderProcessingResult::new(id).with_cancel_reason(
+            return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                 CancelReason::InsufficientLiquidity {
                     available: Quantity(0),
                 },
@@ -193,7 +193,7 @@ impl OrderBook {
 
         let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
-        SubmitReport::new(OrderProcessingResult::new(id)).with_triggered_orders(triggered_orders)
+        CommandEffects::new(OrderOutcome::new(id)).with_triggered_orders(triggered_orders)
     }
 
     /// Submit a pegged order
@@ -201,11 +201,11 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &PeggedOrder,
-    ) -> Result<SubmitReport, RejectReason> {
-        order.validate().map_err(RejectReason::CommandError)?;
+    ) -> Result<CommandEffects, RejectReason> {
+        order.validate().map_err(RejectReason::InvalidCommand)?;
 
         if order.is_expired(meta.timestamp) {
-            return Err(RejectReason::CommandError(CommandError::Expired));
+            return Err(RejectReason::InvalidCommand(CommandError::Expired));
         }
 
         Ok(self.submit_validated_pegged_order(OrderId::from(meta.sequence_number), order))
@@ -216,7 +216,7 @@ impl OrderBook {
         &mut self,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> SubmitReport {
+    ) -> CommandEffects {
         match order.peg_reference() {
             PegReference::Primary => self.submit_primary_pegged_order(id, order),
             PegReference::Market => self.submit_market_pegged_order(id, order),
@@ -225,15 +225,15 @@ impl OrderBook {
     }
 
     /// Submit a primary pegged order
-    fn submit_primary_pegged_order(&mut self, id: OrderId, order: &PeggedOrder) -> SubmitReport {
+    fn submit_primary_pegged_order(&mut self, id: OrderId, order: &PeggedOrder) -> CommandEffects {
         self.submit_unmarketable_pegged_order(id, order)
     }
 
     /// Submit a market pegged order
-    fn submit_market_pegged_order(&mut self, id: OrderId, order: &PeggedOrder) -> SubmitReport {
+    fn submit_market_pegged_order(&mut self, id: OrderId, order: &PeggedOrder) -> CommandEffects {
         if self.is_side_empty(order.side().opposite()) {
             if order.is_immediate() {
-                return SubmitReport::new(OrderProcessingResult::new(id).with_cancel_reason(
+                return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
                         available: Quantity(0),
                     },
@@ -242,14 +242,14 @@ impl OrderBook {
 
             self.add_pegged_order(id, order.clone());
 
-            return SubmitReport::new(OrderProcessingResult::new(id));
+            return CommandEffects::new(OrderOutcome::new(id));
         }
 
         if order.time_in_force() == TimeInForce::Fok {
             let executable_quantity =
                 self.max_executable_quantity_unchecked(order.side(), order.quantity());
             if executable_quantity < order.quantity() {
-                return SubmitReport::new(OrderProcessingResult::new(id).with_cancel_reason(
+                return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
                         available: executable_quantity,
                     },
@@ -262,12 +262,12 @@ impl OrderBook {
         let executed_quantity = result.executed_quantity();
         let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return SubmitReport::new(OrderProcessingResult::new(id).with_match_result(result));
+            return CommandEffects::new(OrderOutcome::new(id).with_match_result(result));
         }
 
         if order.time_in_force() == TimeInForce::Ioc {
-            return SubmitReport::new(
-                OrderProcessingResult::new(id)
+            return CommandEffects::new(
+                OrderOutcome::new(id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
                         available: executed_quantity,
@@ -284,11 +284,15 @@ impl OrderBook {
             ),
         );
 
-        SubmitReport::new(OrderProcessingResult::new(id).with_match_result(result))
+        CommandEffects::new(OrderOutcome::new(id).with_match_result(result))
     }
 
     /// Submit a mid price pegged order
-    fn submit_mid_price_pegged_order(&mut self, id: OrderId, order: &PeggedOrder) -> SubmitReport {
+    fn submit_mid_price_pegged_order(
+        &mut self,
+        id: OrderId,
+        order: &PeggedOrder,
+    ) -> CommandEffects {
         self.submit_unmarketable_pegged_order(id, order)
     }
 
@@ -297,10 +301,10 @@ impl OrderBook {
         &mut self,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> SubmitReport {
+    ) -> CommandEffects {
         self.add_pegged_order(id, order.clone());
 
-        SubmitReport::new(OrderProcessingResult::new(id))
+        CommandEffects::new(OrderOutcome::new(id))
     }
 }
 
@@ -320,9 +324,9 @@ mod tests_submit_market_order {
         )
     }
 
-    fn unwrap_submit_report(outcome: CommandOutcome) -> SubmitReport {
+    fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(CommandReport::Submit(report)) => report,
+            CommandOutcome::Applied(AppliedCommand::Submit(effects)) => effects,
             other => panic!("expected applied submit, got: {other:?}"),
         }
     }
@@ -331,7 +335,7 @@ mod tests_submit_market_order {
     fn cancel_order_on_empty_opposite_side() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -339,12 +343,12 @@ mod tests_submit_market_order {
         ));
 
         assert_eq!(
-            report.submitted_order().cancel_reason(),
+            report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 available: Quantity(0)
             })
         );
-        assert!(report.submitted_order().match_result().is_none());
+        assert!(report.target_order().match_result().is_none());
     }
 
     #[test]
@@ -363,14 +367,14 @@ mod tests_submit_market_order {
             ),
         );
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
             MarketOrder::new(Quantity(10), Side::Buy, true),
         ));
 
-        let submitted = report.submitted_order();
+        let submitted = report.target_order();
         assert_eq!(submitted.order_id(), OrderId(0));
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
@@ -404,9 +408,9 @@ mod tests_submit_limit_order {
         )
     }
 
-    fn unwrap_submit_report(outcome: CommandOutcome) -> SubmitReport {
+    fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(CommandReport::Submit(report)) => report,
+            CommandOutcome::Applied(AppliedCommand::Submit(effects)) => effects,
             other => panic!("expected applied submit, got: {other:?}"),
         }
     }
@@ -429,7 +433,7 @@ mod tests_submit_limit_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::CommandError(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -438,7 +442,7 @@ mod tests_submit_limit_order {
     fn cancel_immediate_order_on_non_crossable() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -452,12 +456,12 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            report.submitted_order().cancel_reason(),
+            report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 available: Quantity(0)
             })
         );
-        assert!(report.submitted_order().match_result().is_none());
+        assert!(report.target_order().match_result().is_none());
         assert!(book.limit.orders.is_empty());
     }
 
@@ -477,7 +481,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -491,10 +495,10 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            report.submitted_order().cancel_reason(),
+            report.target_order().cancel_reason(),
             Some(&CancelReason::PostOnlyWouldTake)
         );
-        assert!(report.submitted_order().match_result().is_none());
+        assert!(report.target_order().match_result().is_none());
     }
 
     #[test]
@@ -513,7 +517,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -527,12 +531,12 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            report.submitted_order().cancel_reason(),
+            report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 available: Quantity(5)
             })
         );
-        assert!(report.submitted_order().match_result().is_none());
+        assert!(report.target_order().match_result().is_none());
         assert_eq!(book.last_trade_price(), None);
     }
 
@@ -551,7 +555,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -564,7 +568,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = report.submitted_order();
+        let submitted = report.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -593,7 +597,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -606,7 +610,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = report.submitted_order();
+        let submitted = report.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -637,9 +641,9 @@ mod tests_submit_pegged_order {
         )
     }
 
-    fn unwrap_submit_report(outcome: CommandOutcome) -> SubmitReport {
+    fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(CommandReport::Submit(report)) => report,
+            CommandOutcome::Applied(AppliedCommand::Submit(effects)) => effects,
             other => panic!("expected applied submit, got: {other:?}"),
         }
     }
@@ -660,7 +664,7 @@ mod tests_submit_pegged_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::CommandError(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -669,7 +673,7 @@ mod tests_submit_pegged_order {
     fn add_primary_pegged_order_to_book() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -680,17 +684,17 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let id = report.submitted_order().order_id();
+        let id = report.target_order().order_id();
         assert!(book.pegged.orders.contains_key(&id));
-        assert!(report.submitted_order().match_result().is_none());
-        assert!(report.submitted_order().cancel_reason().is_none());
+        assert!(report.target_order().match_result().is_none());
+        assert!(report.target_order().cancel_reason().is_none());
     }
 
     #[test]
     fn cancel_immediate_order_on_empty_opposite_side() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -702,7 +706,7 @@ mod tests_submit_pegged_order {
         ));
 
         assert_eq!(
-            report.submitted_order().cancel_reason(),
+            report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 available: Quantity(0)
             })
@@ -726,7 +730,7 @@ mod tests_submit_pegged_order {
             ),
         );
 
-        let report = unwrap_submit_report(submit(
+        let report = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -737,7 +741,7 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let submitted = report.submitted_order();
+        let submitted = report.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)

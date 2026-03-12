@@ -11,7 +11,7 @@ impl OrderBook {
         };
 
         match result {
-            Ok(_) => CommandOutcome::Applied(CommandReport::Cancel),
+            Ok(_) => CommandOutcome::Applied(AppliedCommand::Cancel),
             Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
@@ -37,7 +37,7 @@ impl OrderBook {
 mod tests {
     use super::*;
     use crate::{
-        CancelCmd, CommandOutcome, CommandReport, LimitOrder, OrderFlags, OrderId, OrderKind,
+        AppliedCommand, CancelCmd, CommandOutcome, LimitOrder, OrderFlags, OrderId, OrderKind,
         PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, RejectReason, Side,
         TimeInForce,
     };
@@ -66,7 +66,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(0), OrderKind::Limit);
 
         match outcome {
-            CommandOutcome::Applied(CommandReport::Cancel) => {}
+            CommandOutcome::Applied(AppliedCommand::Cancel) => {}
             other => panic!("expected applied cancel, got: {other:?}"),
         }
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
@@ -100,7 +100,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(0), OrderKind::Pegged);
 
         match outcome {
-            CommandOutcome::Applied(CommandReport::Cancel) => {}
+            CommandOutcome::Applied(AppliedCommand::Cancel) => {}
             other => panic!("expected applied cancel, got: {other:?}"),
         }
         assert!(!book.pegged.orders.contains_key(&OrderId(0)));

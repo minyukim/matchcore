@@ -1,18 +1,15 @@
 use super::matching::match_order;
-use crate::{CancelReason, OrderBook, OrderProcessingResult, types::*};
+use crate::{CancelReason, OrderBook, OrderOutcome, types::*};
 
 impl OrderBook {
     /// Trigger the opposite side of the conditional orders to become active takers.
     ///
     /// It iterates over the active peg levels of the taker side, and matches the orders against
-    /// the orders in the maker side. It stops when any one side is exhausted.
+    /// the orders at the maker side. It stops when any one side is exhausted.
     ///
-    /// Returns a vector of `OrderProcessingResult` structs containing the results of the matching.
-    pub(crate) fn trigger_opposite_side_takers(
-        &mut self,
-        taker_side: Side,
-    ) -> Vec<OrderProcessingResult> {
-        let mut results = Vec::new();
+    /// Returns a vector of `OrderOutcome` structs containing the outcomes of the order execution.
+    pub(crate) fn trigger_opposite_side_takers(&mut self, taker_side: Side) -> Vec<OrderOutcome> {
+        let mut outcomes = Vec::new();
 
         let (
             taker_side_best_price,
@@ -59,9 +56,8 @@ impl OrderBook {
 
             // The post-only order cannot be a taker. Cancel the order.
             if post_only {
-                results.push(
-                    OrderProcessingResult::new(order_id)
-                        .with_cancel_reason(CancelReason::PostOnlyWouldTake),
+                outcomes.push(
+                    OrderOutcome::new(order_id).with_cancel_reason(CancelReason::PostOnlyWouldTake),
                 );
                 continue;
             }
@@ -90,9 +86,9 @@ impl OrderBook {
                     .update_quantity(remaining);
             }
 
-            results.push(OrderProcessingResult::new(order_id).with_match_result(result));
+            outcomes.push(OrderOutcome::new(order_id).with_match_result(result));
         }
 
-        results
+        outcomes
     }
 }

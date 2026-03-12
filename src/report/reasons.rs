@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RejectReason {
     /// The command is invalid
-    CommandError(CommandError),
+    InvalidCommand(CommandError),
     /// The order was not found
     OrderNotFound,
 }
@@ -16,7 +16,7 @@ pub enum RejectReason {
 impl fmt::Display for RejectReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RejectReason::CommandError(e) => write!(f, "Command error: {e}"),
+            RejectReason::InvalidCommand(e) => write!(f, "Invalid command: {e}"),
             RejectReason::OrderNotFound => write!(f, "Order not found"),
         }
     }
@@ -54,8 +54,8 @@ mod tests {
     #[test]
     fn test_display_reject_reason() {
         assert_eq!(
-            RejectReason::CommandError(CommandError::ZeroPrice).to_string(),
-            "Command error: Price is zero"
+            RejectReason::InvalidCommand(CommandError::ZeroPrice).to_string(),
+            "Invalid command: Price is zero"
         );
         assert_eq!(RejectReason::OrderNotFound.to_string(), "Order not found");
     }
