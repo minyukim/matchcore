@@ -14,6 +14,24 @@ pub enum CommandOutcome {
     Rejected(RejectReason),
 }
 
+impl fmt::Display for CommandOutcome {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommandOutcome::Applied(applied_command) => match applied_command {
+                AppliedCommand::Submit(command_effects) => {
+                    write!(f, "submit applied, {}", command_effects)?;
+                }
+                AppliedCommand::Amend(command_effects) => {
+                    write!(f, "amend applied, {}", command_effects)?;
+                }
+                AppliedCommand::Cancel => writeln!(f, "cancel applied")?,
+            },
+            CommandOutcome::Rejected(reject_reason) => writeln!(f, "rejected: {}", reject_reason)?,
+        }
+        Ok(())
+    }
+}
+
 /// Represents the kinds of the applied command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AppliedCommand {
@@ -75,6 +93,66 @@ impl fmt::Display for CommandEffects {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests_command_outcome {
+    use super::*;
+    use crate::{
+        CancelReason, CommandEffects, CommandError, MatchResult, OrderId, OrderOutcome, Side,
+    };
+
+    #[test]
+    fn test_display() {
+        let command_outcome = CommandOutcome::Applied(AppliedCommand::Submit(CommandEffects::new(
+            OrderOutcome::new(OrderId(1)),
+        )));
+        println!("{}", command_outcome);
+        assert_eq!(
+            command_outcome.to_string(),
+            "submit applied, effects:\n  target order(1):\n    not matched\n    not cancelled\n"
+        );
+
+        let command_outcome = CommandOutcome::Applied(AppliedCommand::Amend(CommandEffects::new(
+            OrderOutcome::new(OrderId(1)),
+        )));
+        println!("{}", command_outcome);
+        assert_eq!(
+            command_outcome.to_string(),
+            "amend applied, effects:\n  target order(1):\n    not matched\n    not cancelled\n"
+        );
+
+        let command_outcome = CommandOutcome::Applied(AppliedCommand::Cancel);
+        println!("{}", command_outcome);
+        assert_eq!(command_outcome.to_string(), "cancel applied\n");
+
+        let command_outcome =
+            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::ZeroPrice));
+        println!("{}", command_outcome);
+        assert_eq!(
+            command_outcome.to_string(),
+            "rejected: invalid command: price is zero\n"
+        );
+
+        let command_outcome = CommandOutcome::Applied(AppliedCommand::Submit(
+            CommandEffects::new(
+                OrderOutcome::new(OrderId(1)).with_match_result(MatchResult::new(Side::Buy)),
+            )
+            .with_triggered_orders(vec![
+                OrderOutcome::new(OrderId(2)),
+                OrderOutcome::new(OrderId(3)),
+            ])
+            .with_triggered_orders(vec![
+                OrderOutcome::new(OrderId(2)).with_match_result(MatchResult::new(Side::Buy)),
+                OrderOutcome::new(OrderId(3)).with_cancel_reason(CancelReason::PostOnlyWouldTake),
+            ]),
+        ));
+        println!("{}", command_outcome);
+        assert_eq!(
+            command_outcome.to_string(),
+            "submit applied, effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
+        );
     }
 }
 
