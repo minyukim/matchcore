@@ -45,10 +45,10 @@ impl fmt::Display for Trade {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Trade: maker_order_id={} price={} quantity={}",
+            "maker({}): {}@{}",
             self.maker_order_id(),
+            self.quantity(),
             self.price(),
-            self.quantity()
         )
     }
 }
@@ -86,9 +86,6 @@ mod tests {
 
     #[test]
     fn test_display() {
-        assert_eq!(
-            create_trade().to_string(),
-            "Trade: maker_order_id=1 price=100 quantity=10"
-        );
+        assert_eq!(create_trade().to_string(), "maker(1): 10@100");
     }
 }

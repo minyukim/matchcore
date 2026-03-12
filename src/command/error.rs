@@ -30,29 +30,29 @@ pub enum CommandError {
 impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CommandError::ZeroPrice => write!(f, "Price is zero"),
-            CommandError::ZeroQuantity => write!(f, "Quantity is zero"),
-            CommandError::IcebergZeroHiddenQuantity => write!(f, "Iceberg hidden quantity is zero"),
+            CommandError::ZeroPrice => write!(f, "price is zero"),
+            CommandError::ZeroQuantity => write!(f, "quantity is zero"),
+            CommandError::IcebergZeroHiddenQuantity => write!(f, "iceberg hidden quantity is zero"),
             CommandError::IcebergZeroReplenishQuantity => {
-                write!(f, "Iceberg replenish quantity is zero")
+                write!(f, "iceberg replenish quantity is zero")
             }
             CommandError::IcebergImmediateTif => {
-                write!(f, "Iceberg order has an immediate time in force")
+                write!(f, "iceberg order has an immediate time in force")
             }
             CommandError::PostOnlyImmediateTif => {
-                write!(f, "Order is post-only but has an immediate time in force")
+                write!(f, "order is post-only but has an immediate time in force")
             }
             CommandError::PeggedNonTakerImmediateTif => {
                 write!(
                     f,
-                    "Pegged order cannot be a taker but has an immediate time in force"
+                    "pegged order cannot be a taker but has an immediate time in force"
                 )
             }
             CommandError::PeggedAlwaysTakerPostOnly => {
-                write!(f, "Pegged order is always a taker but is post-only")
+                write!(f, "pegged order is always a taker but is post-only")
             }
-            CommandError::EmptyPatch => write!(f, "Patch is empty"),
-            CommandError::Expired => write!(f, "Command has expired"),
+            CommandError::EmptyPatch => write!(f, "patch is empty"),
+            CommandError::Expired => write!(f, "command has expired"),
         }
     }
 }
@@ -63,29 +63,29 @@ mod tests {
 
     #[test]
     fn test_display() {
-        assert_eq!(CommandError::ZeroPrice.to_string(), "Price is zero");
-        assert_eq!(CommandError::ZeroQuantity.to_string(), "Quantity is zero");
+        assert_eq!(CommandError::ZeroPrice.to_string(), "price is zero");
+        assert_eq!(CommandError::ZeroQuantity.to_string(), "quantity is zero");
         assert_eq!(
             CommandError::IcebergZeroHiddenQuantity.to_string(),
-            "Iceberg hidden quantity is zero"
+            "iceberg hidden quantity is zero"
         );
         assert_eq!(
             CommandError::IcebergZeroReplenishQuantity.to_string(),
-            "Iceberg replenish quantity is zero"
+            "iceberg replenish quantity is zero"
         );
         assert_eq!(
             CommandError::IcebergImmediateTif.to_string(),
-            "Iceberg order has an immediate time in force"
+            "iceberg order has an immediate time in force"
         );
         assert_eq!(
             CommandError::PostOnlyImmediateTif.to_string(),
-            "Order is post-only but has an immediate time in force"
+            "order is post-only but has an immediate time in force"
         );
         assert_eq!(
             CommandError::PeggedNonTakerImmediateTif.to_string(),
-            "Pegged order cannot be a taker but has an immediate time in force"
+            "pegged order cannot be a taker but has an immediate time in force"
         );
-        assert_eq!(CommandError::EmptyPatch.to_string(), "Patch is empty");
-        assert_eq!(CommandError::Expired.to_string(), "Command has expired");
+        assert_eq!(CommandError::EmptyPatch.to_string(), "patch is empty");
+        assert_eq!(CommandError::Expired.to_string(), "command has expired");
     }
 }

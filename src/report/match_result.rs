@@ -1,6 +1,8 @@
 use super::Trade;
 use crate::{Notional, Price, Quantity, Side};
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 /// Result of a match operation
@@ -64,6 +66,25 @@ impl MatchResult {
     }
 }
 
+impl fmt::Display for MatchResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "taker_side={} executed_quantity={} executed_value={} trades={}",
+            self.taker_side(),
+            self.executed_quantity(),
+            self.executed_value(),
+            self.trades().len(),
+        )?;
+
+        for trade in self.trades() {
+            writeln!(f, "  {}", trade)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests_match_result {
     use super::*;
@@ -110,5 +131,23 @@ mod tests_match_result {
             assert_eq!(match_result.executed_value(), expected_executed_values[i]);
         }
         assert_eq!(match_result.trades(), &trades);
+    }
+
+    #[test]
+    fn test_display() {
+        let mut match_result = create_match_result();
+        println!("{}", match_result);
+        assert_eq!(
+            match_result.to_string(),
+            "taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n"
+        );
+
+        match_result.add_trade(Trade::new(OrderId(2), Price(99), Quantity(20)));
+        match_result.add_trade(Trade::new(OrderId(3), Price(100), Quantity(30)));
+        println!("{}", match_result);
+        assert_eq!(
+            match_result.to_string(),
+            "taker_side=BUY executed_quantity=50 executed_value=4980 trades=2\n  maker(2): 20@99\n  maker(3): 30@100\n"
+        );
     }
 }
