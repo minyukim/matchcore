@@ -1,4 +1,6 @@
-use crate::{CancelReason, MatchResult, OrderId};
+use crate::{CancelReason, MatchResult, OrderId, utils::write_indented};
+
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,13 +53,36 @@ impl OrderOutcome {
     }
 }
 
+impl fmt::Display for OrderOutcome {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "order({}):", self.order_id())?;
+
+        match self.match_result() {
+            Some(match_result) => {
+                write_indented(f, &format!("matched: {}", match_result), 2)?;
+            }
+            None => {
+                writeln!(f, "  not matched")?;
+            }
+        }
+
+        match self.cancel_reason() {
+            Some(cancel_reason) => {
+                writeln!(f, "  cancelled: {}", cancel_reason)?;
+            }
+            None => {
+                writeln!(f, "  not cancelled")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests_order_outcome {
     use super::*;
-    use crate::{
-        Quantity, Side,
-        report::{CancelReason, MatchResult},
-    };
+    use crate::{Price, Quantity, Side, Trade};
 
     fn create_order_outcome() -> OrderOutcome {
         OrderOutcome::new(OrderId(1))
@@ -88,5 +113,53 @@ mod tests_order_outcome {
         let match_result = MatchResult::new(Side::Buy);
         order_outcome = order_outcome.with_match_result(match_result);
         assert!(order_outcome.match_result().is_some());
+    }
+
+    #[test]
+    fn test_display() {
+        let order_outcome = create_order_outcome();
+        println!("{}", order_outcome);
+        assert_eq!(
+            order_outcome.to_string(),
+            "order(1):\n  not matched\n  not cancelled\n"
+        );
+
+        let order_outcome = create_order_outcome().with_match_result(MatchResult::new(Side::Buy));
+        println!("{}", order_outcome);
+        assert_eq!(
+            order_outcome.to_string(),
+            "order(1):\n  matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n  not cancelled\n"
+        );
+
+        let mut match_result = MatchResult::new(Side::Buy);
+        match_result.add_trade(Trade::new(OrderId(2), Price(99), Quantity(20)));
+        match_result.add_trade(Trade::new(OrderId(3), Price(100), Quantity(30)));
+        let order_outcome = create_order_outcome().with_match_result(match_result);
+        println!("{}", order_outcome);
+        assert_eq!(
+            order_outcome.to_string(),
+            "order(1):\n  matched: taker_side=BUY executed_quantity=50 executed_value=4980 trades=2\n    maker(2): 20@99\n    maker(3): 30@100\n  not cancelled\n"
+        );
+
+        let order_outcome =
+            create_order_outcome().with_cancel_reason(CancelReason::InsufficientLiquidity {
+                available: Quantity(50),
+            });
+        println!("{}", order_outcome);
+        assert_eq!(
+            order_outcome.to_string(),
+            "order(1):\n  not matched\n  cancelled: insufficient liquidity: available=50\n"
+        );
+
+        let order_outcome = create_order_outcome()
+            .with_match_result(MatchResult::new(Side::Buy))
+            .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                available: Quantity(50),
+            });
+        println!("{}", order_outcome);
+        assert_eq!(
+            order_outcome.to_string(),
+            "order(1):\n  matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n  cancelled: insufficient liquidity: available=50\n"
+        );
     }
 }

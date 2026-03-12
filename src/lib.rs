@@ -3,6 +3,7 @@ mod orderbook;
 mod orders;
 mod report;
 mod types;
+mod utils;
 
 pub use command::*;
 pub use orderbook::*;
