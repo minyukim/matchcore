@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{command::*, orders::*, report::*, types::*};
+use crate::{command::*, orders::*, outcome::*, types::*};
 
 impl OrderBook {
     /// Execute a submit command against the order book
@@ -12,8 +12,8 @@ impl OrderBook {
         };
 
         match result {
-            Ok(effects) => CommandOutcome::Applied(AppliedCommand::Submit(effects)),
-            Err(reason) => CommandOutcome::Rejected(reason),
+            Ok(effects) => CommandOutcome::Applied(CommandReport::Submit(effects)),
+            Err(failure) => CommandOutcome::Rejected(failure),
         }
     }
 
@@ -22,8 +22,8 @@ impl OrderBook {
         &mut self,
         sequence_number: SequenceNumber,
         order: &MarketOrder,
-    ) -> Result<CommandEffects, RejectReason> {
-        order.validate().map_err(RejectReason::InvalidCommand)?;
+    ) -> Result<CommandEffects, CommandFailure> {
+        order.validate().map_err(CommandFailure::InvalidCommand)?;
 
         let order_id = OrderId::from(sequence_number);
 
@@ -86,11 +86,11 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &LimitOrder,
-    ) -> Result<CommandEffects, RejectReason> {
-        order.validate().map_err(RejectReason::InvalidCommand)?;
+    ) -> Result<CommandEffects, CommandFailure> {
+        order.validate().map_err(CommandFailure::InvalidCommand)?;
 
         if order.is_expired(meta.timestamp) {
-            return Err(RejectReason::InvalidCommand(CommandError::Expired));
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
         }
 
         Ok(self.submit_validated_limit_order(OrderId::from(meta.sequence_number), order))
@@ -201,11 +201,11 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &PeggedOrder,
-    ) -> Result<CommandEffects, RejectReason> {
-        order.validate().map_err(RejectReason::InvalidCommand)?;
+    ) -> Result<CommandEffects, CommandFailure> {
+        order.validate().map_err(CommandFailure::InvalidCommand)?;
 
         if order.is_expired(meta.timestamp) {
-            return Err(RejectReason::InvalidCommand(CommandError::Expired));
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
         }
 
         Ok(self.submit_validated_pegged_order(OrderId::from(meta.sequence_number), order))
@@ -326,7 +326,7 @@ mod tests_submit_market_order {
 
     fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Submit(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Submit(effects)) => effects,
             other => panic!("expected applied submit, got: {other:?}"),
         }
     }
@@ -410,7 +410,7 @@ mod tests_submit_limit_order {
 
     fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Submit(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Submit(effects)) => effects,
             other => panic!("expected applied submit, got: {other:?}"),
         }
     }
@@ -433,7 +433,7 @@ mod tests_submit_limit_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -643,7 +643,7 @@ mod tests_submit_pegged_order {
 
     fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Submit(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Submit(effects)) => effects,
             other => panic!("expected applied submit, got: {other:?}"),
         }
     }
@@ -664,7 +664,7 @@ mod tests_submit_pegged_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }

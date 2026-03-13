@@ -1,4 +1,5 @@
-use crate::{CancelReason, MatchResult, OrderId, utils::write_indented};
+use super::{CancelReason, MatchResult};
+use crate::{OrderId, utils::write_indented};
 
 use std::fmt;
 

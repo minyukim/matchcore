@@ -1,26 +1,8 @@
-use crate::{CommandError, Quantity};
+use crate::Quantity;
 
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-
-/// Reason for rejecting a command that cannot be executed
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RejectReason {
-    /// The command is invalid
-    InvalidCommand(CommandError),
-    /// The order was not found
-    OrderNotFound,
-}
-
-impl fmt::Display for RejectReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RejectReason::InvalidCommand(e) => write!(f, "invalid command: {e}"),
-            RejectReason::OrderNotFound => write!(f, "order not found"),
-        }
-    }
-}
 
 /// Reason for cancelling an order
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,16 +34,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_display_reject_reason() {
-        assert_eq!(
-            RejectReason::InvalidCommand(CommandError::ZeroPrice).to_string(),
-            "invalid command: price is zero"
-        );
-        assert_eq!(RejectReason::OrderNotFound.to_string(), "order not found");
-    }
-
-    #[test]
-    fn test_display_cancel_reason() {
+    fn test_display() {
         assert_eq!(
             CancelReason::InsufficientLiquidity {
                 available: Quantity(50),

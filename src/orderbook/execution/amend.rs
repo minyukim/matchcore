@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{OrderId, Quantity, Side, TimeInForce, command::*, report::*};
+use crate::{OrderId, Quantity, Side, TimeInForce, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
@@ -13,8 +13,8 @@ impl OrderBook {
         };
 
         match result {
-            Ok(effects) => CommandOutcome::Applied(AppliedCommand::Amend(effects)),
-            Err(reason) => CommandOutcome::Rejected(reason),
+            Ok(effects) => CommandOutcome::Applied(CommandReport::Amend(effects)),
+            Err(failure) => CommandOutcome::Rejected(failure),
         }
     }
 
@@ -24,20 +24,20 @@ impl OrderBook {
         meta: CommandMeta,
         id: OrderId,
         patch: &LimitOrderPatch,
-    ) -> Result<CommandEffects, RejectReason> {
+    ) -> Result<CommandEffects, CommandFailure> {
         if patch.is_empty() {
-            return Err(RejectReason::InvalidCommand(CommandError::EmptyPatch));
+            return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
         }
 
         if patch.has_expired_time_in_force(meta.timestamp) {
-            return Err(RejectReason::InvalidCommand(CommandError::Expired));
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
         }
 
         let order = self
             .limit
             .orders
             .get_mut(&id)
-            .ok_or(RejectReason::OrderNotFound)?;
+            .ok_or(CommandFailure::OrderNotFound)?;
 
         let (old_price, old_visible_quantity, old_hidden_quantity, old_expires_at) = (
             order.price(),
@@ -53,13 +53,13 @@ impl OrderBook {
             let mut order = self.remove_limit_order(id).unwrap();
             patch
                 .apply(&mut order)
-                .map_err(RejectReason::InvalidCommand)?;
+                .map_err(CommandFailure::InvalidCommand)?;
 
             let new_id = OrderId::from(meta.sequence_number);
             return Ok(self.submit_validated_limit_order(new_id, &order));
         }
 
-        patch.apply(order).map_err(RejectReason::InvalidCommand)?;
+        patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
         if let Some(time_in_force) = patch.time_in_force {
             match time_in_force {
@@ -118,20 +118,20 @@ impl OrderBook {
         meta: CommandMeta,
         id: OrderId,
         patch: &PeggedOrderPatch,
-    ) -> Result<CommandEffects, RejectReason> {
+    ) -> Result<CommandEffects, CommandFailure> {
         if patch.is_empty() {
-            return Err(RejectReason::InvalidCommand(CommandError::EmptyPatch));
+            return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
         }
 
         if patch.has_expired_time_in_force(meta.timestamp) {
-            return Err(RejectReason::InvalidCommand(CommandError::Expired));
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
         }
 
         let order = self
             .pegged
             .orders
             .get_mut(&id)
-            .ok_or(RejectReason::OrderNotFound)?;
+            .ok_or(CommandFailure::OrderNotFound)?;
 
         let (old_peg_reference, old_quantity, old_expires_at) = (
             order.peg_reference(),
@@ -146,13 +146,13 @@ impl OrderBook {
             let mut order = self.remove_pegged_order(id).unwrap();
             patch
                 .apply(&mut order)
-                .map_err(RejectReason::InvalidCommand)?;
+                .map_err(CommandFailure::InvalidCommand)?;
 
             let new_id = OrderId::from(meta.sequence_number);
             return Ok(self.submit_validated_pegged_order(new_id, &order));
         }
 
-        patch.apply(order).map_err(RejectReason::InvalidCommand)?;
+        patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
         if let Some(time_in_force) = patch.time_in_force {
             match time_in_force {
@@ -231,7 +231,7 @@ mod tests_amend_limit_order {
 
     fn unwrap_amend_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Amend(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Amend(effects)) => effects,
             other => panic!("expected applied amend, got: {other:?}"),
         }
     }
@@ -253,7 +253,7 @@ mod tests_amend_limit_order {
         let outcome = amend(&mut book, 1, 0, OrderId(0), LimitOrderPatch::new());
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::EmptyPatch)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::EmptyPatch)) => {}
             other => panic!("expected empty patch rejection, got: {other:?}"),
         }
     }
@@ -283,7 +283,7 @@ mod tests_amend_limit_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -301,7 +301,7 @@ mod tests_amend_limit_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
     }
@@ -573,7 +573,7 @@ mod tests_amend_pegged_order {
 
     fn unwrap_amend_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Amend(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Amend(effects)) => effects,
             other => panic!("expected applied amend, got: {other:?}"),
         }
     }
@@ -593,7 +593,7 @@ mod tests_amend_pegged_order {
         let outcome = amend(&mut book, 1, 0, OrderId(0), PeggedOrderPatch::new());
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::EmptyPatch)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::EmptyPatch)) => {}
             other => panic!("expected empty patch rejection, got: {other:?}"),
         }
     }
@@ -621,7 +621,7 @@ mod tests_amend_pegged_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -639,7 +639,7 @@ mod tests_amend_pegged_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
     }

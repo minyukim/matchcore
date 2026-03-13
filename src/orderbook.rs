@@ -1,13 +1,11 @@
 mod analytics;
 mod book;
-mod error;
 mod execution;
 mod logic;
 mod market_data;
 
 pub use analytics::*;
 pub use book::*;
-pub use error::*;
 pub use market_data::*;
 
 use crate::{Price, Quantity, SequenceNumber, Side, Timestamp};
