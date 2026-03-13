@@ -1,3 +1,7 @@
+//! Example: submit/amend/cancel pegged orders
+//!
+//! Run: cargo run --example pegged_orders
+
 mod helpers;
 
 use matchcore::*;

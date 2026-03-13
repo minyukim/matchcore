@@ -76,18 +76,18 @@ impl Level2 {
         self.ask_levels().first().map(|(_, size)| *size)
     }
 
-    /// Get the mid price (average of best bid and best ask)
-    pub fn mid_price(&self) -> Option<f64> {
-        let best_bid = self.best_bid_price()?;
-        let best_ask = self.best_ask_price()?;
-        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
-    }
-
     /// Get the spread (difference between best bid and best ask)
     pub fn spread(&self) -> Option<u64> {
         let best_bid = self.best_bid_price()?;
         let best_ask = self.best_ask_price()?;
         Some(best_ask - best_bid)
+    }
+
+    /// Get the mid price (average of best bid and best ask)
+    pub fn mid_price(&self) -> Option<f64> {
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
+        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
     }
 
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity

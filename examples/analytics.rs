@@ -1,3 +1,7 @@
+//! Example: run analytics on a populated order book
+//!
+//! Run: cargo run --example analytics
+
 mod helpers;
 
 use matchcore::*;
@@ -44,37 +48,53 @@ fn main() {
     }
 
     let best_bid = book.best_bid().unwrap();
-    println!("Best bid: {}@{}", best_bid.1, best_bid.0);
+    println!("Best bid: {} x {}", best_bid.0, best_bid.1);
     let best_ask = book.best_ask().unwrap();
-    println!("Best ask: {}@{}", best_ask.1, best_ask.0);
+    println!("Best ask: {} x {}", best_ask.0, best_ask.1);
+
+    println!();
 
     println!("Best bid price: {}", book.best_bid_price().unwrap());
     println!("Best ask price: {}", book.best_ask_price().unwrap());
 
+    println!();
+
     println!("Best bid size: {}", book.best_bid_size().unwrap());
     println!("Best ask size: {}", book.best_ask_size().unwrap());
 
-    println!("Is side empty: {}", book.is_side_empty(Side::Buy));
-    println!("Is side empty: {}", book.is_side_empty(Side::Sell));
+    println!();
+
+    println!("Is bid side empty: {}", book.is_side_empty(Side::Buy));
+    println!("Is ask side empty: {}", book.is_side_empty(Side::Sell));
+
+    println!();
 
     println!(
-        "Has crossable order: {}",
+        "Has crossable ask order: {}",
         book.has_crossable_order(Side::Buy, Price(100))
     );
     println!(
-        "Has crossable order: {}",
+        "Has crossable bid order: {}",
         book.has_crossable_order(Side::Sell, Price(100))
     );
+
+    println!();
 
     println!("Spread: {}", book.spread().unwrap());
     println!("Mid price: {}", book.mid_price().unwrap());
     println!("Micro price: {}", book.micro_price().unwrap());
 
+    println!();
+
     println!("Bid size: {}", book.bid_size(10));
     println!("Ask size: {}", book.ask_size(10));
 
+    println!();
+
     println!("Is thin book: {}", book.is_thin_book(Quantity(100), 10));
     println!("Order book imbalance: {}", book.order_book_imbalance(10));
+
+    println!();
 
     let bid_depth_stats = book.depth_statistics(Side::Buy, 10);
     println!(
@@ -101,27 +121,38 @@ fn main() {
         ask_depth_stats.vwap()
     );
 
+    println!();
+
     let (buy_pressure, sell_pressure) = book.buy_sell_pressure();
     println!(
-        "Buy sell pressure: buy pressure: {}, sell pressure: {}",
+        "Buy sell pressure: buy {}, sell {}",
         buy_pressure, sell_pressure
     );
 
+    println!();
+
     println!(
-        "Price at depth: {}",
+        "Bid price at depth: {}",
         book.price_at_depth(Side::Buy, Quantity(500)).unwrap()
     );
     println!(
-        "Price at depth: {}",
+        "Ask price at depth: {}",
         book.price_at_depth(Side::Sell, Quantity(500)).unwrap()
     );
 
-    println!("VWAP: {}", book.vwap(Side::Buy, Quantity(500)).unwrap());
-    println!("VWAP: {}", book.vwap(Side::Sell, Quantity(500)).unwrap());
+    println!();
+
+    println!("Buy VWAP: {}", book.vwap(Side::Buy, Quantity(500)).unwrap());
+    println!(
+        "Sell VWAP: {}",
+        book.vwap(Side::Sell, Quantity(500)).unwrap()
+    );
+
+    println!();
 
     let buy_market_impact = book.market_impact(Side::Buy, Quantity(500));
     println!(
-        "Market impact: requested quantity: {}, available quantity: {}, total cost: {}, best price: {}, worst price: {}, consumed price levels: {}, average price: {}, slippage: {}",
+        "Buy market impact: requested quantity: {}, available quantity: {}, total cost: {}, best price: {}, worst price: {}, consumed price levels: {}, average price: {}, slippage: {}",
         buy_market_impact.requested_quantity(),
         buy_market_impact.available_quantity(),
         buy_market_impact.total_cost(),
@@ -133,7 +164,7 @@ fn main() {
     );
     let sell_market_impact = book.market_impact(Side::Sell, Quantity(500));
     println!(
-        "Market impact: requested quantity: {}, available quantity: {}, total cost: {}, best price: {}, worst price: {}, consumed price levels: {}, average price: {}, slippage: {}",
+        "Sell market impact: requested quantity: {}, available quantity: {}, total cost: {}, best price: {}, worst price: {}, consumed price levels: {}, average price: {}, slippage: {}",
         sell_market_impact.requested_quantity(),
         sell_market_impact.available_quantity(),
         sell_market_impact.total_cost(),

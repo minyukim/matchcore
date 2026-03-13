@@ -1,3 +1,7 @@
+//! Example: submit/amend/cancel standard orders
+//!
+//! Run: cargo run --example standard_orders
+
 mod helpers;
 
 use matchcore::*;
