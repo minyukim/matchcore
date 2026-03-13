@@ -1,3 +1,5 @@
+//! Helper functions for the examples
+
 #![allow(dead_code)]
 
 use std::time::{SystemTime, UNIX_EPOCH};

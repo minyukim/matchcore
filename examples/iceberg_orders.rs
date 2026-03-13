@@ -1,3 +1,7 @@
+//! Example: submit/amend/cancel iceberg orders
+//!
+//! Run: cargo run --example iceberg_orders
+
 mod helpers;
 
 use matchcore::*;

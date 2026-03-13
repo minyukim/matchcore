@@ -1,3 +1,7 @@
+//! Example: run analytics on a populated order book
+//!
+//! Run: cargo run --example analytics
+
 mod helpers;
 
 use matchcore::*;

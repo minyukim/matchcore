@@ -1,3 +1,7 @@
+//! Example: submit market orders
+//!
+//! Run: cargo run --example market_orders
+
 mod helpers;
 
 use matchcore::*;
