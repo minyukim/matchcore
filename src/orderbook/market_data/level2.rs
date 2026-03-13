@@ -235,14 +235,11 @@ impl Level2 {
 
 impl fmt::Display for Level2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{:<10} | {:<10} | {:<5}", "Price", "Size", "Side")?;
-        writeln!(f, "{:-<10}-+-{:-<10}-+-{:-<5}", "", "", "")?;
-
         for (price, quantity) in self.ask_levels.iter().rev() {
-            writeln!(f, "{:<10} | {:<10} | {:<5}", price, quantity, "Ask")?;
+            writeln!(f, "Ask: {} x {}", price, quantity)?;
         }
         for (price, quantity) in self.bid_levels.iter() {
-            writeln!(f, "{:<10} | {:<10} | {:<5}", price, quantity, "Bid")?;
+            writeln!(f, "Bid: {} x {}", price, quantity)?;
         }
 
         Ok(())
@@ -797,10 +794,7 @@ mod tests {
     fn display_empty() {
         let l2 = empty_l2();
         println!("{}", l2);
-        assert_eq!(
-            l2.to_string(),
-            "Price      | Size       | Side \n-----------+------------+------\n"
-        );
+        assert_eq!(l2.to_string(), "");
     }
 
     #[test]
@@ -809,7 +803,7 @@ mod tests {
         println!("{}", l2);
         assert_eq!(
             l2.to_string(),
-            "Price      | Size       | Side \n-----------+------------+------\n102        | 60         | Ask  \n101        | 40         | Ask  \n100        | 50         | Bid  \n99         | 30         | Bid  \n"
+            "Ask: 102 x 60\nAsk: 101 x 40\nBid: 100 x 50\nBid: 99 x 30\n"
         );
     }
 }
