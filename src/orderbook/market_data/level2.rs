@@ -46,22 +46,32 @@ impl Level2 {
         &self.ask_levels
     }
 
-    /// Get the best bid price, if any
+    /// Get the best bid price and size, if exists
+    pub fn best_bid(&self) -> Option<(Price, Quantity)> {
+        self.bid_levels().first().copied()
+    }
+
+    /// Get the best ask price and size, if exists
+    pub fn best_ask(&self) -> Option<(Price, Quantity)> {
+        self.ask_levels().first().copied()
+    }
+
+    /// Get the best bid price, if exists
     pub fn best_bid_price(&self) -> Option<Price> {
         self.bid_levels().first().map(|(price, _)| *price)
     }
 
-    /// Get the best ask price, if any
+    /// Get the best ask price, if exists
     pub fn best_ask_price(&self) -> Option<Price> {
         self.ask_levels().first().map(|(price, _)| *price)
     }
 
-    /// Get the best bid size, if not empty
+    /// Get the best bid size, if exists
     pub fn best_bid_size(&self) -> Option<Quantity> {
         self.bid_levels().first().map(|(_, size)| *size)
     }
 
-    /// Get the best ask size, if not empty
+    /// Get the best ask size, if exists
     pub fn best_ask_size(&self) -> Option<Quantity> {
         self.ask_levels().first().map(|(_, size)| *size)
     }
@@ -82,10 +92,8 @@ impl Level2 {
 
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
     pub fn micro_price(&self) -> Option<f64> {
-        let best_bid_price = self.best_bid_price()?;
-        let best_ask_price = self.best_ask_price()?;
-        let best_bid_size = self.best_bid_size()?;
-        let best_ask_size = self.best_ask_size()?;
+        let (best_bid_price, best_bid_size) = self.best_bid()?;
+        let (best_ask_price, best_ask_size) = self.best_ask()?;
 
         let total_size = best_bid_size.saturating_add(best_ask_size);
 
