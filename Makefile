@@ -36,3 +36,7 @@ test:								## Run tests
 
 .PHONY: check
 check: fmt-check lint test build	## Run pre-push checks
+
+.PHONY: bench
+bench:								## Run benchmarks
+	cargo bench --bench benches
