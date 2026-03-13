@@ -1,4 +1,4 @@
-use crate::{Level2, Notional, OrderBook, Price, Quantity, Side};
+use crate::{Level2, LimitBook, Notional, Price, Quantity, Side};
 
 use serde::{Deserialize, Serialize};
 
@@ -29,9 +29,7 @@ pub struct DepthStatistics {
 
 impl DepthStatistics {
     /// Compute the depth statistics of price levels (0 n_levels means all levels)
-    ///
-    /// Included quantities: visible and hidden
-    pub(super) fn compute(book: &OrderBook, side: Side, n_levels: usize) -> Self {
+    pub(super) fn compute(book: &LimitBook, side: Side, n_levels: usize) -> Self {
         let mut stats = Self {
             n_analyzed_levels: 0,
             total_value: Notional(0),
@@ -47,13 +45,13 @@ impl DepthStatistics {
 
         match side {
             Side::Buy => {
-                for (price, level) in book.limit.bid_levels.iter().rev().take(n_levels) {
+                for (price, level) in book.bid_levels().iter().rev().take(n_levels) {
                     stats.observe_level(*price, level.total_quantity());
                     sizes.push(level.total_quantity());
                 }
             }
             Side::Sell => {
-                for (price, level) in book.limit.ask_levels.iter().take(n_levels) {
+                for (price, level) in book.ask_levels().iter().take(n_levels) {
                     stats.observe_level(*price, level.total_quantity());
                     sizes.push(level.total_quantity());
                 }
@@ -142,6 +140,11 @@ impl DepthStatistics {
     /// Get the number of analyzed price levels
     pub fn n_analyzed_levels(&self) -> usize {
         self.n_analyzed_levels
+    }
+
+    /// Get the total value of all analyzed price levels
+    pub fn total_value(&self) -> Notional {
+        self.total_value
     }
 
     /// Get the total volume of all analyzed price levels
