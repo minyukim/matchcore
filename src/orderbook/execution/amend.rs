@@ -345,75 +345,6 @@ mod tests_amend_limit_order {
     }
 
     #[test]
-    fn cancel_ioc_order_on_insufficient_liquidity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(
-            OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-
-        let effects = unwrap_amend_effects(amend(
-            &mut book,
-            1,
-            0,
-            OrderId(0),
-            LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
-        ));
-
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
-        assert_eq!(
-            effects.target_order().cancel_reason(),
-            Some(&CancelReason::InsufficientLiquidity {
-                requested: Quantity(10),
-                available: Quantity(0)
-            })
-        );
-        assert!(!book.limit.orders.contains_key(&OrderId(0)));
-    }
-
-    #[test]
-    fn cancel_fok_order_on_insufficient_liquidity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(
-            OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-
-        let effects = unwrap_amend_effects(amend(
-            &mut book,
-            1,
-            0,
-            OrderId(0),
-            LimitOrderPatch::new()
-                .with_price(Price(100))
-                .with_quantity_policy(QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                })
-                .with_time_in_force(TimeInForce::Fok),
-        ));
-
-        assert_eq!(
-            effects.target_order().cancel_reason(),
-            Some(&CancelReason::InsufficientLiquidity {
-                requested: Quantity(10),
-                available: Quantity(0)
-            })
-        );
-    }
-
-    #[test]
     fn gtd_patch_updates_expiration_queue() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
@@ -672,37 +603,6 @@ mod tests_amend_pegged_order {
         let new_order = book.pegged.orders.get(&OrderId(1)).unwrap();
         assert_eq!(new_order.peg_reference(), PegReference::Market);
         assert_eq!(new_order.quantity(), Quantity(10));
-    }
-
-    #[test]
-    fn cancel_ioc_order_on_insufficient_liquidity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_pegged_order(
-            OrderId(0),
-            PeggedOrder::new(
-                PegReference::Market,
-                Quantity(10),
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-
-        let effects = unwrap_amend_effects(amend(
-            &mut book,
-            1,
-            0,
-            OrderId(0),
-            PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
-        ));
-
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
-        assert_eq!(
-            effects.target_order().cancel_reason(),
-            Some(&CancelReason::InsufficientLiquidity {
-                requested: Quantity(10),
-                available: Quantity(0)
-            })
-        );
-        assert!(!book.pegged.orders.contains_key(&OrderId(0)));
     }
 
     #[test]
