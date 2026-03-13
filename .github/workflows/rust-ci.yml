@@ -8,8 +8,7 @@ on:
       - "src/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - "build.rs"
+      - "examples/**"
 
 concurrency:
   group: rust-ci-${{ github.event.pull_request.number }}
@@ -40,3 +39,6 @@ jobs:
 
       - name: Test
         run: cargo test --all-features
+
+      - name: Build examples
+        run: cargo build --examples
