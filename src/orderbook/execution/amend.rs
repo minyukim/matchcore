@@ -1,11 +1,10 @@
 use super::OrderBook;
-use crate::{OrderId, Quantity, Side, TimeInForce, command::*, report::*};
+use crate::{OrderId, Quantity, Side, TimeInForce, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
 impl OrderBook {
-    /// Execute an amend command against the order book
-    /// Returns the execution report for the command
+    /// Execute an amend command against the order book and return the execution outcome
     pub(super) fn execute_amend(&mut self, meta: CommandMeta, cmd: &AmendCmd) -> CommandOutcome {
         let result = match &cmd.patch {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
@@ -13,8 +12,8 @@ impl OrderBook {
         };
 
         match result {
-            Ok(effects) => CommandOutcome::Applied(AppliedCommand::Amend(effects)),
-            Err(reason) => CommandOutcome::Rejected(reason),
+            Ok(effects) => CommandOutcome::Applied(CommandReport::Amend(effects)),
+            Err(failure) => CommandOutcome::Rejected(failure),
         }
     }
 
@@ -24,20 +23,20 @@ impl OrderBook {
         meta: CommandMeta,
         id: OrderId,
         patch: &LimitOrderPatch,
-    ) -> Result<CommandEffects, RejectReason> {
+    ) -> Result<CommandEffects, CommandFailure> {
         if patch.is_empty() {
-            return Err(RejectReason::InvalidCommand(CommandError::EmptyPatch));
+            return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
         }
 
         if patch.has_expired_time_in_force(meta.timestamp) {
-            return Err(RejectReason::InvalidCommand(CommandError::Expired));
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
         }
 
         let order = self
             .limit
             .orders
             .get_mut(&id)
-            .ok_or(RejectReason::OrderNotFound)?;
+            .ok_or(CommandFailure::OrderNotFound)?;
 
         let (old_price, old_visible_quantity, old_hidden_quantity, old_expires_at) = (
             order.price(),
@@ -53,22 +52,24 @@ impl OrderBook {
             let mut order = self.remove_limit_order(id).unwrap();
             patch
                 .apply(&mut order)
-                .map_err(RejectReason::InvalidCommand)?;
+                .map_err(CommandFailure::InvalidCommand)?;
 
             let new_id = OrderId::from(meta.sequence_number);
             return Ok(self.submit_validated_limit_order(new_id, &order));
         }
 
-        patch.apply(order).map_err(RejectReason::InvalidCommand)?;
+        patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
         if let Some(time_in_force) = patch.time_in_force {
             match time_in_force {
                 // An existing order cannot be matched immediately while staying at the same level
                 TimeInForce::Ioc | TimeInForce::Fok => {
+                    let requested = order.total_quantity();
                     self.remove_limit_order(id).unwrap();
                     return Ok(CommandEffects::new(
                         OrderOutcome::new(id).with_cancel_reason(
                             CancelReason::InsufficientLiquidity {
+                                requested,
                                 available: Quantity(0),
                             },
                         ),
@@ -118,20 +119,20 @@ impl OrderBook {
         meta: CommandMeta,
         id: OrderId,
         patch: &PeggedOrderPatch,
-    ) -> Result<CommandEffects, RejectReason> {
+    ) -> Result<CommandEffects, CommandFailure> {
         if patch.is_empty() {
-            return Err(RejectReason::InvalidCommand(CommandError::EmptyPatch));
+            return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
         }
 
         if patch.has_expired_time_in_force(meta.timestamp) {
-            return Err(RejectReason::InvalidCommand(CommandError::Expired));
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
         }
 
         let order = self
             .pegged
             .orders
             .get_mut(&id)
-            .ok_or(RejectReason::OrderNotFound)?;
+            .ok_or(CommandFailure::OrderNotFound)?;
 
         let (old_peg_reference, old_quantity, old_expires_at) = (
             order.peg_reference(),
@@ -146,22 +147,24 @@ impl OrderBook {
             let mut order = self.remove_pegged_order(id).unwrap();
             patch
                 .apply(&mut order)
-                .map_err(RejectReason::InvalidCommand)?;
+                .map_err(CommandFailure::InvalidCommand)?;
 
             let new_id = OrderId::from(meta.sequence_number);
             return Ok(self.submit_validated_pegged_order(new_id, &order));
         }
 
-        patch.apply(order).map_err(RejectReason::InvalidCommand)?;
+        patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
         if let Some(time_in_force) = patch.time_in_force {
             match time_in_force {
                 // An existing order cannot be matched immediately while staying at the same level
                 TimeInForce::Ioc | TimeInForce::Fok => {
+                    let requested = order.quantity();
                     self.remove_pegged_order(id).unwrap();
                     return Ok(CommandEffects::new(
                         OrderOutcome::new(id).with_cancel_reason(
                             CancelReason::InsufficientLiquidity {
+                                requested,
                                 available: Quantity(0),
                             },
                         ),
@@ -231,7 +234,7 @@ mod tests_amend_limit_order {
 
     fn unwrap_amend_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Amend(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Amend(effects)) => effects,
             other => panic!("expected applied amend, got: {other:?}"),
         }
     }
@@ -253,7 +256,7 @@ mod tests_amend_limit_order {
         let outcome = amend(&mut book, 1, 0, OrderId(0), LimitOrderPatch::new());
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::EmptyPatch)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::EmptyPatch)) => {}
             other => panic!("expected empty patch rejection, got: {other:?}"),
         }
     }
@@ -283,7 +286,7 @@ mod tests_amend_limit_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -301,7 +304,7 @@ mod tests_amend_limit_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
     }
@@ -320,7 +323,7 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -332,8 +335,8 @@ mod tests_amend_limit_order {
                 }),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(1));
-        assert!(report.target_order().cancel_reason().is_none());
+        assert_eq!(effects.target_order().order_id(), OrderId(1));
+        assert!(effects.target_order().cancel_reason().is_none());
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
 
         let new_order = book.limit.orders.get(&OrderId(1)).unwrap();
@@ -355,23 +358,19 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
             OrderId(0),
-            LimitOrderPatch::new()
-                .with_price(Price(100))
-                .with_quantity_policy(QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                })
-                .with_time_in_force(TimeInForce::Ioc),
+            LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -392,7 +391,7 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -406,8 +405,9 @@ mod tests_amend_limit_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -427,7 +427,7 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -440,7 +440,7 @@ mod tests_amend_limit_order {
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(book.limit.orders.contains_key(&OrderId(0)));
         assert!(!book.limit.expiration_queue.is_empty());
     }
@@ -473,7 +473,7 @@ mod tests_amend_limit_order {
         assert_eq!(level.visible_quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.limit.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -483,7 +483,7 @@ mod tests_amend_limit_order {
             }),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
         let order = book.limit.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.total_quantity(), Quantity(5));
@@ -522,7 +522,7 @@ mod tests_amend_limit_order {
         assert_eq!(level.visible_quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.limit.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -532,7 +532,7 @@ mod tests_amend_limit_order {
             }),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(2));
+        assert_eq!(effects.target_order().order_id(), OrderId(2));
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
 
         let order = book.limit.orders.get(&OrderId(2)).unwrap();
@@ -573,7 +573,7 @@ mod tests_amend_pegged_order {
 
     fn unwrap_amend_effects(outcome: CommandOutcome) -> CommandEffects {
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Amend(effects)) => effects,
+            CommandOutcome::Applied(CommandReport::Amend(effects)) => effects,
             other => panic!("expected applied amend, got: {other:?}"),
         }
     }
@@ -593,7 +593,7 @@ mod tests_amend_pegged_order {
         let outcome = amend(&mut book, 1, 0, OrderId(0), PeggedOrderPatch::new());
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::EmptyPatch)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::EmptyPatch)) => {}
             other => panic!("expected empty patch rejection, got: {other:?}"),
         }
     }
@@ -621,7 +621,7 @@ mod tests_amend_pegged_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::InvalidCommand(CommandError::Expired)) => {}
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
             other => panic!("expected expired rejection, got: {other:?}"),
         }
     }
@@ -639,7 +639,7 @@ mod tests_amend_pegged_order {
         );
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
     }
@@ -656,7 +656,7 @@ mod tests_amend_pegged_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -666,7 +666,7 @@ mod tests_amend_pegged_order {
                 .with_quantity(Quantity(10)),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(1));
+        assert_eq!(effects.target_order().order_id(), OrderId(1));
         assert!(!book.pegged.orders.contains_key(&OrderId(0)));
 
         let new_order = book.pegged.orders.get(&OrderId(1)).unwrap();
@@ -686,20 +686,19 @@ mod tests_amend_pegged_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
             OrderId(0),
-            PeggedOrderPatch::new()
-                .with_quantity(Quantity(10))
-                .with_time_in_force(TimeInForce::Ioc),
+            PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -718,7 +717,7 @@ mod tests_amend_pegged_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -728,7 +727,7 @@ mod tests_amend_pegged_order {
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(book.pegged.orders.contains_key(&OrderId(0)));
         assert!(!book.pegged.expiration_queue.is_empty());
     }
@@ -756,7 +755,7 @@ mod tests_amend_pegged_order {
         assert_eq!(level.quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -764,7 +763,7 @@ mod tests_amend_pegged_order {
             PeggedOrderPatch::new().with_quantity(Quantity(5)),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
         let order = book.pegged.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.quantity(), Quantity(5));
@@ -797,7 +796,7 @@ mod tests_amend_pegged_order {
         assert_eq!(level.quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -805,7 +804,7 @@ mod tests_amend_pegged_order {
             PeggedOrderPatch::new().with_quantity(Quantity(20)),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(2));
+        assert_eq!(effects.target_order().order_id(), OrderId(2));
         assert!(!book.pegged.orders.contains_key(&OrderId(0)));
 
         let order = book.pegged.orders.get(&OrderId(2)).unwrap();

@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{OrderId, OrderKind, command::*, report::*};
+use crate::{OrderId, OrderKind, command::*, outcome::*};
 
 impl OrderBook {
     /// Execute a cancel command against the order book
@@ -11,23 +11,23 @@ impl OrderBook {
         };
 
         match result {
-            Ok(_) => CommandOutcome::Applied(AppliedCommand::Cancel),
+            Ok(_) => CommandOutcome::Applied(CommandReport::Cancel),
             Err(reason) => CommandOutcome::Rejected(reason),
         }
     }
 
     /// Cancel a limit order
-    fn cancel_limit_order(&mut self, id: OrderId) -> Result<(), RejectReason> {
+    fn cancel_limit_order(&mut self, id: OrderId) -> Result<(), CommandFailure> {
         self.remove_limit_order(id)
-            .ok_or(RejectReason::OrderNotFound)?;
+            .ok_or(CommandFailure::OrderNotFound)?;
 
         Ok(())
     }
 
     /// Cancel a pegged order
-    fn cancel_pegged_order(&mut self, id: OrderId) -> Result<(), RejectReason> {
+    fn cancel_pegged_order(&mut self, id: OrderId) -> Result<(), CommandFailure> {
         self.remove_pegged_order(id)
-            .ok_or(RejectReason::OrderNotFound)?;
+            .ok_or(CommandFailure::OrderNotFound)?;
 
         Ok(())
     }
@@ -37,9 +37,8 @@ impl OrderBook {
 mod tests {
     use super::*;
     use crate::{
-        AppliedCommand, CancelCmd, CommandOutcome, LimitOrder, OrderFlags, OrderId, OrderKind,
-        PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, RejectReason, Side,
-        TimeInForce,
+        CancelCmd, CommandFailure, CommandOutcome, LimitOrder, OrderFlags, OrderId, OrderKind,
+        PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, Side, TimeInForce,
     };
 
     fn cancel(book: &mut OrderBook, order_id: OrderId, order_kind: OrderKind) -> CommandOutcome {
@@ -66,7 +65,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(0), OrderKind::Limit);
 
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Cancel) => {}
+            CommandOutcome::Applied(CommandReport::Cancel) => {}
             other => panic!("expected applied cancel, got: {other:?}"),
         }
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
@@ -80,7 +79,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(999), OrderKind::Limit);
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
     }
@@ -100,7 +99,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(0), OrderKind::Pegged);
 
         match outcome {
-            CommandOutcome::Applied(AppliedCommand::Cancel) => {}
+            CommandOutcome::Applied(CommandReport::Cancel) => {}
             other => panic!("expected applied cancel, got: {other:?}"),
         }
         assert!(!book.pegged.orders.contains_key(&OrderId(0)));
@@ -113,7 +112,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(999), OrderKind::Pegged);
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
     }
@@ -136,7 +135,7 @@ mod tests {
         let outcome = cancel(&mut book, OrderId(0), OrderKind::Pegged);
 
         match outcome {
-            CommandOutcome::Rejected(RejectReason::OrderNotFound) => {}
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
             other => panic!("expected order not found, got: {other:?}"),
         }
         // Limit order should still exist

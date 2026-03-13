@@ -1,4 +1,5 @@
-use crate::{CancelReason, MatchResult, OrderId, utils::write_indented};
+use super::{CancelReason, MatchResult};
+use crate::{OrderId, utils::write_indented};
 
 use std::fmt;
 
@@ -99,6 +100,7 @@ mod tests_order_outcome {
         assert_eq!(order_outcome.cancel_reason(), None);
 
         let cancel_reason = CancelReason::InsufficientLiquidity {
+            requested: Quantity(100),
             available: Quantity(50),
         };
         order_outcome = order_outcome.with_cancel_reason(cancel_reason.clone());
@@ -143,23 +145,25 @@ mod tests_order_outcome {
 
         let order_outcome =
             create_order_outcome().with_cancel_reason(CancelReason::InsufficientLiquidity {
+                requested: Quantity(100),
                 available: Quantity(50),
             });
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
-            "order(1):\n  not matched\n  cancelled: insufficient liquidity: available=50\n"
+            "order(1):\n  not matched\n  cancelled: insufficient liquidity: requested 100, available 50\n"
         );
 
         let order_outcome = create_order_outcome()
             .with_match_result(MatchResult::new(Side::Buy))
             .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                requested: Quantity(100),
                 available: Quantity(50),
             });
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
-            "order(1):\n  matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n  cancelled: insufficient liquidity: available=50\n"
+            "order(1):\n  matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n  cancelled: insufficient liquidity: requested 100, available 50\n"
         );
     }
 }

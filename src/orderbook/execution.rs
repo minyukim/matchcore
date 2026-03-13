@@ -2,32 +2,32 @@ mod amend;
 mod cancel;
 mod submit;
 
-use super::{ExecutionError, OrderBook};
-use crate::{SequenceNumber, Timestamp, command::*, report::*};
+use super::OrderBook;
+use crate::{SequenceNumber, Timestamp, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
 impl OrderBook {
     /// Execute a command against the order book
     /// Returns the execution report for the command
-    pub fn execute(&mut self, cmd: &Command) -> Result<CommandExecutionReport, ExecutionError> {
-        self.handle_command_meta(cmd.meta)?;
+    pub fn execute(&mut self, cmd: &Command) -> CommandOutcome {
+        if let Err(failure) = self.handle_command_meta(cmd.meta) {
+            return CommandOutcome::Rejected(failure);
+        }
 
         self.clean_up_expired_orders(cmd.meta.timestamp);
 
-        let outcome = match &cmd.kind {
+        match &cmd.kind {
             CommandKind::Submit(submit_cmd) => self.execute_submit(cmd.meta, submit_cmd),
             CommandKind::Amend(amend_cmd) => self.execute_amend(cmd.meta, amend_cmd),
             CommandKind::Cancel(cancel_cmd) => self.execute_cancel(cancel_cmd),
-        };
-
-        Ok(CommandExecutionReport::new(cmd.meta, outcome))
+        }
     }
 
     /// Handle the command metadata
     /// Validates the command metadata, and updates the last sequence number and
     /// the last seen timestamp of the order book if the command is valid.
-    fn handle_command_meta(&mut self, meta: CommandMeta) -> Result<(), ExecutionError> {
+    fn handle_command_meta(&mut self, meta: CommandMeta) -> Result<(), CommandFailure> {
         self.validate_command_meta(meta)?;
 
         self.last_sequence_number = Some(meta.sequence_number);
@@ -37,7 +37,7 @@ impl OrderBook {
     }
 
     /// Validate the command metadata
-    fn validate_command_meta(&self, meta: CommandMeta) -> Result<(), ExecutionError> {
+    fn validate_command_meta(&self, meta: CommandMeta) -> Result<(), CommandFailure> {
         self.validate_sequence_number(meta.sequence_number)?;
         self.validate_timestamp(meta.timestamp)?;
         Ok(())
@@ -47,13 +47,13 @@ impl OrderBook {
     fn validate_sequence_number(
         &self,
         sequence_number: SequenceNumber,
-    ) -> Result<(), ExecutionError> {
+    ) -> Result<(), CommandFailure> {
         let expected_sequence_number = match self.last_sequence_number {
             Some(last_sequence_number) => last_sequence_number.next(),
             None => SequenceNumber(0),
         };
         if sequence_number != expected_sequence_number {
-            return Err(ExecutionError::InvalidSequenceNumber {
+            return Err(CommandFailure::InvalidSequenceNumber {
                 expected_sequence_number,
                 received_sequence_number: sequence_number,
             });
@@ -62,11 +62,11 @@ impl OrderBook {
     }
 
     /// Validate the timestamp of the command
-    fn validate_timestamp(&self, timestamp: Timestamp) -> Result<(), ExecutionError> {
+    fn validate_timestamp(&self, timestamp: Timestamp) -> Result<(), CommandFailure> {
         if let Some(last_seen_timestamp) = self.last_seen_timestamp
             && timestamp < last_seen_timestamp
         {
-            return Err(ExecutionError::InvalidTimestamp {
+            return Err(CommandFailure::InvalidTimestamp {
                 last_seen_timestamp,
                 received_timestamp: timestamp,
             });
@@ -150,7 +150,7 @@ mod tests {
         });
         assert_eq!(
             result.unwrap_err(),
-            ExecutionError::InvalidSequenceNumber {
+            CommandFailure::InvalidSequenceNumber {
                 expected_sequence_number: SequenceNumber(0),
                 received_sequence_number: SequenceNumber(1),
             }
@@ -173,7 +173,7 @@ mod tests {
         });
         assert_eq!(
             result.unwrap_err(),
-            ExecutionError::InvalidSequenceNumber {
+            CommandFailure::InvalidSequenceNumber {
                 expected_sequence_number: SequenceNumber(1),
                 received_sequence_number: SequenceNumber(0),
             }
@@ -196,7 +196,7 @@ mod tests {
         });
         assert_eq!(
             result.unwrap_err(),
-            ExecutionError::InvalidTimestamp {
+            CommandFailure::InvalidTimestamp {
                 last_seen_timestamp: Timestamp(10),
                 received_timestamp: Timestamp(9),
             }
@@ -211,7 +211,7 @@ mod tests {
         });
         assert_eq!(
             result.unwrap_err(),
-            ExecutionError::InvalidSequenceNumber {
+            CommandFailure::InvalidSequenceNumber {
                 expected_sequence_number: SequenceNumber(2),
                 received_sequence_number: SequenceNumber(3),
             }

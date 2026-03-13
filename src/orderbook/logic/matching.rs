@@ -1,4 +1,4 @@
-use crate::{orderbook::*, orders::*, report::*, types::*};
+use crate::{orderbook::*, orders::*, outcome::*, types::*};
 
 use std::collections::{BTreeMap, HashMap};
 
