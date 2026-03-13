@@ -87,21 +87,17 @@ impl LimitBook {
 
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
     pub fn micro_price(&self) -> Option<f64> {
-        let (best_bid_price, best_bid_level) = self.bid_levels.iter().next_back()?;
-        let (best_ask_price, best_ask_level) = self.ask_levels.iter().next()?;
+        let (best_bid_price, best_bid_size) = self.best_bid()?;
+        let (best_ask_price, best_ask_size) = self.best_ask()?;
 
-        // Get sizes at best levels
-        let bid_size = best_bid_level.total_quantity();
-        let ask_size = best_ask_level.total_quantity();
-
-        let total_size = bid_size.saturating_add(ask_size);
+        let total_size = best_bid_size.saturating_add(best_ask_size);
 
         if total_size.is_zero() {
             return None;
         }
 
         // micro_price = (ask_price * bid_size + bid_price * ask_size) / (bid_size + ask_size)
-        let numerator = (*best_ask_price * bid_size) + (*best_bid_price * ask_size);
+        let numerator = (best_ask_price * best_bid_size) + (best_bid_price * best_ask_size);
         let denominator = total_size;
 
         Some(numerator / denominator)

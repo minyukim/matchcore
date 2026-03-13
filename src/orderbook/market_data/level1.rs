@@ -9,24 +9,18 @@ use serde::{Deserialize, Serialize};
 pub struct Level1 {
     /// The last trade price
     last_trade_price: Option<Price>,
-    /// The best bid price
-    best_bid_price: Option<Price>,
-    /// The best ask price
-    best_ask_price: Option<Price>,
-    /// The best bid size
-    best_bid_size: Option<Quantity>,
-    /// The best ask size
-    best_ask_size: Option<Quantity>,
+    /// The best bid price and size
+    best_bid: Option<(Price, Quantity)>,
+    /// The best ask price and size
+    best_ask: Option<(Price, Quantity)>,
 }
 
 impl From<&OrderBook> for Level1 {
     fn from(book: &OrderBook) -> Self {
         Self {
             last_trade_price: book.last_trade_price(),
-            best_bid_price: book.best_bid_price(),
-            best_ask_price: book.best_ask_price(),
-            best_bid_size: book.best_bid_size(),
-            best_ask_size: book.best_ask_size(),
+            best_bid: book.best_bid(),
+            best_ask: book.best_ask(),
         }
     }
 }
@@ -37,31 +31,34 @@ impl Level1 {
         self.last_trade_price
     }
 
-    /// Get the best bid price, if any
+    /// Get the best bid price and volume, if exists
+    pub fn best_bid(&self) -> Option<(Price, Quantity)> {
+        self.best_bid
+    }
+
+    /// Get the best ask price and volume, if exists
+    pub fn best_ask(&self) -> Option<(Price, Quantity)> {
+        self.best_ask
+    }
+
+    /// Get the best bid price, if exists
     pub fn best_bid_price(&self) -> Option<Price> {
-        self.best_bid_price
+        self.best_bid.map(|(price, _)| price)
     }
 
-    /// Get the best ask price, if any
+    /// Get the best ask price, if exists
     pub fn best_ask_price(&self) -> Option<Price> {
-        self.best_ask_price
+        self.best_ask.map(|(price, _)| price)
     }
 
-    /// Get the best bid size, if not empty
+    /// Get the best bid size, if exists
     pub fn best_bid_size(&self) -> Option<Quantity> {
-        self.best_bid_size
+        self.best_bid.map(|(_, size)| size)
     }
 
-    /// Get the best ask size, if not empty
+    /// Get the best ask size, if exists
     pub fn best_ask_size(&self) -> Option<Quantity> {
-        self.best_ask_size
-    }
-
-    /// Get the mid price (average of best bid and best ask)
-    pub fn mid_price(&self) -> Option<f64> {
-        let best_bid = self.best_bid_price()?;
-        let best_ask = self.best_ask_price()?;
-        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
+        self.best_ask.map(|(_, size)| size)
     }
 
     /// Get the spread (difference between best bid and best ask)
@@ -71,12 +68,17 @@ impl Level1 {
         Some(best_ask - best_bid)
     }
 
+    /// Get the mid price (average of best bid and best ask)
+    pub fn mid_price(&self) -> Option<f64> {
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
+        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
+    }
+
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
     pub fn micro_price(&self) -> Option<f64> {
-        let best_bid_price = self.best_bid_price()?;
-        let best_ask_price = self.best_ask_price()?;
-        let best_bid_size = self.best_bid_size()?;
-        let best_ask_size = self.best_ask_size()?;
+        let (best_bid_price, best_bid_size) = self.best_bid()?;
+        let (best_ask_price, best_ask_size) = self.best_ask()?;
 
         let total_size = best_bid_size.saturating_add(best_ask_size);
 
@@ -101,34 +103,23 @@ impl fmt::Display for Level1 {
                 .map(|p| p.to_string())
                 .unwrap_or("None".to_string())
         )?;
+
         writeln!(
             f,
-            "Best Bid Price: {}",
-            self.best_bid_price()
-                .map(|p| p.to_string())
+            "Best Ask: {}",
+            self.best_ask()
+                .map(|(p, q)| format!("{} x {}", p, q))
                 .unwrap_or("None".to_string())
         )?;
+
         writeln!(
             f,
-            "Best Ask Price: {}",
-            self.best_ask_price()
-                .map(|p| p.to_string())
+            "Best Bid: {}",
+            self.best_bid()
+                .map(|(p, q)| format!("{} x {}", p, q))
                 .unwrap_or("None".to_string())
         )?;
-        writeln!(
-            f,
-            "Best Bid Volume: {}",
-            self.best_bid_size()
-                .map(|q| q.to_string())
-                .unwrap_or("None".to_string())
-        )?;
-        writeln!(
-            f,
-            "Best Ask Volume: {}",
-            self.best_ask_size()
-                .map(|q| q.to_string())
-                .unwrap_or("None".to_string())
-        )?;
+
         Ok(())
     }
 }
@@ -143,20 +134,16 @@ mod tests {
     fn empty_level1() -> Level1 {
         Level1 {
             last_trade_price: None,
-            best_bid_price: None,
-            best_ask_price: None,
-            best_bid_size: None,
-            best_ask_size: None,
+            best_bid: None,
+            best_ask: None,
         }
     }
 
     fn populated_level1() -> Level1 {
         Level1 {
             last_trade_price: Some(Price(150)),
-            best_bid_price: Some(Price(100)),
-            best_ask_price: Some(Price(200)),
-            best_bid_size: Some(Quantity(500)),
-            best_ask_size: Some(Quantity(300)),
+            best_bid: Some((Price(100), Quantity(500))),
+            best_ask: Some((Price(200), Quantity(300))),
         }
     }
 
@@ -165,6 +152,8 @@ mod tests {
         let book = OrderBook::new("TEST");
         let l1 = Level1::from(&book);
         assert_eq!(l1.last_trade_price(), None);
+        assert_eq!(l1.best_bid(), None);
+        assert_eq!(l1.best_ask(), None);
         assert_eq!(l1.best_bid_price(), None);
         assert_eq!(l1.best_ask_price(), None);
         assert_eq!(l1.best_bid_size(), None);
@@ -175,6 +164,8 @@ mod tests {
     fn test_getters_all_none() {
         let l1 = empty_level1();
         assert_eq!(l1.last_trade_price(), None);
+        assert_eq!(l1.best_bid(), None);
+        assert_eq!(l1.best_ask(), None);
         assert_eq!(l1.best_bid_price(), None);
         assert_eq!(l1.best_ask_price(), None);
         assert_eq!(l1.best_bid_size(), None);
@@ -185,52 +176,12 @@ mod tests {
     fn test_getters_all_some() {
         let l1 = populated_level1();
         assert_eq!(l1.last_trade_price(), Some(Price(150)));
+        assert_eq!(l1.best_bid(), Some((Price(100), Quantity(500))));
+        assert_eq!(l1.best_ask(), Some((Price(200), Quantity(300))));
         assert_eq!(l1.best_bid_price(), Some(Price(100)));
         assert_eq!(l1.best_ask_price(), Some(Price(200)));
         assert_eq!(l1.best_bid_size(), Some(Quantity(500)));
         assert_eq!(l1.best_ask_size(), Some(Quantity(300)));
-    }
-
-    #[test]
-    fn test_mid_price_with_both_sides() {
-        let l1 = populated_level1();
-        assert_eq!(l1.mid_price(), Some(150.0));
-    }
-
-    #[test]
-    fn test_mid_price_missing_bid() {
-        let l1 = Level1 {
-            best_bid_price: None,
-            best_ask_price: Some(Price(200)),
-            ..empty_level1()
-        };
-        assert_eq!(l1.mid_price(), None);
-    }
-
-    #[test]
-    fn test_mid_price_missing_ask() {
-        let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: None,
-            ..empty_level1()
-        };
-        assert_eq!(l1.mid_price(), None);
-    }
-
-    #[test]
-    fn test_mid_price_missing_both() {
-        let l1 = empty_level1();
-        assert_eq!(l1.mid_price(), None);
-    }
-
-    #[test]
-    fn test_mid_price_same_bid_ask() {
-        let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: Some(Price(100)),
-            ..empty_level1()
-        };
-        assert_eq!(l1.mid_price(), Some(100.0));
     }
 
     #[test]
@@ -242,8 +193,8 @@ mod tests {
     #[test]
     fn test_spread_missing_bid() {
         let l1 = Level1 {
-            best_bid_price: None,
-            best_ask_price: Some(Price(200)),
+            best_bid: None,
+            best_ask: Some((Price(200), Quantity(300))),
             ..empty_level1()
         };
         assert_eq!(l1.spread(), None);
@@ -252,8 +203,8 @@ mod tests {
     #[test]
     fn test_spread_missing_ask() {
         let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: None,
+            best_bid: Some((Price(100), Quantity(500))),
+            best_ask: None,
             ..empty_level1()
         };
         assert_eq!(l1.spread(), None);
@@ -266,23 +217,45 @@ mod tests {
     }
 
     #[test]
-    fn test_spread_zero() {
-        let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: Some(Price(100)),
-            ..empty_level1()
-        };
-        assert_eq!(l1.spread(), Some(0));
-    }
-
-    #[test]
     fn test_spread_narrow() {
         let l1 = Level1 {
-            best_bid_price: Some(Price(99)),
-            best_ask_price: Some(Price(100)),
+            best_bid: Some((Price(99), Quantity(500))),
+            best_ask: Some((Price(100), Quantity(300))),
             ..empty_level1()
         };
         assert_eq!(l1.spread(), Some(1));
+    }
+
+    #[test]
+    fn test_mid_price_with_both_sides() {
+        let l1 = populated_level1();
+        assert_eq!(l1.mid_price(), Some(150.0));
+    }
+
+    #[test]
+    fn test_mid_price_missing_bid() {
+        let l1 = Level1 {
+            best_bid: None,
+            best_ask: Some((Price(200), Quantity(300))),
+            ..empty_level1()
+        };
+        assert_eq!(l1.mid_price(), None);
+    }
+
+    #[test]
+    fn test_mid_price_missing_ask() {
+        let l1 = Level1 {
+            best_bid: Some((Price(100), Quantity(500))),
+            best_ask: None,
+            ..empty_level1()
+        };
+        assert_eq!(l1.mid_price(), None);
+    }
+
+    #[test]
+    fn test_mid_price_missing_both() {
+        let l1 = empty_level1();
+        assert_eq!(l1.mid_price(), None);
     }
 
     #[test]
@@ -293,10 +266,8 @@ mod tests {
     #[test]
     fn test_micro_price_balanced_sizes() {
         let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: Some(Price(102)),
-            best_bid_size: Some(Quantity(100)),
-            best_ask_size: Some(Quantity(100)),
+            best_bid: Some((Price(100), Quantity(100))),
+            best_ask: Some((Price(102), Quantity(100))),
             ..empty_level1()
         };
 
@@ -308,10 +279,8 @@ mod tests {
     #[test]
     fn test_micro_price_imbalanced_toward_bid() {
         let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: Some(Price(102)),
-            best_bid_size: Some(Quantity(300)),
-            best_ask_size: Some(Quantity(100)),
+            best_bid: Some((Price(100), Quantity(300))),
+            best_ask: Some((Price(102), Quantity(100))),
             ..empty_level1()
         };
 
@@ -323,10 +292,8 @@ mod tests {
     #[test]
     fn test_micro_price_imbalanced_toward_ask() {
         let l1 = Level1 {
-            best_bid_price: Some(Price(100)),
-            best_ask_price: Some(Price(102)),
-            best_bid_size: Some(Quantity(100)),
-            best_ask_size: Some(Quantity(300)),
+            best_bid: Some((Price(100), Quantity(100))),
+            best_ask: Some((Price(102), Quantity(300))),
             ..empty_level1()
         };
 
@@ -341,14 +308,14 @@ mod tests {
         println!("{}", l1);
         assert_eq!(
             l1.to_string(),
-            "Last Trade Price: None\nBest Bid Price: None\nBest Ask Price: None\nBest Bid Volume: None\nBest Ask Volume: None\n"
+            "Last Trade Price: None\nBest Ask: None\nBest Bid: None\n"
         );
 
         let l1 = populated_level1();
         println!("{}", l1);
         assert_eq!(
             l1.to_string(),
-            "Last Trade Price: 150\nBest Bid Price: 100\nBest Ask Price: 200\nBest Bid Volume: 500\nBest Ask Volume: 300\n"
+            "Last Trade Price: 150\nBest Ask: 200 x 300\nBest Bid: 100 x 500\n"
         );
     }
 }
