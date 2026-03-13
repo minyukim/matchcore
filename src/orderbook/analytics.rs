@@ -4,16 +4,72 @@ mod market_impact;
 pub use depth_statistics::*;
 pub use market_impact::*;
 
-use super::OrderBook;
+use super::{LimitBook, OrderBook};
 use crate::{Notional, PegReference, Price, Quantity, Side};
 
-impl OrderBook {
+impl LimitBook {
+    /// Get the best bid price, if any
+    /// O(1) operation using the last key (highest price) in the BTreeMap
+    pub fn best_bid_price(&self) -> Option<Price> {
+        self.bid_levels.keys().next_back().copied()
+    }
+
+    /// Get the best ask price, if any
+    /// O(1) operation using the first key (lowest price) in the BTreeMap
+    pub fn best_ask_price(&self) -> Option<Price> {
+        self.ask_levels.keys().next().copied()
+    }
+
+    /// Get the mid price (average of best bid and best ask)
+    pub fn mid_price(&self) -> Option<f64> {
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
+        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
+    }
+
+    /// Get the spread (difference between best bid and best ask)
+    pub fn spread(&self) -> Option<u64> {
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
+        Some(best_ask - best_bid)
+    }
+
+    /// Get the best bid volume, if not empty
+    pub fn best_bid_volume(&self) -> Option<Quantity> {
+        self.bid_levels
+            .values()
+            .next_back()
+            .map(|level| level.total_quantity())
+    }
+
+    /// Get the best ask volume, if not empty
+    pub fn best_ask_volume(&self) -> Option<Quantity> {
+        self.ask_levels
+            .values()
+            .next()
+            .map(|level| level.total_quantity())
+    }
+
+    /// Check if the side is empty
+    pub fn is_side_empty(&self, side: Side) -> bool {
+        match side {
+            Side::Buy => self.bid_levels.is_empty(),
+            Side::Sell => self.ask_levels.is_empty(),
+        }
+    }
+
+    /// Check if there is a crossable order at the given limit price
+    pub fn has_crossable_order(&self, taker_side: Side, limit_price: Price) -> bool {
+        match taker_side {
+            Side::Buy => self.best_ask_price().is_some_and(|ask| limit_price >= ask),
+            Side::Sell => self.best_bid_price().is_some_and(|bid| limit_price <= bid),
+        }
+    }
+
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
-    ///
-    /// Included quantities: visible and hidden
     pub fn micro_price(&self) -> Option<f64> {
-        let (best_bid_price, best_bid_level) = self.limit.bid_levels.iter().next_back()?;
-        let (best_ask_price, best_ask_level) = self.limit.ask_levels.iter().next()?;
+        let (best_bid_price, best_bid_level) = self.bid_levels.iter().next_back()?;
+        let (best_ask_price, best_ask_level) = self.ask_levels.iter().next()?;
 
         // Get volumes at best levels
         let bid_volume = best_bid_level.total_quantity();
@@ -34,8 +90,7 @@ impl OrderBook {
 
     /// Get the bid volume for the first N price levels
     pub fn bid_volume(&self, n_levels: usize) -> Quantity {
-        self.limit
-            .bid_levels
+        self.bid_levels
             .values()
             .rev()
             .take(n_levels)
@@ -45,8 +100,7 @@ impl OrderBook {
 
     /// Get the ask volume for the first N price levels
     pub fn ask_volume(&self, n_levels: usize) -> Quantity {
-        self.limit
-            .ask_levels
+        self.ask_levels
             .values()
             .take(n_levels)
             .map(|level| level.total_quantity())
@@ -54,8 +108,6 @@ impl OrderBook {
     }
 
     /// Check if the order book is thin at the given threshold and number of levels
-    ///
-    /// Included quantities: visible and hidden
     pub fn is_thin_book(&self, threshold: Quantity, n_levels: usize) -> bool {
         let bid_volume = self.bid_volume(n_levels);
         let ask_volume = self.ask_volume(n_levels);
@@ -64,8 +116,6 @@ impl OrderBook {
     }
 
     /// Calculate the order book imbalance ratio for the top N levels
-    ///
-    /// Included quantities: visible and hidden
     pub fn order_book_imbalance(&self, n_levels: usize) -> f64 {
         let bid_volume = self.bid_volume(n_levels);
         let ask_volume = self.ask_volume(n_levels);
@@ -80,15 +130,83 @@ impl OrderBook {
     }
 
     /// Compute the depth statistics of price levels (0 n_levels means all levels)
-    ///
-    /// Included quantities: visible and hidden
     pub fn depth_statistics(&self, side: Side, n_levels: usize) -> DepthStatistics {
         DepthStatistics::compute(self, side, n_levels)
     }
+}
+
+impl OrderBook {
+    /// Get the best bid price, if any
+    pub fn best_bid_price(&self) -> Option<Price> {
+        self.limit.best_bid_price()
+    }
+
+    /// Get the best ask price, if any
+    pub fn best_ask_price(&self) -> Option<Price> {
+        self.limit.best_ask_price()
+    }
+
+    /// Get the mid price (average of best bid and best ask)
+    pub fn mid_price(&self) -> Option<f64> {
+        self.limit.mid_price()
+    }
+
+    /// Get the spread (difference between best bid and best ask)
+    pub fn spread(&self) -> Option<u64> {
+        self.limit.spread()
+    }
+
+    /// Get the best bid volume, if not empty
+    pub fn best_bid_volume(&self) -> Option<Quantity> {
+        self.limit.best_bid_volume()
+    }
+
+    /// Get the best ask volume, if not empty
+    pub fn best_ask_volume(&self) -> Option<Quantity> {
+        self.limit.best_ask_volume()
+    }
+
+    /// Check if the side is empty
+    pub fn is_side_empty(&self, side: Side) -> bool {
+        self.limit.is_side_empty(side)
+    }
+
+    /// Check if there is a crossable order at the given limit price
+    pub fn has_crossable_order(&self, taker_side: Side, limit_price: Price) -> bool {
+        self.limit.has_crossable_order(taker_side, limit_price)
+    }
+
+    /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
+    pub fn micro_price(&self) -> Option<f64> {
+        self.limit.micro_price()
+    }
+
+    /// Get the bid volume for the first N price levels
+    pub fn bid_volume(&self, n_levels: usize) -> Quantity {
+        self.limit.bid_volume(n_levels)
+    }
+
+    /// Get the ask volume for the first N price levels
+    pub fn ask_volume(&self, n_levels: usize) -> Quantity {
+        self.limit.ask_volume(n_levels)
+    }
+
+    /// Check if the order book is thin at the given threshold and number of levels
+    pub fn is_thin_book(&self, threshold: Quantity, n_levels: usize) -> bool {
+        self.limit.is_thin_book(threshold, n_levels)
+    }
+
+    /// Calculate the order book imbalance ratio for the top N levels
+    pub fn order_book_imbalance(&self, n_levels: usize) -> f64 {
+        self.limit.order_book_imbalance(n_levels)
+    }
+
+    /// Compute the depth statistics of price levels (0 n_levels means all levels)
+    pub fn depth_statistics(&self, side: Side, n_levels: usize) -> DepthStatistics {
+        self.limit.depth_statistics(side, n_levels)
+    }
 
     /// Compute the buy and sell pressure of the order book
-    ///
-    /// Included quantities: visible, hidden, and peg levels
     pub fn buy_sell_pressure(&self) -> (Quantity, Quantity) {
         let buy_limit_pressure = self.bid_volume(usize::MAX);
         let sell_limit_pressure = self.ask_volume(usize::MAX);
@@ -112,8 +230,6 @@ impl OrderBook {
 
     /// Find the price where cumulative depth reaches the target quantity
     /// Return `None` if the target depth cannot be reached
-    ///
-    /// Included quantities: visible, hidden, and active peg levels
     pub fn price_at_depth(&self, side: Side, depth: Quantity) -> Option<Price> {
         // MidPrice peg level is active if the spread is less than or equal to 1
         let mid_active = self.spread().is_some_and(|spread| spread <= 1);
@@ -168,8 +284,6 @@ impl OrderBook {
 
     /// Calculate the volume-weighted average price (VWAP) for a given quantity
     /// Return `None` if the given quantity is zero or cannot be filled
-    ///
-    /// Included quantities: visible, hidden, and active peg levels
     pub fn vwap(&self, taker_side: Side, quantity: Quantity) -> Option<f64> {
         if quantity.is_zero() {
             return None;
@@ -265,15 +379,533 @@ impl OrderBook {
     }
 
     /// Compute the market impact of a market order
-    ///
-    /// Included quantities: visible, hidden, and active peg levels
     pub fn market_impact(&self, taker_side: Side, quantity: Quantity) -> MarketImpact {
         MarketImpact::compute(self, taker_side, quantity)
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_limit_book {
+    use super::*;
+    use crate::PriceLevel;
+
+    const EPS: f64 = 1e-6;
+
+    fn make_level(visible_qty: Quantity) -> PriceLevel {
+        let mut level = PriceLevel::new();
+        level.visible_quantity = visible_qty;
+        level
+    }
+
+    fn book_with_bids_and_asks(
+        bids: &[(Price, Quantity)],
+        asks: &[(Price, Quantity)],
+    ) -> LimitBook {
+        let mut book = LimitBook::new();
+        for &(price, qty) in bids {
+            book.bid_levels.insert(price, make_level(qty));
+        }
+        for &(price, qty) in asks {
+            book.ask_levels.insert(price, make_level(qty));
+        }
+        book
+    }
+
+    /// Bid 100 (qty 50), Bid 99 (qty 30)
+    /// Ask 101 (qty 40), Ask 102 (qty 60)
+    fn basic_book() -> LimitBook {
+        book_with_bids_and_asks(
+            &[(Price(100), Quantity(50)), (Price(99), Quantity(30))],
+            &[(Price(101), Quantity(40)), (Price(102), Quantity(60))],
+        )
+    }
+
+    // ==================== best_bid_price ====================
+
+    #[test]
+    fn best_bid_price_empty() {
+        let book = LimitBook::new();
+        assert_eq!(book.best_bid_price(), None);
+    }
+
+    #[test]
+    fn best_bid_price_single() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert_eq!(book.best_bid_price(), Some(Price(100)));
+    }
+
+    #[test]
+    fn best_bid_price_returns_highest() {
+        let book = book_with_bids_and_asks(
+            &[
+                (Price(90), Quantity(5)),
+                (Price(100), Quantity(10)),
+                (Price(95), Quantity(7)),
+            ],
+            &[],
+        );
+        assert_eq!(book.best_bid_price(), Some(Price(100)));
+    }
+
+    // ==================== best_ask_price ====================
+
+    #[test]
+    fn best_ask_price_empty() {
+        let book = LimitBook::new();
+        assert_eq!(book.best_ask_price(), None);
+    }
+
+    #[test]
+    fn best_ask_price_single() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.best_ask_price(), Some(Price(200)));
+    }
+
+    #[test]
+    fn best_ask_price_returns_lowest() {
+        let book = book_with_bids_and_asks(
+            &[],
+            &[
+                (Price(210), Quantity(5)),
+                (Price(200), Quantity(10)),
+                (Price(205), Quantity(7)),
+            ],
+        );
+        assert_eq!(book.best_ask_price(), Some(Price(200)));
+    }
+
+    // ==================== mid_price ====================
+
+    #[test]
+    fn mid_price_empty_book() {
+        let book = LimitBook::new();
+        assert_eq!(book.mid_price(), None);
+    }
+
+    #[test]
+    fn mid_price_only_bids() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert_eq!(book.mid_price(), None);
+    }
+
+    #[test]
+    fn mid_price_only_asks() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.mid_price(), None);
+    }
+
+    #[test]
+    fn mid_price_both_sides() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.mid_price(), Some(150.0));
+    }
+
+    #[test]
+    fn mid_price_tight_spread() {
+        let book =
+            book_with_bids_and_asks(&[(Price(99), Quantity(10))], &[(Price(101), Quantity(10))]);
+        assert_eq!(book.mid_price(), Some(100.0));
+    }
+
+    #[test]
+    fn mid_price_odd_spread() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(101), Quantity(10))]);
+        assert_eq!(book.mid_price(), Some(100.5));
+    }
+
+    // ==================== spread ====================
+
+    #[test]
+    fn spread_empty_book() {
+        let book = LimitBook::new();
+        assert_eq!(book.spread(), None);
+    }
+
+    #[test]
+    fn spread_only_bids() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert_eq!(book.spread(), None);
+    }
+
+    #[test]
+    fn spread_only_asks() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.spread(), None);
+    }
+
+    #[test]
+    fn spread_both_sides() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.spread(), Some(100));
+    }
+
+    #[test]
+    fn spread_one_tick() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(101), Quantity(10))]);
+        assert_eq!(book.spread(), Some(1));
+    }
+
+    // ==================== best_bid_volume ====================
+
+    #[test]
+    fn best_bid_volume_empty() {
+        let book = LimitBook::new();
+        assert_eq!(book.best_bid_volume(), None);
+    }
+
+    #[test]
+    fn best_bid_volume_single_level() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(50))], &[]);
+        assert_eq!(book.best_bid_volume(), Some(Quantity(50)));
+    }
+
+    #[test]
+    fn best_bid_volume_multiple_levels() {
+        let book = book_with_bids_and_asks(
+            &[
+                (Price(90), Quantity(30)),
+                (Price(100), Quantity(50)),
+                (Price(95), Quantity(20)),
+            ],
+            &[],
+        );
+        assert_eq!(book.best_bid_volume(), Some(Quantity(50)));
+    }
+
+    // ==================== best_ask_volume ====================
+
+    #[test]
+    fn best_ask_volume_empty() {
+        let book = LimitBook::new();
+        assert_eq!(book.best_ask_volume(), None);
+    }
+
+    #[test]
+    fn best_ask_volume_single_level() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(40))]);
+        assert_eq!(book.best_ask_volume(), Some(Quantity(40)));
+    }
+
+    #[test]
+    fn best_ask_volume_multiple_levels() {
+        let book = book_with_bids_and_asks(
+            &[],
+            &[
+                (Price(200), Quantity(40)),
+                (Price(210), Quantity(60)),
+                (Price(205), Quantity(25)),
+            ],
+        );
+        assert_eq!(book.best_ask_volume(), Some(Quantity(40)));
+    }
+
+    // ==================== is_side_empty ====================
+
+    #[test]
+    fn is_side_empty_both_empty() {
+        let book = LimitBook::new();
+        assert!(book.is_side_empty(Side::Buy));
+        assert!(book.is_side_empty(Side::Sell));
+    }
+
+    #[test]
+    fn is_side_empty_with_bids() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert!(!book.is_side_empty(Side::Buy));
+        assert!(book.is_side_empty(Side::Sell));
+    }
+
+    #[test]
+    fn is_side_empty_with_asks() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert!(book.is_side_empty(Side::Buy));
+        assert!(!book.is_side_empty(Side::Sell));
+    }
+
+    #[test]
+    fn is_side_empty_both_sides() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
+        assert!(!book.is_side_empty(Side::Buy));
+        assert!(!book.is_side_empty(Side::Sell));
+    }
+
+    // ==================== has_crossable_order ====================
+
+    #[test]
+    fn has_crossable_order_empty_book() {
+        let book = LimitBook::new();
+        assert!(!book.has_crossable_order(Side::Buy, Price(100)));
+        assert!(!book.has_crossable_order(Side::Sell, Price(100)));
+    }
+
+    #[test]
+    fn has_crossable_buy_at_ask() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert!(book.has_crossable_order(Side::Buy, Price(200)));
+    }
+
+    #[test]
+    fn has_crossable_buy_above_ask() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert!(book.has_crossable_order(Side::Buy, Price(250)));
+    }
+
+    #[test]
+    fn has_crossable_buy_below_ask() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert!(!book.has_crossable_order(Side::Buy, Price(199)));
+    }
+
+    #[test]
+    fn has_crossable_sell_at_bid() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert!(book.has_crossable_order(Side::Sell, Price(100)));
+    }
+
+    #[test]
+    fn has_crossable_sell_below_bid() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert!(book.has_crossable_order(Side::Sell, Price(50)));
+    }
+
+    #[test]
+    fn has_crossable_sell_above_bid() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert!(!book.has_crossable_order(Side::Sell, Price(101)));
+    }
+
+    #[test]
+    fn has_crossable_order_no_opposite_side() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert!(!book.has_crossable_order(Side::Buy, Price(200)));
+
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert!(!book.has_crossable_order(Side::Sell, Price(100)));
+    }
+
+    // ==================== micro_price ====================
+
+    #[test]
+    fn micro_price_empty_book() {
+        assert!(LimitBook::new().micro_price().is_none());
+    }
+
+    #[test]
+    fn micro_price_balanced_volumes() {
+        let book = book_with_bids_and_asks(
+            &[(Price(100), Quantity(100))],
+            &[(Price(102), Quantity(100))],
+        );
+
+        // Equal volumes => micro_price = midpoint = (100 + 102) / 2 = 101
+        assert!((book.micro_price().unwrap() - 101.0).abs() < EPS);
+    }
+
+    #[test]
+    fn micro_price_imbalanced_toward_bid() {
+        let book = book_with_bids_and_asks(
+            &[(Price(100), Quantity(300))],
+            &[(Price(102), Quantity(100))],
+        );
+
+        // micro = (102 * 300 + 100 * 100) / 400 = (30600 + 10000) / 400 = 101.5
+        assert!((book.micro_price().unwrap() - 101.5).abs() < EPS);
+    }
+
+    #[test]
+    fn micro_price_imbalanced_toward_ask() {
+        let book = book_with_bids_and_asks(
+            &[(Price(100), Quantity(100))],
+            &[(Price(102), Quantity(300))],
+        );
+
+        // micro = (102 * 100 + 100 * 300) / 400 = (10200 + 30000) / 400 = 100.5
+        assert!((book.micro_price().unwrap() - 100.5).abs() < EPS);
+    }
+
+    // ==================== bid_volume and ask_volume ====================
+
+    #[test]
+    fn bid_ask_volumes_empty_book() {
+        let book = LimitBook::new();
+        assert_eq!(book.bid_volume(5), Quantity(0));
+        assert_eq!(book.ask_volume(5), Quantity(0));
+    }
+
+    #[test]
+    fn bid_ask_volumes_n_levels_zero() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(102), Quantity(10))]);
+        assert_eq!(book.bid_volume(0), Quantity(0));
+        assert_eq!(book.ask_volume(0), Quantity(0));
+    }
+
+    #[test]
+    fn bid_ask_volumes_single_level() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(1), Quantity(50));
+        assert_eq!(book.ask_volume(1), Quantity(40));
+    }
+
+    #[test]
+    fn bid_ask_volumes_multiple_levels() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(2), Quantity(80));
+        assert_eq!(book.ask_volume(2), Quantity(100));
+    }
+
+    #[test]
+    fn bid_ask_volumes_exceeding_available_levels() {
+        let book = basic_book();
+        assert_eq!(book.bid_volume(100), Quantity(80));
+        assert_eq!(book.ask_volume(100), Quantity(100));
+    }
+
+    // ==================== is_thin_book ====================
+
+    #[test]
+    fn is_thin_book_empty() {
+        assert!(LimitBook::new().is_thin_book(Quantity(1), 1));
+    }
+
+    #[test]
+    fn is_thin_book_sufficient_depth() {
+        let book = basic_book();
+        // Bid top 2: 80, Ask top 2: 100. Threshold 50 => not thin
+        assert!(!book.is_thin_book(Quantity(50), 2));
+    }
+
+    #[test]
+    fn is_thin_book_one_side_thin() {
+        let book = basic_book();
+        // Bid top 1: 50, Ask top 1: 40. Threshold 45 => ask is thin
+        assert!(book.is_thin_book(Quantity(45), 1));
+    }
+
+    #[test]
+    fn is_thin_book_both_sides_sufficient() {
+        let book = basic_book();
+        // Bid top 1: 50, Ask top 1: 40. Threshold 40 => not thin (both >= 40)
+        assert!(!book.is_thin_book(Quantity(40), 1));
+    }
+
+    #[test]
+    fn is_thin_book_threshold_zero() {
+        assert!(!LimitBook::new().is_thin_book(Quantity(0), 1));
+    }
+
+    // ==================== order_book_imbalance ====================
+
+    #[test]
+    fn order_book_imbalance_empty_book() {
+        assert_eq!(LimitBook::new().order_book_imbalance(5), 0.0);
+    }
+
+    #[test]
+    fn order_book_imbalance_balanced() {
+        let book = book_with_bids_and_asks(
+            &[(Price(100), Quantity(100))],
+            &[(Price(101), Quantity(100))],
+        );
+        assert!((book.order_book_imbalance(1) - 0.0).abs() < EPS);
+    }
+
+    #[test]
+    fn order_book_imbalance_all_bids() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(100))], &[]);
+        assert!((book.order_book_imbalance(1) - 1.0).abs() < EPS);
+    }
+
+    #[test]
+    fn order_book_imbalance_all_asks() {
+        let book = book_with_bids_and_asks(&[], &[(Price(101), Quantity(100))]);
+        assert!((book.order_book_imbalance(1) - (-1.0)).abs() < EPS);
+    }
+
+    #[test]
+    fn order_book_imbalance_multiple_levels() {
+        let book = basic_book();
+        // 1 level: bid=50, ask=40 => (50-40)/90
+        let imb1 = book.order_book_imbalance(1);
+        assert!((imb1 - 10.0 / 90.0).abs() < EPS);
+
+        // 2 levels: bid=80, ask=100 => (80-100)/180
+        let imb2 = book.order_book_imbalance(2);
+        assert!((imb2 - (-20.0 / 180.0)).abs() < EPS);
+    }
+
+    #[test]
+    fn order_book_imbalance_n_levels_zero() {
+        let book = basic_book();
+        assert_eq!(book.order_book_imbalance(0), 0.0);
+    }
+
+    // ==================== depth_statistics ====================
+
+    #[test]
+    fn depth_statistics_empty_book() {
+        let stats = LimitBook::new().depth_statistics(Side::Buy, 5);
+        assert!(stats.is_empty());
+        assert_eq!(stats.n_analyzed_levels(), 0);
+        assert_eq!(stats.total_volume(), Quantity(0));
+        assert_eq!(stats.min_level_size(), Quantity(0));
+        assert_eq!(stats.max_level_size(), Quantity(0));
+    }
+
+    #[test]
+    fn depth_statistics_single_level() {
+        let book = book_with_bids_and_asks(&[(Price(50), Quantity(100))], &[]);
+        let stats = book.depth_statistics(Side::Buy, 1);
+        assert_eq!(stats.n_analyzed_levels(), 1);
+        assert_eq!(stats.total_value(), Notional(5000));
+        assert_eq!(stats.total_volume(), Quantity(100));
+        assert_eq!(stats.min_level_size(), Quantity(100));
+        assert_eq!(stats.max_level_size(), Quantity(100));
+        assert!((stats.average_level_size() - 100.0).abs() < EPS);
+        assert!((stats.std_dev_level_size() - 0.0).abs() < EPS);
+        assert!((stats.vwap() - 50.0).abs() < EPS);
+    }
+
+    #[test]
+    fn depth_statistics_multiple_levels() {
+        let book = basic_book();
+        let stats = book.depth_statistics(Side::Buy, 2);
+        assert_eq!(stats.n_analyzed_levels(), 2);
+        assert_eq!(stats.total_value(), Notional(7970)); // 50 * 100 + 30 * 99
+        assert_eq!(stats.total_volume(), Quantity(80)); // 50 + 30
+        assert_eq!(stats.min_level_size(), Quantity(30));
+        assert_eq!(stats.max_level_size(), Quantity(50));
+        assert!((stats.average_level_size() - 40.0).abs() < EPS);
+    }
+
+    #[test]
+    fn depth_statistics_sell_side() {
+        let book = basic_book();
+        let stats = book.depth_statistics(Side::Sell, 2);
+        assert_eq!(stats.n_analyzed_levels(), 2);
+        assert_eq!(stats.total_value(), Notional(10160)); // 40 * 101 + 60 * 102
+        assert_eq!(stats.total_volume(), Quantity(100)); // 40 + 60
+        assert_eq!(stats.min_level_size(), Quantity(40));
+        assert_eq!(stats.max_level_size(), Quantity(60));
+        assert!((stats.average_level_size() - 50.0).abs() < EPS);
+    }
+
+    #[test]
+    fn depth_statistics_zero_levels_means_all() {
+        let book = basic_book();
+        let stats = book.depth_statistics(Side::Buy, 0);
+        assert_eq!(stats.n_analyzed_levels(), 2);
+        assert_eq!(stats.total_volume(), Quantity(80));
+    }
+}
+
+#[cfg(test)]
+mod tests_order_book {
     use super::*;
     use crate::{
         LimitOrder, OrderFlags, OrderId, PegReference, PeggedOrder, Price, Quantity,
@@ -355,241 +987,6 @@ mod tests {
         book.add_pegged_order(OrderId(12), pegged(PegReference::MidPrice, 15, Side::Buy));
         book.add_pegged_order(OrderId(13), pegged(PegReference::MidPrice, 10, Side::Sell));
         book
-    }
-
-    // ==================== micro_price ====================
-
-    #[test]
-    fn micro_price_empty_book() {
-        assert!(empty_book().micro_price().is_none());
-    }
-
-    #[test]
-    fn micro_price_balanced_volumes() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 100, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(102, 100, Side::Sell));
-
-        // Equal volumes => micro_price = midpoint = (100 + 102) / 2 = 101
-        let mp = book.micro_price().unwrap();
-        assert!((mp - 101.0).abs() < EPS);
-    }
-
-    #[test]
-    fn micro_price_imbalanced_toward_bid() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 300, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(102, 100, Side::Sell));
-
-        // micro = (102 * 300 + 100 * 100) / 400 = (30600 + 10000) / 400 = 101.5
-        let mp = book.micro_price().unwrap();
-        assert!((mp - 101.5).abs() < EPS);
-    }
-
-    #[test]
-    fn micro_price_imbalanced_toward_ask() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 100, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(102, 300, Side::Sell));
-
-        // micro = (102 * 100 + 100 * 300) / 400 = (10200 + 30000) / 400 = 100.5
-        let mp = book.micro_price().unwrap();
-        assert!((mp - 100.5).abs() < EPS);
-    }
-
-    #[test]
-    fn micro_price_includes_hidden_quantity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), iceberg(100, 50, 50, Side::Buy)); // total 100
-        book.add_limit_order(OrderId(1), iceberg(102, 50, 50, Side::Sell)); // total 100
-
-        let mp = book.micro_price().unwrap();
-        assert!((mp - 101.0).abs() < EPS);
-    }
-
-    // ==================== bid_volume and ask_volume ====================
-
-    #[test]
-    fn bid_ask_volumes_empty_book() {
-        let book = empty_book();
-        assert_eq!(book.bid_volume(5), Quantity(0));
-        assert_eq!(book.ask_volume(5), Quantity(0));
-    }
-
-    #[test]
-    fn bid_ask_volumes_n_levels_zero() {
-        let book = basic_book();
-        assert_eq!(book.bid_volume(0), Quantity(0));
-        assert_eq!(book.ask_volume(0), Quantity(0));
-    }
-
-    #[test]
-    fn bid_ask_volumes_single_level() {
-        let book = basic_book();
-        assert_eq!(book.bid_volume(1), Quantity(50));
-        assert_eq!(book.ask_volume(1), Quantity(40));
-    }
-
-    #[test]
-    fn bid_ask_volumes_multiple_levels() {
-        let book = basic_book();
-        assert_eq!(book.bid_volume(2), Quantity(80));
-        assert_eq!(book.ask_volume(2), Quantity(100));
-    }
-
-    #[test]
-    fn bid_ask_volumes_exceeding_available_levels() {
-        let book = basic_book();
-        assert_eq!(book.bid_volume(100), Quantity(80));
-        assert_eq!(book.ask_volume(100), Quantity(100));
-    }
-
-    #[test]
-    fn bid_ask_volumes_includes_hidden() {
-        let book = book_with_hidden();
-        // Bid 100: 50+10=60, Bid 99: 30+20=50 => total = 110
-        assert_eq!(book.bid_volume(2), Quantity(110));
-        // Ask 101: 40+5=45, Ask 102: 60+15=75 => total = 120
-        assert_eq!(book.ask_volume(2), Quantity(120));
-    }
-
-    // ==================== is_thin_book ====================
-
-    #[test]
-    fn is_thin_book_empty() {
-        assert!(empty_book().is_thin_book(Quantity(1), 1));
-    }
-
-    #[test]
-    fn is_thin_book_sufficient_depth() {
-        let book = basic_book();
-        // Bid top 2: 80, Ask top 2: 100. Threshold 50 => not thin
-        assert!(!book.is_thin_book(Quantity(50), 2));
-    }
-
-    #[test]
-    fn is_thin_book_one_side_thin() {
-        let book = basic_book();
-        // Bid top 1: 50, Ask top 1: 40. Threshold 45 => ask is thin
-        assert!(book.is_thin_book(Quantity(45), 1));
-    }
-
-    #[test]
-    fn is_thin_book_both_sides_sufficient() {
-        let book = basic_book();
-        // Bid top 1: 50, Ask top 1: 40. Threshold 40 => not thin (both >= 40)
-        assert!(!book.is_thin_book(Quantity(40), 1));
-    }
-
-    #[test]
-    fn is_thin_book_threshold_zero() {
-        assert!(!empty_book().is_thin_book(Quantity(0), 1));
-    }
-
-    // ==================== order_book_imbalance ====================
-
-    #[test]
-    fn order_book_imbalance_empty_book() {
-        assert_eq!(empty_book().order_book_imbalance(5), 0.0);
-    }
-
-    #[test]
-    fn order_book_imbalance_balanced() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 100, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(101, 100, Side::Sell));
-
-        assert!((book.order_book_imbalance(1) - 0.0).abs() < EPS);
-    }
-
-    #[test]
-    fn order_book_imbalance_all_bids() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 100, Side::Buy));
-
-        assert!((book.order_book_imbalance(1) - 1.0).abs() < EPS);
-    }
-
-    #[test]
-    fn order_book_imbalance_all_asks() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(101, 100, Side::Sell));
-
-        assert!((book.order_book_imbalance(1) - (-1.0)).abs() < EPS);
-    }
-
-    #[test]
-    fn order_book_imbalance_multiple_levels() {
-        let book = basic_book();
-        // 1 level: bid=50, ask=40 => (50-40)/90
-        let imb1 = book.order_book_imbalance(1);
-        assert!((imb1 - 10.0 / 90.0).abs() < EPS);
-
-        // 2 levels: bid=80, ask=100 => (80-100)/180
-        let imb2 = book.order_book_imbalance(2);
-        assert!((imb2 - (-20.0 / 180.0)).abs() < EPS);
-    }
-
-    #[test]
-    fn order_book_imbalance_n_levels_zero() {
-        let book = basic_book();
-        assert_eq!(book.order_book_imbalance(0), 0.0);
-    }
-
-    // ==================== depth_statistics ====================
-
-    #[test]
-    fn depth_statistics_empty_book() {
-        let stats = empty_book().depth_statistics(Side::Buy, 5);
-        assert!(stats.is_empty());
-        assert_eq!(stats.n_analyzed_levels(), 0);
-        assert_eq!(stats.total_volume(), Quantity(0));
-        assert_eq!(stats.min_level_size(), Quantity(0));
-        assert_eq!(stats.max_level_size(), Quantity(0));
-    }
-
-    #[test]
-    fn depth_statistics_single_level() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(50, 100, Side::Buy));
-
-        let stats = book.depth_statistics(Side::Buy, 1);
-        assert_eq!(stats.n_analyzed_levels(), 1);
-        assert_eq!(stats.total_volume(), Quantity(100));
-        assert_eq!(stats.min_level_size(), Quantity(100));
-        assert_eq!(stats.max_level_size(), Quantity(100));
-        assert!((stats.average_level_size() - 100.0).abs() < EPS);
-        assert!((stats.std_dev_level_size() - 0.0).abs() < EPS);
-    }
-
-    #[test]
-    fn depth_statistics_multiple_levels() {
-        let book = basic_book();
-        let stats = book.depth_statistics(Side::Buy, 2);
-        assert_eq!(stats.n_analyzed_levels(), 2);
-        assert_eq!(stats.total_volume(), Quantity(80)); // 50 + 30
-        assert_eq!(stats.min_level_size(), Quantity(30));
-        assert_eq!(stats.max_level_size(), Quantity(50));
-        assert!((stats.average_level_size() - 40.0).abs() < EPS);
-    }
-
-    #[test]
-    fn depth_statistics_sell_side() {
-        let book = basic_book();
-        let stats = book.depth_statistics(Side::Sell, 2);
-        assert_eq!(stats.n_analyzed_levels(), 2);
-        assert_eq!(stats.total_volume(), Quantity(100)); // 40 + 60
-        assert_eq!(stats.min_level_size(), Quantity(40));
-        assert_eq!(stats.max_level_size(), Quantity(60));
-        assert!((stats.average_level_size() - 50.0).abs() < EPS);
-    }
-
-    #[test]
-    fn depth_statistics_zero_levels_means_all() {
-        let book = basic_book();
-        let stats = book.depth_statistics(Side::Buy, 0);
-        assert_eq!(stats.n_analyzed_levels(), 2);
-        assert_eq!(stats.total_volume(), Quantity(80));
     }
 
     // ==================== buy_sell_pressure ====================

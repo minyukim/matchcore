@@ -8,7 +8,7 @@ pub use analytics::*;
 pub use book::*;
 pub use market_data::*;
 
-use crate::{Price, Quantity, SequenceNumber, Side, Timestamp};
+use crate::{Price, SequenceNumber, Timestamp};
 
 use serde::{Deserialize, Serialize};
 
@@ -78,45 +78,5 @@ impl OrderBook {
     /// Get the pegged order book
     pub fn pegged(&self) -> &PeggedBook {
         &self.pegged
-    }
-
-    /// Get the best bid price, if any
-    pub fn best_bid_price(&self) -> Option<Price> {
-        self.limit.best_bid_price()
-    }
-
-    /// Get the best ask price, if any
-    pub fn best_ask_price(&self) -> Option<Price> {
-        self.limit.best_ask_price()
-    }
-
-    /// Get the mid price (average of best bid and best ask)
-    pub fn mid_price(&self) -> Option<f64> {
-        self.limit.mid_price()
-    }
-
-    /// Get the spread (difference between best bid and best ask)
-    pub fn spread(&self) -> Option<u64> {
-        self.limit.spread()
-    }
-
-    /// Get the best bid volume, if not empty
-    pub fn best_bid_volume(&self) -> Option<Quantity> {
-        self.limit.best_bid_volume()
-    }
-
-    /// Get the best ask volume, if not empty
-    pub fn best_ask_volume(&self) -> Option<Quantity> {
-        self.limit.best_ask_volume()
-    }
-
-    /// Check if the side is empty
-    pub fn is_side_empty(&self, side: Side) -> bool {
-        self.limit.is_side_empty(side)
-    }
-
-    /// Check if there is a crossable order at the given limit price
-    pub fn has_crossable_order(&self, taker_side: Side, limit_price: Price) -> bool {
-        self.limit.has_crossable_order(taker_side, limit_price)
     }
 }
