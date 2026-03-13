@@ -13,10 +13,10 @@ pub struct Level1 {
     best_bid_price: Option<Price>,
     /// The best ask price
     best_ask_price: Option<Price>,
-    /// The best bid volume
-    best_bid_volume: Option<Quantity>,
-    /// The best ask volume
-    best_ask_volume: Option<Quantity>,
+    /// The best bid size
+    best_bid_size: Option<Quantity>,
+    /// The best ask size
+    best_ask_size: Option<Quantity>,
 }
 
 impl From<&OrderBook> for Level1 {
@@ -25,8 +25,8 @@ impl From<&OrderBook> for Level1 {
             last_trade_price: book.last_trade_price(),
             best_bid_price: book.best_bid_price(),
             best_ask_price: book.best_ask_price(),
-            best_bid_volume: book.best_bid_volume(),
-            best_ask_volume: book.best_ask_volume(),
+            best_bid_size: book.best_bid_size(),
+            best_ask_size: book.best_ask_size(),
         }
     }
 }
@@ -47,14 +47,14 @@ impl Level1 {
         self.best_ask_price
     }
 
-    /// Get the best bid volume, if not empty
-    pub fn best_bid_volume(&self) -> Option<Quantity> {
-        self.best_bid_volume
+    /// Get the best bid size, if not empty
+    pub fn best_bid_size(&self) -> Option<Quantity> {
+        self.best_bid_size
     }
 
-    /// Get the best ask volume, if not empty
-    pub fn best_ask_volume(&self) -> Option<Quantity> {
-        self.best_ask_volume
+    /// Get the best ask size, if not empty
+    pub fn best_ask_size(&self) -> Option<Quantity> {
+        self.best_ask_size
     }
 
     /// Get the mid price (average of best bid and best ask)
@@ -75,18 +75,18 @@ impl Level1 {
     pub fn micro_price(&self) -> Option<f64> {
         let best_bid_price = self.best_bid_price()?;
         let best_ask_price = self.best_ask_price()?;
-        let best_bid_volume = self.best_bid_volume()?;
-        let best_ask_volume = self.best_ask_volume()?;
+        let best_bid_size = self.best_bid_size()?;
+        let best_ask_size = self.best_ask_size()?;
 
-        let total_volume = best_bid_volume.saturating_add(best_ask_volume);
+        let total_size = best_bid_size.saturating_add(best_ask_size);
 
-        if total_volume.is_zero() {
+        if total_size.is_zero() {
             return None;
         }
 
-        // micro_price = (ask_price * bid_volume + bid_price * ask_volume) / (bid_volume + ask_volume)
-        let numerator = (best_ask_price * best_bid_volume) + (best_bid_price * best_ask_volume);
-        let denominator = total_volume;
+        // micro_price = (ask_price * bid_size + bid_price * ask_size) / (bid_size + ask_size)
+        let numerator = (best_ask_price * best_bid_size) + (best_bid_price * best_ask_size);
+        let denominator = total_size;
 
         Some(numerator / denominator)
     }
@@ -118,14 +118,14 @@ impl fmt::Display for Level1 {
         writeln!(
             f,
             "Best Bid Volume: {}",
-            self.best_bid_volume()
+            self.best_bid_size()
                 .map(|q| q.to_string())
                 .unwrap_or("None".to_string())
         )?;
         writeln!(
             f,
             "Best Ask Volume: {}",
-            self.best_ask_volume()
+            self.best_ask_size()
                 .map(|q| q.to_string())
                 .unwrap_or("None".to_string())
         )?;
@@ -145,8 +145,8 @@ mod tests {
             last_trade_price: None,
             best_bid_price: None,
             best_ask_price: None,
-            best_bid_volume: None,
-            best_ask_volume: None,
+            best_bid_size: None,
+            best_ask_size: None,
         }
     }
 
@@ -155,8 +155,8 @@ mod tests {
             last_trade_price: Some(Price(150)),
             best_bid_price: Some(Price(100)),
             best_ask_price: Some(Price(200)),
-            best_bid_volume: Some(Quantity(500)),
-            best_ask_volume: Some(Quantity(300)),
+            best_bid_size: Some(Quantity(500)),
+            best_ask_size: Some(Quantity(300)),
         }
     }
 
@@ -167,8 +167,8 @@ mod tests {
         assert_eq!(l1.last_trade_price(), None);
         assert_eq!(l1.best_bid_price(), None);
         assert_eq!(l1.best_ask_price(), None);
-        assert_eq!(l1.best_bid_volume(), None);
-        assert_eq!(l1.best_ask_volume(), None);
+        assert_eq!(l1.best_bid_size(), None);
+        assert_eq!(l1.best_ask_size(), None);
     }
 
     #[test]
@@ -177,8 +177,8 @@ mod tests {
         assert_eq!(l1.last_trade_price(), None);
         assert_eq!(l1.best_bid_price(), None);
         assert_eq!(l1.best_ask_price(), None);
-        assert_eq!(l1.best_bid_volume(), None);
-        assert_eq!(l1.best_ask_volume(), None);
+        assert_eq!(l1.best_bid_size(), None);
+        assert_eq!(l1.best_ask_size(), None);
     }
 
     #[test]
@@ -187,8 +187,8 @@ mod tests {
         assert_eq!(l1.last_trade_price(), Some(Price(150)));
         assert_eq!(l1.best_bid_price(), Some(Price(100)));
         assert_eq!(l1.best_ask_price(), Some(Price(200)));
-        assert_eq!(l1.best_bid_volume(), Some(Quantity(500)));
-        assert_eq!(l1.best_ask_volume(), Some(Quantity(300)));
+        assert_eq!(l1.best_bid_size(), Some(Quantity(500)));
+        assert_eq!(l1.best_ask_size(), Some(Quantity(300)));
     }
 
     #[test]
@@ -291,16 +291,16 @@ mod tests {
     }
 
     #[test]
-    fn test_micro_price_balanced_volumes() {
+    fn test_micro_price_balanced_sizes() {
         let l1 = Level1 {
             best_bid_price: Some(Price(100)),
             best_ask_price: Some(Price(102)),
-            best_bid_volume: Some(Quantity(100)),
-            best_ask_volume: Some(Quantity(100)),
+            best_bid_size: Some(Quantity(100)),
+            best_ask_size: Some(Quantity(100)),
             ..empty_level1()
         };
 
-        // Equal volumes => micro_price = midpoint = (100 + 102) / 2 = 101
+        // Equal sizes => micro_price = midpoint = (100 + 102) / 2 = 101
         let mp = l1.micro_price().unwrap();
         assert!((mp - 101.0).abs() < EPS);
     }
@@ -310,8 +310,8 @@ mod tests {
         let l1 = Level1 {
             best_bid_price: Some(Price(100)),
             best_ask_price: Some(Price(102)),
-            best_bid_volume: Some(Quantity(300)),
-            best_ask_volume: Some(Quantity(100)),
+            best_bid_size: Some(Quantity(300)),
+            best_ask_size: Some(Quantity(100)),
             ..empty_level1()
         };
 
@@ -325,8 +325,8 @@ mod tests {
         let l1 = Level1 {
             best_bid_price: Some(Price(100)),
             best_ask_price: Some(Price(102)),
-            best_bid_volume: Some(Quantity(100)),
-            best_ask_volume: Some(Quantity(300)),
+            best_bid_size: Some(Quantity(100)),
+            best_ask_size: Some(Quantity(300)),
             ..empty_level1()
         };
 

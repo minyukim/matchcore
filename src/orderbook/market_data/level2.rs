@@ -56,14 +56,14 @@ impl Level2 {
         self.ask_levels().first().map(|(price, _)| *price)
     }
 
-    /// Get the best bid volume, if not empty
-    pub fn best_bid_volume(&self) -> Option<Quantity> {
-        self.bid_levels().first().map(|(_, volume)| *volume)
+    /// Get the best bid size, if not empty
+    pub fn best_bid_size(&self) -> Option<Quantity> {
+        self.bid_levels().first().map(|(_, size)| *size)
     }
 
-    /// Get the best ask volume, if not empty
-    pub fn best_ask_volume(&self) -> Option<Quantity> {
-        self.ask_levels().first().map(|(_, volume)| *volume)
+    /// Get the best ask size, if not empty
+    pub fn best_ask_size(&self) -> Option<Quantity> {
+        self.ask_levels().first().map(|(_, size)| *size)
     }
 
     /// Get the mid price (average of best bid and best ask)
@@ -84,60 +84,60 @@ impl Level2 {
     pub fn micro_price(&self) -> Option<f64> {
         let best_bid_price = self.best_bid_price()?;
         let best_ask_price = self.best_ask_price()?;
-        let best_bid_volume = self.best_bid_volume()?;
-        let best_ask_volume = self.best_ask_volume()?;
+        let best_bid_size = self.best_bid_size()?;
+        let best_ask_size = self.best_ask_size()?;
 
-        let total_volume = best_bid_volume.saturating_add(best_ask_volume);
+        let total_size = best_bid_size.saturating_add(best_ask_size);
 
-        if total_volume.is_zero() {
+        if total_size.is_zero() {
             return None;
         }
 
-        // micro_price = (ask_price * bid_volume + bid_price * ask_volume) / (bid_volume + ask_volume)
-        let numerator = (best_ask_price * best_bid_volume) + (best_bid_price * best_ask_volume);
-        let denominator = total_volume;
+        // micro_price = (ask_price * bid_size + bid_price * ask_size) / (bid_size + ask_size)
+        let numerator = (best_ask_price * best_bid_size) + (best_bid_price * best_ask_size);
+        let denominator = total_size;
 
         Some(numerator / denominator)
     }
 
-    /// Get the bid volume for the first N price levels
-    pub fn bid_volume(&self, n_levels: usize) -> Quantity {
+    /// Get the bid size for the first N price levels
+    pub fn bid_size(&self, n_levels: usize) -> Quantity {
         self.bid_levels()
             .iter()
             .take(n_levels)
-            .map(|(_, volume)| *volume)
+            .map(|(_, size)| *size)
             .sum::<Quantity>()
     }
 
-    /// Get the ask volume for the first N price levels
-    pub fn ask_volume(&self, n_levels: usize) -> Quantity {
+    /// Get the ask size for the first N price levels
+    pub fn ask_size(&self, n_levels: usize) -> Quantity {
         self.ask_levels()
             .iter()
             .take(n_levels)
-            .map(|(_, volume)| *volume)
+            .map(|(_, size)| *size)
             .sum::<Quantity>()
     }
 
     /// Check if the order book is thin at the given threshold and number of levels
     pub fn is_thin_book(&self, threshold: Quantity, n_levels: usize) -> bool {
-        let bid_volume = self.bid_volume(n_levels);
-        let ask_volume = self.ask_volume(n_levels);
+        let bid_size = self.bid_size(n_levels);
+        let ask_size = self.ask_size(n_levels);
 
-        bid_volume < threshold || ask_volume < threshold
+        bid_size < threshold || ask_size < threshold
     }
 
     /// Calculate the order book imbalance ratio for the top N levels
     pub fn order_book_imbalance(&self, n_levels: usize) -> f64 {
-        let bid_volume = self.bid_volume(n_levels);
-        let ask_volume = self.ask_volume(n_levels);
+        let bid_size = self.bid_size(n_levels);
+        let ask_size = self.ask_size(n_levels);
 
-        let total_volume = bid_volume.saturating_add(ask_volume);
+        let total_size = bid_size.saturating_add(ask_size);
 
-        if total_volume.is_zero() {
+        if total_size.is_zero() {
             return 0.0;
         }
 
-        (bid_volume.as_f64() - ask_volume.as_f64()) / total_volume.as_f64()
+        (bid_size.as_f64() - ask_size.as_f64()) / total_size.as_f64()
     }
 
     /// Compute the depth statistics of price levels (0 n_levels means all levels)
@@ -340,23 +340,23 @@ mod tests {
     }
 
     #[test]
-    fn best_bid_volume_empty() {
-        assert_eq!(empty_l2().best_bid_volume(), None);
+    fn best_bid_size_empty() {
+        assert_eq!(empty_l2().best_bid_size(), None);
     }
 
     #[test]
-    fn best_bid_volume_populated() {
-        assert_eq!(basic_l2().best_bid_volume(), Some(Quantity(50)));
+    fn best_bid_size_populated() {
+        assert_eq!(basic_l2().best_bid_size(), Some(Quantity(50)));
     }
 
     #[test]
-    fn best_ask_volume_empty() {
-        assert_eq!(empty_l2().best_ask_volume(), None);
+    fn best_ask_size_empty() {
+        assert_eq!(empty_l2().best_ask_size(), None);
     }
 
     #[test]
-    fn best_ask_volume_populated() {
-        assert_eq!(basic_l2().best_ask_volume(), Some(Quantity(40)));
+    fn best_ask_size_populated() {
+        assert_eq!(basic_l2().best_ask_size(), Some(Quantity(40)));
     }
 
     // ==================== mid_price ====================
@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn micro_price_equal_volumes() {
+    fn micro_price_equal_sizes() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(OrderId(0), standard(100, 10, Side::Buy));
         book.add_limit_order(OrderId(1), standard(102, 10, Side::Sell));
@@ -435,36 +435,36 @@ mod tests {
         assert!(micro < mid);
     }
 
-    // ==================== bid_volume / ask_volume ====================
+    // ==================== bid_size / ask_size ====================
 
     #[test]
-    fn bid_volume_all_levels() {
-        assert_eq!(basic_l2().bid_volume(10), Quantity(80));
+    fn bid_size_all_levels() {
+        assert_eq!(basic_l2().bid_size(10), Quantity(80));
     }
 
     #[test]
-    fn bid_volume_top_one() {
-        assert_eq!(basic_l2().bid_volume(1), Quantity(50));
+    fn bid_size_top_one() {
+        assert_eq!(basic_l2().bid_size(1), Quantity(50));
     }
 
     #[test]
-    fn bid_volume_zero_levels() {
-        assert_eq!(basic_l2().bid_volume(0), Quantity(0));
+    fn bid_size_zero_levels() {
+        assert_eq!(basic_l2().bid_size(0), Quantity(0));
     }
 
     #[test]
-    fn ask_volume_all_levels() {
-        assert_eq!(basic_l2().ask_volume(10), Quantity(100));
+    fn ask_size_all_levels() {
+        assert_eq!(basic_l2().ask_size(10), Quantity(100));
     }
 
     #[test]
-    fn ask_volume_top_one() {
-        assert_eq!(basic_l2().ask_volume(1), Quantity(40));
+    fn ask_size_top_one() {
+        assert_eq!(basic_l2().ask_size(1), Quantity(40));
     }
 
     #[test]
-    fn ask_volume_empty() {
-        assert_eq!(empty_l2().ask_volume(5), Quantity(0));
+    fn ask_size_empty() {
+        assert_eq!(empty_l2().ask_size(5), Quantity(0));
     }
 
     // ==================== is_thin_book ====================
@@ -522,7 +522,7 @@ mod tests {
     fn depth_statistics_bid_side() {
         let stats = basic_l2().depth_statistics(Side::Buy, 0);
         assert_eq!(stats.n_analyzed_levels(), 2);
-        assert_eq!(stats.total_volume(), Quantity(80));
+        assert_eq!(stats.total_size(), Quantity(80));
         assert_eq!(stats.min_level_size(), Quantity(30));
         assert_eq!(stats.max_level_size(), Quantity(50));
     }
@@ -531,7 +531,7 @@ mod tests {
     fn depth_statistics_ask_side() {
         let stats = basic_l2().depth_statistics(Side::Sell, 0);
         assert_eq!(stats.n_analyzed_levels(), 2);
-        assert_eq!(stats.total_volume(), Quantity(100));
+        assert_eq!(stats.total_size(), Quantity(100));
         assert_eq!(stats.min_level_size(), Quantity(40));
         assert_eq!(stats.max_level_size(), Quantity(60));
     }
@@ -540,14 +540,14 @@ mod tests {
     fn depth_statistics_limited_levels() {
         let stats = basic_l2().depth_statistics(Side::Buy, 1);
         assert_eq!(stats.n_analyzed_levels(), 1);
-        assert_eq!(stats.total_volume(), Quantity(50));
+        assert_eq!(stats.total_size(), Quantity(50));
     }
 
     #[test]
     fn depth_statistics_empty() {
         let stats = empty_l2().depth_statistics(Side::Buy, 0);
         assert!(stats.is_empty());
-        assert_eq!(stats.total_volume(), Quantity(0));
+        assert_eq!(stats.total_size(), Quantity(0));
     }
 
     // ==================== price_at_depth ====================
