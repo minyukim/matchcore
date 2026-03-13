@@ -103,34 +103,23 @@ impl fmt::Display for Level1 {
                 .map(|p| p.to_string())
                 .unwrap_or("None".to_string())
         )?;
+
         writeln!(
             f,
-            "Best Bid Price: {}",
-            self.best_bid_price()
-                .map(|p| p.to_string())
+            "Best Ask: {}",
+            self.best_ask()
+                .map(|(p, q)| format!("{} x {}", p, q))
                 .unwrap_or("None".to_string())
         )?;
+
         writeln!(
             f,
-            "Best Ask Price: {}",
-            self.best_ask_price()
-                .map(|p| p.to_string())
+            "Best Bid: {}",
+            self.best_bid()
+                .map(|(p, q)| format!("{} x {}", p, q))
                 .unwrap_or("None".to_string())
         )?;
-        writeln!(
-            f,
-            "Best Bid Volume: {}",
-            self.best_bid_size()
-                .map(|q| q.to_string())
-                .unwrap_or("None".to_string())
-        )?;
-        writeln!(
-            f,
-            "Best Ask Volume: {}",
-            self.best_ask_size()
-                .map(|q| q.to_string())
-                .unwrap_or("None".to_string())
-        )?;
+
         Ok(())
     }
 }
@@ -319,14 +308,14 @@ mod tests {
         println!("{}", l1);
         assert_eq!(
             l1.to_string(),
-            "Last Trade Price: None\nBest Bid Price: None\nBest Ask Price: None\nBest Bid Volume: None\nBest Ask Volume: None\n"
+            "Last Trade Price: None\nBest Ask: None\nBest Bid: None\n"
         );
 
         let l1 = populated_level1();
         println!("{}", l1);
         assert_eq!(
             l1.to_string(),
-            "Last Trade Price: 150\nBest Bid Price: 100\nBest Ask Price: 200\nBest Bid Volume: 500\nBest Ask Volume: 300\n"
+            "Last Trade Price: 150\nBest Ask: 200 x 300\nBest Bid: 100 x 500\n"
         );
     }
 }
