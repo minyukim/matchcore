@@ -55,7 +55,7 @@ fn main() {
     println!("Mid price: {}", l1.mid_price().unwrap());
     println!("Micro price: {}", l1.micro_price().unwrap());
 
-    println!("");
+    println!();
 
     let l2: Level2 = Level2::from(&book);
     println!("#################### Level 2 ####################");
@@ -65,17 +65,17 @@ fn main() {
     println!("Mid price: {}", l2.mid_price().unwrap());
     println!("Micro price: {}", l2.micro_price().unwrap());
 
-    println!("");
+    println!();
 
     println!("Bid size: {}", l2.bid_size(10));
     println!("Ask size: {}", l2.ask_size(10));
 
-    println!("");
+    println!();
 
     println!("Is thin book: {}", l2.is_thin_book(Quantity(100), 10));
     println!("Order book imbalance: {}", l2.order_book_imbalance(10));
 
-    println!("");
+    println!();
 
     let bid_depth_stats = l2.depth_statistics(Side::Buy, 10);
     println!(
@@ -102,7 +102,7 @@ fn main() {
         ask_depth_stats.vwap()
     );
 
-    println!("");
+    println!();
 
     println!(
         "Bid price at depth: {}",
@@ -113,7 +113,7 @@ fn main() {
         l2.price_at_depth(Side::Sell, Quantity(500)).unwrap()
     );
 
-    println!("");
+    println!();
 
     println!("Buy VWAP: {}", l2.vwap(Side::Buy, Quantity(500)).unwrap());
     println!("Sell VWAP: {}", l2.vwap(Side::Sell, Quantity(500)).unwrap());

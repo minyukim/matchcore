@@ -52,22 +52,22 @@ fn main() {
     let best_ask = book.best_ask().unwrap();
     println!("Best ask: {} x {}", best_ask.0, best_ask.1);
 
-    println!("");
+    println!();
 
     println!("Best bid price: {}", book.best_bid_price().unwrap());
     println!("Best ask price: {}", book.best_ask_price().unwrap());
 
-    println!("");
+    println!();
 
     println!("Best bid size: {}", book.best_bid_size().unwrap());
     println!("Best ask size: {}", book.best_ask_size().unwrap());
 
-    println!("");
+    println!();
 
     println!("Is bid side empty: {}", book.is_side_empty(Side::Buy));
     println!("Is ask side empty: {}", book.is_side_empty(Side::Sell));
 
-    println!("");
+    println!();
 
     println!(
         "Has crossable ask order: {}",
@@ -78,23 +78,23 @@ fn main() {
         book.has_crossable_order(Side::Sell, Price(100))
     );
 
-    println!("");
+    println!();
 
     println!("Spread: {}", book.spread().unwrap());
     println!("Mid price: {}", book.mid_price().unwrap());
     println!("Micro price: {}", book.micro_price().unwrap());
 
-    println!("");
+    println!();
 
     println!("Bid size: {}", book.bid_size(10));
     println!("Ask size: {}", book.ask_size(10));
 
-    println!("");
+    println!();
 
     println!("Is thin book: {}", book.is_thin_book(Quantity(100), 10));
     println!("Order book imbalance: {}", book.order_book_imbalance(10));
 
-    println!("");
+    println!();
 
     let bid_depth_stats = book.depth_statistics(Side::Buy, 10);
     println!(
@@ -121,7 +121,7 @@ fn main() {
         ask_depth_stats.vwap()
     );
 
-    println!("");
+    println!();
 
     let (buy_pressure, sell_pressure) = book.buy_sell_pressure();
     println!(
@@ -129,7 +129,7 @@ fn main() {
         buy_pressure, sell_pressure
     );
 
-    println!("");
+    println!();
 
     println!(
         "Bid price at depth: {}",
@@ -140,7 +140,7 @@ fn main() {
         book.price_at_depth(Side::Sell, Quantity(500)).unwrap()
     );
 
-    println!("");
+    println!();
 
     println!("Buy VWAP: {}", book.vwap(Side::Buy, Quantity(500)).unwrap());
     println!(
@@ -148,7 +148,7 @@ fn main() {
         book.vwap(Side::Sell, Quantity(500)).unwrap()
     );
 
-    println!("");
+    println!();
 
     let buy_market_impact = book.market_impact(Side::Buy, Quantity(500));
     println!(
