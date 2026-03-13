@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use matchcore::{CommandOutcome, CommandReport, OrderId, SequenceNumber, Timestamp};
@@ -36,5 +38,4 @@ pub fn target_order_id(outcome: &CommandOutcome) -> Option<OrderId> {
     }
 }
 
-#[allow(unused)]
 fn main() {}
