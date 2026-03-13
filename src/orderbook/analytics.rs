@@ -8,33 +8,38 @@ use super::{LimitBook, OrderBook};
 use crate::{Notional, PegReference, Price, Quantity, Side};
 
 impl LimitBook {
-    /// Get the best bid price, if any
+    /// Get the best bid price and volume, if exists
+    /// O(1) operation using the last key (highest price) and value in the BTreeMap
+    pub fn best_bid(&self) -> Option<(Price, Quantity)> {
+        self.bid_levels
+            .iter()
+            .next_back()
+            .map(|(price, level)| (*price, level.total_quantity()))
+    }
+
+    /// Get the best ask price and volume, if exists
+    /// O(1) operation using the first key (lowest price) and value in the BTreeMap
+    pub fn best_ask(&self) -> Option<(Price, Quantity)> {
+        self.ask_levels
+            .iter()
+            .next()
+            .map(|(price, level)| (*price, level.total_quantity()))
+    }
+
+    /// Get the best bid price, if exists
     /// O(1) operation using the last key (highest price) in the BTreeMap
     pub fn best_bid_price(&self) -> Option<Price> {
         self.bid_levels.keys().next_back().copied()
     }
 
-    /// Get the best ask price, if any
+    /// Get the best ask price, if exists
     /// O(1) operation using the first key (lowest price) in the BTreeMap
     pub fn best_ask_price(&self) -> Option<Price> {
         self.ask_levels.keys().next().copied()
     }
 
-    /// Get the mid price (average of best bid and best ask)
-    pub fn mid_price(&self) -> Option<f64> {
-        let best_bid = self.best_bid_price()?;
-        let best_ask = self.best_ask_price()?;
-        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
-    }
-
-    /// Get the spread (difference between best bid and best ask)
-    pub fn spread(&self) -> Option<u64> {
-        let best_bid = self.best_bid_price()?;
-        let best_ask = self.best_ask_price()?;
-        Some(best_ask - best_bid)
-    }
-
-    /// Get the best bid volume, if not empty
+    /// Get the best bid volume, if exists
+    /// O(1) operation using the last value (highest price) in the BTreeMap
     pub fn best_bid_volume(&self) -> Option<Quantity> {
         self.bid_levels
             .values()
@@ -42,14 +47,14 @@ impl LimitBook {
             .map(|level| level.total_quantity())
     }
 
-    /// Get the best ask volume, if not empty
+    /// Get the best ask volume, if exists
+    /// O(1) operation using the first value (lowest price) in the BTreeMap
     pub fn best_ask_volume(&self) -> Option<Quantity> {
         self.ask_levels
             .values()
             .next()
             .map(|level| level.total_quantity())
     }
-
     /// Check if the side is empty
     pub fn is_side_empty(&self, side: Side) -> bool {
         match side {
@@ -64,6 +69,20 @@ impl LimitBook {
             Side::Buy => self.best_ask_price().is_some_and(|ask| limit_price >= ask),
             Side::Sell => self.best_bid_price().is_some_and(|bid| limit_price <= bid),
         }
+    }
+
+    /// Get the spread (difference between best bid and best ask)
+    pub fn spread(&self) -> Option<u64> {
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
+        Some(best_ask - best_bid)
+    }
+
+    /// Get the mid price (average of best bid and best ask)
+    pub fn mid_price(&self) -> Option<f64> {
+        let best_bid = self.best_bid_price()?;
+        let best_ask = self.best_ask_price()?;
+        Some((best_bid.as_f64() + best_ask.as_f64()) / 2.0)
     }
 
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
@@ -136,32 +155,32 @@ impl LimitBook {
 }
 
 impl OrderBook {
-    /// Get the best bid price, if any
+    /// Get the best bid price and volume, if exists
+    pub fn best_bid(&self) -> Option<(Price, Quantity)> {
+        self.limit.best_bid()
+    }
+
+    /// Get the best ask price and volume, if exists
+    pub fn best_ask(&self) -> Option<(Price, Quantity)> {
+        self.limit.best_ask()
+    }
+
+    /// Get the best bid price, if exists
     pub fn best_bid_price(&self) -> Option<Price> {
         self.limit.best_bid_price()
     }
 
-    /// Get the best ask price, if any
+    /// Get the best ask price, if exists
     pub fn best_ask_price(&self) -> Option<Price> {
         self.limit.best_ask_price()
     }
 
-    /// Get the mid price (average of best bid and best ask)
-    pub fn mid_price(&self) -> Option<f64> {
-        self.limit.mid_price()
-    }
-
-    /// Get the spread (difference between best bid and best ask)
-    pub fn spread(&self) -> Option<u64> {
-        self.limit.spread()
-    }
-
-    /// Get the best bid volume, if not empty
+    /// Get the best bid volume, if exists
     pub fn best_bid_volume(&self) -> Option<Quantity> {
         self.limit.best_bid_volume()
     }
 
-    /// Get the best ask volume, if not empty
+    /// Get the best ask volume, if exists
     pub fn best_ask_volume(&self) -> Option<Quantity> {
         self.limit.best_ask_volume()
     }
@@ -174,6 +193,16 @@ impl OrderBook {
     /// Check if there is a crossable order at the given limit price
     pub fn has_crossable_order(&self, taker_side: Side, limit_price: Price) -> bool {
         self.limit.has_crossable_order(taker_side, limit_price)
+    }
+
+    /// Get the spread (difference between best bid and best ask)
+    pub fn spread(&self) -> Option<u64> {
+        self.limit.spread()
+    }
+
+    /// Get the mid price (average of best bid and best ask)
+    pub fn mid_price(&self) -> Option<f64> {
+        self.limit.mid_price()
     }
 
     /// Calculate the micro price, which weights the best bid and ask by the opposite side's liquidity
@@ -420,6 +449,60 @@ mod tests_limit_book {
         )
     }
 
+    // ==================== best_bid ====================
+
+    #[test]
+    fn best_bid_empty() {
+        let book = LimitBook::new();
+        assert_eq!(book.best_bid(), None);
+    }
+
+    #[test]
+    fn best_bid_single() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert_eq!(book.best_bid(), Some((Price(100), Quantity(10))));
+    }
+
+    #[test]
+    fn best_bid_multiple() {
+        let book = book_with_bids_and_asks(
+            &[
+                (Price(90), Quantity(5)),
+                (Price(100), Quantity(10)),
+                (Price(95), Quantity(7)),
+            ],
+            &[],
+        );
+        assert_eq!(book.best_bid(), Some((Price(100), Quantity(10))));
+    }
+
+    // ==================== best_ask ====================
+
+    #[test]
+    fn best_ask_empty() {
+        let book = LimitBook::new();
+        assert_eq!(book.best_ask(), None);
+    }
+
+    #[test]
+    fn best_ask_single() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.best_ask(), Some((Price(200), Quantity(10))));
+    }
+
+    #[test]
+    fn best_ask_multiple() {
+        let book = book_with_bids_and_asks(
+            &[],
+            &[
+                (Price(210), Quantity(5)),
+                (Price(200), Quantity(10)),
+                (Price(205), Quantity(7)),
+            ],
+        );
+        assert_eq!(book.best_ask(), Some((Price(200), Quantity(10))));
+    }
+
     // ==================== best_bid_price ====================
 
     #[test]
@@ -472,81 +555,6 @@ mod tests_limit_book {
             ],
         );
         assert_eq!(book.best_ask_price(), Some(Price(200)));
-    }
-
-    // ==================== mid_price ====================
-
-    #[test]
-    fn mid_price_empty_book() {
-        let book = LimitBook::new();
-        assert_eq!(book.mid_price(), None);
-    }
-
-    #[test]
-    fn mid_price_only_bids() {
-        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
-        assert_eq!(book.mid_price(), None);
-    }
-
-    #[test]
-    fn mid_price_only_asks() {
-        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
-        assert_eq!(book.mid_price(), None);
-    }
-
-    #[test]
-    fn mid_price_both_sides() {
-        let book =
-            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
-        assert_eq!(book.mid_price(), Some(150.0));
-    }
-
-    #[test]
-    fn mid_price_tight_spread() {
-        let book =
-            book_with_bids_and_asks(&[(Price(99), Quantity(10))], &[(Price(101), Quantity(10))]);
-        assert_eq!(book.mid_price(), Some(100.0));
-    }
-
-    #[test]
-    fn mid_price_odd_spread() {
-        let book =
-            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(101), Quantity(10))]);
-        assert_eq!(book.mid_price(), Some(100.5));
-    }
-
-    // ==================== spread ====================
-
-    #[test]
-    fn spread_empty_book() {
-        let book = LimitBook::new();
-        assert_eq!(book.spread(), None);
-    }
-
-    #[test]
-    fn spread_only_bids() {
-        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
-        assert_eq!(book.spread(), None);
-    }
-
-    #[test]
-    fn spread_only_asks() {
-        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
-        assert_eq!(book.spread(), None);
-    }
-
-    #[test]
-    fn spread_both_sides() {
-        let book =
-            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
-        assert_eq!(book.spread(), Some(100));
-    }
-
-    #[test]
-    fn spread_one_tick() {
-        let book =
-            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(101), Quantity(10))]);
-        assert_eq!(book.spread(), Some(1));
     }
 
     // ==================== best_bid_volume ====================
@@ -686,6 +694,81 @@ mod tests_limit_book {
 
         let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
         assert!(!book.has_crossable_order(Side::Sell, Price(100)));
+    }
+
+    // ==================== spread ====================
+
+    #[test]
+    fn spread_empty_book() {
+        let book = LimitBook::new();
+        assert_eq!(book.spread(), None);
+    }
+
+    #[test]
+    fn spread_only_bids() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert_eq!(book.spread(), None);
+    }
+
+    #[test]
+    fn spread_only_asks() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.spread(), None);
+    }
+
+    #[test]
+    fn spread_both_sides() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.spread(), Some(100));
+    }
+
+    #[test]
+    fn spread_one_tick() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(101), Quantity(10))]);
+        assert_eq!(book.spread(), Some(1));
+    }
+
+    // ==================== mid_price ====================
+
+    #[test]
+    fn mid_price_empty_book() {
+        let book = LimitBook::new();
+        assert_eq!(book.mid_price(), None);
+    }
+
+    #[test]
+    fn mid_price_only_bids() {
+        let book = book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[]);
+        assert_eq!(book.mid_price(), None);
+    }
+
+    #[test]
+    fn mid_price_only_asks() {
+        let book = book_with_bids_and_asks(&[], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.mid_price(), None);
+    }
+
+    #[test]
+    fn mid_price_both_sides() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(200), Quantity(10))]);
+        assert_eq!(book.mid_price(), Some(150.0));
+    }
+
+    #[test]
+    fn mid_price_tight_spread() {
+        let book =
+            book_with_bids_and_asks(&[(Price(99), Quantity(10))], &[(Price(101), Quantity(10))]);
+        assert_eq!(book.mid_price(), Some(100.0));
+    }
+
+    #[test]
+    fn mid_price_odd_spread() {
+        let book =
+            book_with_bids_and_asks(&[(Price(100), Quantity(10))], &[(Price(101), Quantity(10))]);
+        assert_eq!(book.mid_price(), Some(100.5));
     }
 
     // ==================== micro_price ====================

@@ -43,11 +43,13 @@ fn main() {
         });
     }
 
+    let best_bid = book.best_bid().unwrap();
+    println!("Best bid: {}@{}", best_bid.1, best_bid.0);
+    let best_ask = book.best_ask().unwrap();
+    println!("Best ask: {}@{}", best_ask.1, best_ask.0);
+
     println!("Best bid price: {}", book.best_bid_price().unwrap());
     println!("Best ask price: {}", book.best_ask_price().unwrap());
-
-    println!("Mid price: {}", book.mid_price().unwrap());
-    println!("Spread: {}", book.spread().unwrap());
 
     println!("Best bid volume: {}", book.best_bid_volume().unwrap());
     println!("Best ask volume: {}", book.best_ask_volume().unwrap());
@@ -64,6 +66,8 @@ fn main() {
         book.has_crossable_order(Side::Sell, Price(100))
     );
 
+    println!("Spread: {}", book.spread().unwrap());
+    println!("Mid price: {}", book.mid_price().unwrap());
     println!("Micro price: {}", book.micro_price().unwrap());
 
     println!("Bid volume: {}", book.bid_volume(10));
