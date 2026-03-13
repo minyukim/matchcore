@@ -207,8 +207,6 @@ impl OrderBook {
     }
 
     /// Compute the buy and sell pressure of the order book
-    ///
-    /// Included quantities: visible, hidden, and peg levels
     pub fn buy_sell_pressure(&self) -> (Quantity, Quantity) {
         let buy_limit_pressure = self.bid_volume(usize::MAX);
         let sell_limit_pressure = self.ask_volume(usize::MAX);
@@ -232,8 +230,6 @@ impl OrderBook {
 
     /// Find the price where cumulative depth reaches the target quantity
     /// Return `None` if the target depth cannot be reached
-    ///
-    /// Included quantities: visible, hidden, and active peg levels
     pub fn price_at_depth(&self, side: Side, depth: Quantity) -> Option<Price> {
         // MidPrice peg level is active if the spread is less than or equal to 1
         let mid_active = self.spread().is_some_and(|spread| spread <= 1);
@@ -288,8 +284,6 @@ impl OrderBook {
 
     /// Calculate the volume-weighted average price (VWAP) for a given quantity
     /// Return `None` if the given quantity is zero or cannot be filled
-    ///
-    /// Included quantities: visible, hidden, and active peg levels
     pub fn vwap(&self, taker_side: Side, quantity: Quantity) -> Option<f64> {
         if quantity.is_zero() {
             return None;
@@ -385,8 +379,6 @@ impl OrderBook {
     }
 
     /// Compute the market impact of a market order
-    ///
-    /// Included quantities: visible, hidden, and active peg levels
     pub fn market_impact(&self, taker_side: Side, quantity: Quantity) -> MarketImpact {
         MarketImpact::compute(self, taker_side, quantity)
     }
