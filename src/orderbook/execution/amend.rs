@@ -4,8 +4,7 @@ use crate::{OrderId, Quantity, Side, TimeInForce, command::*, outcome::*};
 use std::cmp::Reverse;
 
 impl OrderBook {
-    /// Execute an amend command against the order book
-    /// Returns the execution report for the command
+    /// Execute an amend command against the order book and return the execution outcome
     pub(super) fn execute_amend(&mut self, meta: CommandMeta, cmd: &AmendCmd) -> CommandOutcome {
         let result = match &cmd.patch {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
@@ -324,7 +323,7 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -336,8 +335,8 @@ mod tests_amend_limit_order {
                 }),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(1));
-        assert!(report.target_order().cancel_reason().is_none());
+        assert_eq!(effects.target_order().order_id(), OrderId(1));
+        assert!(effects.target_order().cancel_reason().is_none());
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
 
         let new_order = book.limit.orders.get(&OrderId(1)).unwrap();
@@ -359,22 +358,17 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
             OrderId(0),
-            LimitOrderPatch::new()
-                .with_price(Price(100))
-                .with_quantity_policy(QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                })
-                .with_time_in_force(TimeInForce::Ioc),
+            LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -397,7 +391,7 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -411,7 +405,7 @@ mod tests_amend_limit_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -433,7 +427,7 @@ mod tests_amend_limit_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -446,7 +440,7 @@ mod tests_amend_limit_order {
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(book.limit.orders.contains_key(&OrderId(0)));
         assert!(!book.limit.expiration_queue.is_empty());
     }
@@ -479,7 +473,7 @@ mod tests_amend_limit_order {
         assert_eq!(level.visible_quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.limit.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -489,7 +483,7 @@ mod tests_amend_limit_order {
             }),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
         let order = book.limit.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.total_quantity(), Quantity(5));
@@ -528,7 +522,7 @@ mod tests_amend_limit_order {
         assert_eq!(level.visible_quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.limit.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -538,7 +532,7 @@ mod tests_amend_limit_order {
             }),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(2));
+        assert_eq!(effects.target_order().order_id(), OrderId(2));
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
 
         let order = book.limit.orders.get(&OrderId(2)).unwrap();
@@ -662,7 +656,7 @@ mod tests_amend_pegged_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -672,7 +666,7 @@ mod tests_amend_pegged_order {
                 .with_quantity(Quantity(10)),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(1));
+        assert_eq!(effects.target_order().order_id(), OrderId(1));
         assert!(!book.pegged.orders.contains_key(&OrderId(0)));
 
         let new_order = book.pegged.orders.get(&OrderId(1)).unwrap();
@@ -692,19 +686,17 @@ mod tests_amend_pegged_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
             OrderId(0),
-            PeggedOrderPatch::new()
-                .with_quantity(Quantity(10))
-                .with_time_in_force(TimeInForce::Ioc),
+            PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -725,7 +717,7 @@ mod tests_amend_pegged_order {
             ),
         );
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             1,
             0,
@@ -735,7 +727,7 @@ mod tests_amend_pegged_order {
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(book.pegged.orders.contains_key(&OrderId(0)));
         assert!(!book.pegged.expiration_queue.is_empty());
     }
@@ -763,7 +755,7 @@ mod tests_amend_pegged_order {
         assert_eq!(level.quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -771,7 +763,7 @@ mod tests_amend_pegged_order {
             PeggedOrderPatch::new().with_quantity(Quantity(5)),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
         let order = book.pegged.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.quantity(), Quantity(5));
@@ -804,7 +796,7 @@ mod tests_amend_pegged_order {
         assert_eq!(level.quantity, Quantity(30));
         assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
 
-        let report = unwrap_amend_effects(amend(
+        let effects = unwrap_amend_effects(amend(
             &mut book,
             2,
             0,
@@ -812,7 +804,7 @@ mod tests_amend_pegged_order {
             PeggedOrderPatch::new().with_quantity(Quantity(20)),
         ));
 
-        assert_eq!(report.target_order().order_id(), OrderId(2));
+        assert_eq!(effects.target_order().order_id(), OrderId(2));
         assert!(!book.pegged.orders.contains_key(&OrderId(0)));
 
         let order = book.pegged.orders.get(&OrderId(2)).unwrap();

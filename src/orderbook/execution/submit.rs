@@ -2,8 +2,7 @@ use super::OrderBook;
 use crate::{command::*, orders::*, outcome::*, types::*};
 
 impl OrderBook {
-    /// Execute a submit command against the order book
-    /// Returns the execution report for the command
+    /// Execute a submit command against the order book and return the execution outcome
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
         let result = match &cmd.order {
             NewOrder::Market(order) => self.submit_market_order(meta.sequence_number, order),
@@ -343,7 +342,7 @@ mod tests_submit_market_order {
     fn cancel_order_on_empty_opposite_side() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -351,13 +350,13 @@ mod tests_submit_market_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(report.target_order().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
     }
 
     #[test]
@@ -376,14 +375,14 @@ mod tests_submit_market_order {
             ),
         );
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
             MarketOrder::new(Quantity(10), Side::Buy, true),
         ));
 
-        let submitted = report.target_order();
+        let submitted = effects.target_order();
         assert_eq!(submitted.order_id(), OrderId(0));
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
@@ -451,7 +450,7 @@ mod tests_submit_limit_order {
     fn cancel_immediate_order_on_non_crossable() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -465,13 +464,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(report.target_order().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
         assert!(book.limit.orders.is_empty());
     }
 
@@ -491,7 +490,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -505,10 +504,10 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::PostOnlyWouldTake)
         );
-        assert!(report.target_order().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
     }
 
     #[test]
@@ -527,7 +526,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -541,13 +540,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(5)
             })
         );
-        assert!(report.target_order().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
         assert_eq!(book.last_trade_price(), None);
     }
 
@@ -566,7 +565,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -579,7 +578,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = report.target_order();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -609,7 +608,7 @@ mod tests_submit_limit_order {
             ),
         );
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             1,
             0,
@@ -622,7 +621,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = report.target_order();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -685,7 +684,7 @@ mod tests_submit_pegged_order {
     fn add_primary_pegged_order_to_book() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -696,17 +695,17 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let id = report.target_order().order_id();
+        let id = effects.target_order().order_id();
         assert!(book.pegged.orders.contains_key(&id));
-        assert!(report.target_order().match_result().is_none());
-        assert!(report.target_order().cancel_reason().is_none());
+        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.target_order().cancel_reason().is_none());
     }
 
     #[test]
     fn cancel_immediate_order_on_empty_opposite_side() {
         let mut book = OrderBook::new("TEST");
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -718,7 +717,7 @@ mod tests_submit_pegged_order {
         ));
 
         assert_eq!(
-            report.target_order().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -743,7 +742,7 @@ mod tests_submit_pegged_order {
             ),
         );
 
-        let report = unwrap_submit_effects(submit(
+        let effects = unwrap_submit_effects(submit(
             &mut book,
             0,
             0,
@@ -754,7 +753,7 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let submitted = report.target_order();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
