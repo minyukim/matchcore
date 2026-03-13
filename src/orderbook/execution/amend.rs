@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{OrderId, Quantity, Side, TimeInForce, command::*, outcome::*};
+use crate::{OrderId, Side, TimeInForce, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
@@ -60,29 +60,11 @@ impl OrderBook {
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
-        if let Some(time_in_force) = patch.time_in_force {
-            match time_in_force {
-                // An existing order cannot be matched immediately while staying at the same level
-                TimeInForce::Ioc | TimeInForce::Fok => {
-                    let requested = order.total_quantity();
-                    self.remove_limit_order(id).unwrap();
-                    return Ok(CommandEffects::new(
-                        OrderOutcome::new(id).with_cancel_reason(
-                            CancelReason::InsufficientLiquidity {
-                                requested,
-                                available: Quantity(0),
-                            },
-                        ),
-                    ));
-                }
-                // New expires at
-                TimeInForce::Gtd(expires_at)
-                    if old_expires_at.is_none_or(|old_expires_at| old_expires_at != expires_at) =>
-                {
-                    self.limit.expiration_queue.push(Reverse((expires_at, id)))
-                }
-                _ => (),
-            }
+        // New expires at
+        if let Some(TimeInForce::Gtd(expires_at)) = patch.time_in_force
+            && old_expires_at.is_none_or(|old| old != expires_at)
+        {
+            self.limit.expiration_queue.push(Reverse((expires_at, id)));
         }
 
         if let Some(quantity_policy) = patch.quantity_policy
@@ -155,29 +137,11 @@ impl OrderBook {
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
-        if let Some(time_in_force) = patch.time_in_force {
-            match time_in_force {
-                // An existing order cannot be matched immediately while staying at the same level
-                TimeInForce::Ioc | TimeInForce::Fok => {
-                    let requested = order.quantity();
-                    self.remove_pegged_order(id).unwrap();
-                    return Ok(CommandEffects::new(
-                        OrderOutcome::new(id).with_cancel_reason(
-                            CancelReason::InsufficientLiquidity {
-                                requested,
-                                available: Quantity(0),
-                            },
-                        ),
-                    ));
-                }
-                // New expires at
-                TimeInForce::Gtd(expires_at)
-                    if old_expires_at.is_none_or(|old_expires_at| old_expires_at != expires_at) =>
-                {
-                    self.pegged.expiration_queue.push(Reverse((expires_at, id)))
-                }
-                _ => (),
-            }
+        // New expires at
+        if let Some(TimeInForce::Gtd(expires_at)) = patch.time_in_force
+            && old_expires_at.is_none_or(|old| old != expires_at)
+        {
+            self.pegged.expiration_queue.push(Reverse((expires_at, id)));
         }
 
         if let Some(quantity) = patch.quantity
@@ -342,75 +306,6 @@ mod tests_amend_limit_order {
         let new_order = book.limit.orders.get(&OrderId(1)).unwrap();
         assert_eq!(new_order.price(), Price(101));
         assert_eq!(new_order.total_quantity(), Quantity(10));
-    }
-
-    #[test]
-    fn cancel_ioc_order_on_insufficient_liquidity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(
-            OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-
-        let effects = unwrap_amend_effects(amend(
-            &mut book,
-            1,
-            0,
-            OrderId(0),
-            LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
-        ));
-
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
-        assert_eq!(
-            effects.target_order().cancel_reason(),
-            Some(&CancelReason::InsufficientLiquidity {
-                requested: Quantity(10),
-                available: Quantity(0)
-            })
-        );
-        assert!(!book.limit.orders.contains_key(&OrderId(0)));
-    }
-
-    #[test]
-    fn cancel_fok_order_on_insufficient_liquidity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(
-            OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-
-        let effects = unwrap_amend_effects(amend(
-            &mut book,
-            1,
-            0,
-            OrderId(0),
-            LimitOrderPatch::new()
-                .with_price(Price(100))
-                .with_quantity_policy(QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                })
-                .with_time_in_force(TimeInForce::Fok),
-        ));
-
-        assert_eq!(
-            effects.target_order().cancel_reason(),
-            Some(&CancelReason::InsufficientLiquidity {
-                requested: Quantity(10),
-                available: Quantity(0)
-            })
-        );
     }
 
     #[test]
@@ -672,37 +567,6 @@ mod tests_amend_pegged_order {
         let new_order = book.pegged.orders.get(&OrderId(1)).unwrap();
         assert_eq!(new_order.peg_reference(), PegReference::Market);
         assert_eq!(new_order.quantity(), Quantity(10));
-    }
-
-    #[test]
-    fn cancel_ioc_order_on_insufficient_liquidity() {
-        let mut book = OrderBook::new("TEST");
-        book.add_pegged_order(
-            OrderId(0),
-            PeggedOrder::new(
-                PegReference::Market,
-                Quantity(10),
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-
-        let effects = unwrap_amend_effects(amend(
-            &mut book,
-            1,
-            0,
-            OrderId(0),
-            PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
-        ));
-
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
-        assert_eq!(
-            effects.target_order().cancel_reason(),
-            Some(&CancelReason::InsufficientLiquidity {
-                requested: Quantity(10),
-                available: Quantity(0)
-            })
-        );
-        assert!(!book.pegged.orders.contains_key(&OrderId(0)));
     }
 
     #[test]

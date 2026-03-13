@@ -81,7 +81,6 @@ impl LimitOrderPatch {
     }
 
     /// Apply the patch to the order if the patch does not conflict with the order
-    #[allow(unused)]
     pub(crate) fn apply(&self, order: &mut LimitOrder) -> Result<(), CommandError> {
         let new_price = self.price.unwrap_or(order.price());
         let new_quantity_policy = self.quantity_policy.unwrap_or(order.quantity_policy());
@@ -94,6 +93,10 @@ impl LimitOrderPatch {
             new_post_only,
             new_time_in_force,
         )?;
+
+        if order.price() == new_price && new_time_in_force.is_immediate() {
+            return Err(CommandError::SameLevelImmediateTif);
+        }
 
         order.update_price(new_price);
         order.update_quantity_policy(new_quantity_policy);
@@ -169,7 +172,6 @@ impl PeggedOrderPatch {
     }
 
     /// Apply the patch to the order if the patch does not conflict with the order
-    #[allow(unused)]
     pub(crate) fn apply(&self, order: &mut PeggedOrder) -> Result<(), CommandError> {
         let new_peg_reference = self.peg_reference.unwrap_or(order.peg_reference());
         let new_quantity = self.quantity.unwrap_or(order.quantity());
@@ -182,6 +184,10 @@ impl PeggedOrderPatch {
             new_post_only,
             new_time_in_force,
         )?;
+
+        if order.peg_reference() == new_peg_reference && new_time_in_force.is_immediate() {
+            return Err(CommandError::SameLevelImmediateTif);
+        }
 
         order.update_peg_reference(new_peg_reference);
         order.update_quantity(new_quantity);
@@ -325,7 +331,7 @@ mod tests {
                     },
                     OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                 ),
-                patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Gtd(Timestamp(100))),
                 expected: Ok(()),
             },
             Case {
@@ -425,6 +431,18 @@ mod tests {
                 ),
                 patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
                 expected: Err(CommandError::IcebergImmediateTif),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order stays at the same level, patch sets immediate TIF",
+                order: LimitOrder::new(
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                ),
+                patch: LimitOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
+                expected: Err(CommandError::SameLevelImmediateTif),
             },
         ];
 
@@ -561,7 +579,7 @@ mod tests {
                     Quantity(10),
                     OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                 ),
-                patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
+                patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Gtd(Timestamp(100))),
                 expected: Ok(()),
             },
             Case {
@@ -639,6 +657,16 @@ mod tests {
                 ),
                 patch: PeggedOrderPatch::new().with_peg_reference(PegReference::Market),
                 expected: Err(CommandError::PeggedAlwaysTakerPostOnly),
+            },
+            Case {
+                name: "valid patch + valid order → invalid: order stays at the same level, patch sets immediate TIF",
+                order: PeggedOrder::new(
+                    PegReference::Market,
+                    Quantity(10),
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                ),
+                patch: PeggedOrderPatch::new().with_time_in_force(TimeInForce::Ioc),
+                expected: Err(CommandError::SameLevelImmediateTif),
             },
         ];
 

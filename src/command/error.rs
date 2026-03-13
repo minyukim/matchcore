@@ -25,6 +25,8 @@ pub enum CommandError {
     EmptyPatch,
     /// The command has expired
     Expired,
+    /// The order stays at the same level but becomes having an immediate time in force
+    SameLevelImmediateTif,
 }
 
 impl fmt::Display for CommandError {
@@ -53,6 +55,12 @@ impl fmt::Display for CommandError {
             }
             CommandError::EmptyPatch => write!(f, "patch is empty"),
             CommandError::Expired => write!(f, "command has expired"),
+            CommandError::SameLevelImmediateTif => {
+                write!(
+                    f,
+                    "order stays at the same level but becomes having an immediate time in force"
+                )
+            }
         }
     }
 }
@@ -87,5 +95,9 @@ mod tests {
         );
         assert_eq!(CommandError::EmptyPatch.to_string(), "patch is empty");
         assert_eq!(CommandError::Expired.to_string(), "command has expired");
+        assert_eq!(
+            CommandError::SameLevelImmediateTif.to_string(),
+            "order stays at the same level but becomes having an immediate time in force"
+        );
     }
 }
