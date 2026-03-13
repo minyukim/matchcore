@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{OrderId, Quantity, Side, TimeInForce, command::*, outcome::*};
+use crate::{OrderId, Side, TimeInForce, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
@@ -60,29 +60,11 @@ impl OrderBook {
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
-        if let Some(time_in_force) = patch.time_in_force {
-            match time_in_force {
-                // An existing order cannot be matched immediately while staying at the same level
-                TimeInForce::Ioc | TimeInForce::Fok => {
-                    let requested = order.total_quantity();
-                    self.remove_limit_order(id).unwrap();
-                    return Ok(CommandEffects::new(
-                        OrderOutcome::new(id).with_cancel_reason(
-                            CancelReason::InsufficientLiquidity {
-                                requested,
-                                available: Quantity(0),
-                            },
-                        ),
-                    ));
-                }
-                // New expires at
-                TimeInForce::Gtd(expires_at)
-                    if old_expires_at.is_none_or(|old_expires_at| old_expires_at != expires_at) =>
-                {
-                    self.limit.expiration_queue.push(Reverse((expires_at, id)))
-                }
-                _ => (),
-            }
+        // New expires at
+        if let Some(TimeInForce::Gtd(expires_at)) = patch.time_in_force
+            && old_expires_at.is_none_or(|old| old != expires_at)
+        {
+            self.limit.expiration_queue.push(Reverse((expires_at, id)));
         }
 
         if let Some(quantity_policy) = patch.quantity_policy
@@ -155,29 +137,11 @@ impl OrderBook {
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
-        if let Some(time_in_force) = patch.time_in_force {
-            match time_in_force {
-                // An existing order cannot be matched immediately while staying at the same level
-                TimeInForce::Ioc | TimeInForce::Fok => {
-                    let requested = order.quantity();
-                    self.remove_pegged_order(id).unwrap();
-                    return Ok(CommandEffects::new(
-                        OrderOutcome::new(id).with_cancel_reason(
-                            CancelReason::InsufficientLiquidity {
-                                requested,
-                                available: Quantity(0),
-                            },
-                        ),
-                    ));
-                }
-                // New expires at
-                TimeInForce::Gtd(expires_at)
-                    if old_expires_at.is_none_or(|old_expires_at| old_expires_at != expires_at) =>
-                {
-                    self.pegged.expiration_queue.push(Reverse((expires_at, id)))
-                }
-                _ => (),
-            }
+        // New expires at
+        if let Some(TimeInForce::Gtd(expires_at)) = patch.time_in_force
+            && old_expires_at.is_none_or(|old| old != expires_at)
+        {
+            self.pegged.expiration_queue.push(Reverse((expires_at, id)));
         }
 
         if let Some(quantity) = patch.quantity
