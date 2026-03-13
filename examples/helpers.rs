@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matchcore::{SequenceNumber, Timestamp};
+use matchcore::{CommandOutcome, CommandReport, OrderId, SequenceNumber, Timestamp};
 
 /// Helper function to get the current timestamp
 /// In real-world scenarios, the timestamp should be in the input event record.
@@ -19,6 +19,20 @@ pub fn sequence_number() -> SequenceNumber {
         let sequence_number = NEXT_SEQUENCE_NUMBER;
         NEXT_SEQUENCE_NUMBER = sequence_number.next();
         sequence_number
+    }
+}
+
+/// Helper function to get the target order ID from the command outcome
+/// Returns `None` if the command was rejected or the order was cancelled
+pub fn target_order_id(outcome: &CommandOutcome) -> Option<OrderId> {
+    match outcome {
+        CommandOutcome::Applied(CommandReport::Submit(command_effects)) => {
+            Some(command_effects.target_order().order_id())
+        }
+        CommandOutcome::Applied(CommandReport::Amend(command_effects)) => {
+            Some(command_effects.target_order().order_id())
+        }
+        _ => None,
     }
 }
 
