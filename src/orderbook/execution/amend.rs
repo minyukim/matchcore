@@ -65,10 +65,12 @@ impl OrderBook {
             match time_in_force {
                 // An existing order cannot be matched immediately while staying at the same level
                 TimeInForce::Ioc | TimeInForce::Fok => {
+                    let requested = order.total_quantity();
                     self.remove_limit_order(id).unwrap();
                     return Ok(CommandEffects::new(
                         OrderOutcome::new(id).with_cancel_reason(
                             CancelReason::InsufficientLiquidity {
+                                requested,
                                 available: Quantity(0),
                             },
                         ),
@@ -158,10 +160,12 @@ impl OrderBook {
             match time_in_force {
                 // An existing order cannot be matched immediately while staying at the same level
                 TimeInForce::Ioc | TimeInForce::Fok => {
+                    let requested = order.quantity();
                     self.remove_pegged_order(id).unwrap();
                     return Ok(CommandEffects::new(
                         OrderOutcome::new(id).with_cancel_reason(
                             CancelReason::InsufficientLiquidity {
+                                requested,
                                 available: Quantity(0),
                             },
                         ),
@@ -372,6 +376,7 @@ mod tests_amend_limit_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -408,6 +413,7 @@ mod tests_amend_limit_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -700,6 +706,7 @@ mod tests_amend_pegged_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );

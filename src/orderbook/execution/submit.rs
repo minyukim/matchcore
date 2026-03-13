@@ -31,6 +31,7 @@ impl OrderBook {
             return Ok(CommandEffects::new(
                 OrderOutcome::new(order_id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
+                        requested: order.quantity(),
                         available: Quantity(0),
                     },
                 ),
@@ -76,6 +77,7 @@ impl OrderBook {
             OrderOutcome::new(order_id)
                 .with_match_result(result)
                 .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                    requested: order.quantity(),
                     available: executed_quantity,
                 }),
         ))
@@ -126,6 +128,7 @@ impl OrderBook {
             if executable_quantity < order.total_quantity() {
                 return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
+                        requested: order.total_quantity(),
                         available: executable_quantity,
                     },
                 ));
@@ -145,6 +148,7 @@ impl OrderBook {
                 OrderOutcome::new(id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested: order.total_quantity(),
                         available: executed_quantity,
                     }),
             );
@@ -184,6 +188,7 @@ impl OrderBook {
         if order.is_immediate() {
             return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                 CancelReason::InsufficientLiquidity {
+                    requested: order.total_quantity(),
                     available: Quantity(0),
                 },
             ));
@@ -235,6 +240,7 @@ impl OrderBook {
             if order.is_immediate() {
                 return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
+                        requested: order.quantity(),
                         available: Quantity(0),
                     },
                 ));
@@ -251,6 +257,7 @@ impl OrderBook {
             if executable_quantity < order.quantity() {
                 return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
                     CancelReason::InsufficientLiquidity {
+                        requested: order.quantity(),
                         available: executable_quantity,
                     },
                 ));
@@ -270,6 +277,7 @@ impl OrderBook {
                 OrderOutcome::new(id)
                     .with_match_result(result)
                     .with_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested: order.quantity(),
                         available: executed_quantity,
                     }),
             );
@@ -345,6 +353,7 @@ mod tests_submit_market_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -458,6 +467,7 @@ mod tests_submit_limit_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
@@ -533,6 +543,7 @@ mod tests_submit_limit_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(5)
             })
         );
@@ -576,6 +587,7 @@ mod tests_submit_limit_order {
         assert_eq!(
             submitted.cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(5)
             })
         );
@@ -708,6 +720,7 @@ mod tests_submit_pegged_order {
         assert_eq!(
             report.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
+                requested: Quantity(10),
                 available: Quantity(0)
             })
         );
