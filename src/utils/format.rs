@@ -1,5 +1,6 @@
 use std::fmt;
 
+/// Write a string with indented lines
 pub(crate) fn write_indented(
     f: &mut fmt::Formatter<'_>,
     s: &str,
