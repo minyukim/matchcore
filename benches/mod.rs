@@ -1,3 +1,7 @@
+//! Benchmarks for the matchcore library
+//!
+//! Run: cargo bench --bench benches
+
 use criterion::{criterion_group, criterion_main};
 
 mod amend;

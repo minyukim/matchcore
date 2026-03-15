@@ -1,9 +1,12 @@
+//! Benchmarks for submitting orders to an order book
+//!
+//! Run: cargo bench --bench benches -- submit
+
 use criterion::Criterion;
 use std::hint::black_box;
 
 use matchcore::*;
 
-/// Benchmarks for submitting orders to an order book
 pub fn benches_submit(c: &mut Criterion) {
     let mut group = c.benchmark_group("submit");
 

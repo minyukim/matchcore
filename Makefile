@@ -31,12 +31,12 @@ lint-fix: 							## Fix linting issues
 	cargo clippy --fix --all-targets --all-features --allow-dirty --allow-staged -- -D warnings
 
 .PHONY: test
-test:								## Run tests
+test:								## Run all tests
 	cargo test --all-features
 
 .PHONY: check
 check: fmt-check lint test build	## Run pre-push checks
 
 .PHONY: bench
-bench:								## Run benchmarks
+bench:								## Run all benchmarks
 	cargo bench --bench benches
