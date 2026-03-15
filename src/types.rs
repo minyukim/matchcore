@@ -1,3 +1,5 @@
+//! Shared types across the matchcore library
+
 mod notional;
 mod peg_reference;
 mod price;
