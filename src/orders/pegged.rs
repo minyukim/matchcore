@@ -20,7 +20,7 @@ pub struct PeggedOrder {
 }
 
 impl PeggedOrder {
-    /// Create a new pegged order specification
+    /// Create a new pegged order
     pub fn new(peg_reference: PegReference, quantity: Quantity, flags: OrderFlags) -> Self {
         Self {
             peg_reference,
@@ -64,7 +64,7 @@ impl PeggedOrder {
         &self.flags
     }
 
-    /// Matches this order against an incoming quantity
+    /// Match this order against an incoming quantity
     ///
     /// Returns the quantity consumed from the incoming order
     pub(crate) fn match_against(&mut self, incoming_quantity: Quantity) -> Quantity {
