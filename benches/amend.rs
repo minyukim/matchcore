@@ -1,9 +1,12 @@
+//! Benchmarks for amending orders in an order book
+//!
+//! Run: cargo bench --bench benches -- amend
+
 use criterion::{BatchSize, Criterion};
 use std::hint::black_box;
 
 use matchcore::*;
 
-/// Benchmarks for amending orders in an order book
 pub fn benches_amend(c: &mut Criterion) {
     let mut group = c.benchmark_group("amend");
 
