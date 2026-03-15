@@ -5,7 +5,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// Represents the effects of a command
+/// Effects from the execution of a command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandEffects {
     /// Outcome of the order that was explicitly targeted by the command
@@ -27,6 +27,7 @@ impl CommandEffects {
         }
     }
 
+    /// Return this command effects with the triggered orders set
     pub(crate) fn with_triggered_orders(mut self, triggered_orders: Vec<OrderOutcome>) -> Self {
         self.triggered_orders = triggered_orders;
         self

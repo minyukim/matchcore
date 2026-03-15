@@ -1,3 +1,8 @@
+//! Outcome specifications for the command execution
+//!
+//! The `CommandOutcome` type is the top-level outcome of the execution of all kinds of commands,
+//! and is the only output produced by the order book.
+
 mod cancel_reason;
 mod command_effects;
 mod command_failure;

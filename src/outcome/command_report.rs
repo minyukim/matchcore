@@ -4,7 +4,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// Represents the report of the command execution
+/// Report from the execution of a command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CommandReport {
     /// The effects of the submission of a new order
