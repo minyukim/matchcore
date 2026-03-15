@@ -75,6 +75,7 @@ impl QuantityPolicy {
     }
 
     /// Replenish the hidden quantity of the order
+    /// Returns the quantity replenished
     pub fn replenish(&mut self) -> Quantity {
         match self {
             QuantityPolicy::Iceberg {

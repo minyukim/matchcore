@@ -15,8 +15,10 @@ pub enum PegReference {
 }
 
 impl PegReference {
+    /// The number of peg reference types
     pub const COUNT: usize = 3;
 
+    /// Convert the peg reference to an index
     #[inline]
     pub const fn as_index(self) -> usize {
         match self {
@@ -26,11 +28,13 @@ impl PegReference {
         }
     }
 
+    /// Whether the peg reference is always a taker
     #[inline]
     pub const fn is_always_taker(self) -> bool {
         matches!(self, PegReference::Market)
     }
 
+    /// Whether the peg reference can be a taker
     #[inline]
     pub const fn can_be_taker(self) -> bool {
         matches!(self, PegReference::Market)
