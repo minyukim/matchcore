@@ -63,8 +63,8 @@ pub fn benches_submit(c: &mut Criterion) {
         b.iter(|| {
             let mut book = OrderBook::new("TEST");
             for command in &commands {
-                let result = book.execute(black_box(command));
-                black_box(result);
+                let outcome = book.execute(black_box(command));
+                black_box(outcome);
             }
             black_box(book);
         })
@@ -127,8 +127,8 @@ pub fn benches_submit(c: &mut Criterion) {
         b.iter(|| {
             let mut book = OrderBook::new("TEST");
             for command in &commands {
-                let result = book.execute(black_box(command));
-                black_box(result);
+                let outcome = book.execute(black_box(command));
+                black_box(outcome);
             }
             black_box(book);
         })
@@ -187,8 +187,8 @@ pub fn benches_submit(c: &mut Criterion) {
         b.iter(|| {
             let mut book = OrderBook::new("TEST");
             for command in &commands {
-                let result = book.execute(black_box(command));
-                black_box(result);
+                let outcome = book.execute(black_box(command));
+                black_box(outcome);
             }
             black_box(book);
         })
@@ -247,8 +247,8 @@ pub fn benches_submit(c: &mut Criterion) {
         b.iter(|| {
             let mut book = OrderBook::new("TEST");
             for command in &commands {
-                let result = book.execute(black_box(command));
-                black_box(result);
+                let outcome = book.execute(black_box(command));
+                black_box(outcome);
             }
             black_box(book);
         })
@@ -305,8 +305,8 @@ pub fn benches_submit(c: &mut Criterion) {
         b.iter(|| {
             let mut book = OrderBook::new("TEST");
             for command in &commands {
-                let result = book.execute(black_box(command));
-                black_box(result);
+                let outcome = book.execute(black_box(command));
+                black_box(outcome);
             }
             black_box(book);
         })
