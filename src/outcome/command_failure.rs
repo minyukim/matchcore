@@ -4,10 +4,11 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// Reason for failing to execute a command
+/// Reason for the command execution failure
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandFailure {
     /// The sequence number of the command is invalid
+    /// This happens when the command is received out of order
     InvalidSequenceNumber {
         /// The expected sequence number
         expected_sequence_number: SequenceNumber,
@@ -15,6 +16,7 @@ pub enum CommandFailure {
         received_sequence_number: SequenceNumber,
     },
     /// The timestamp of the command is invalid
+    /// This happens when the command is received before the last seen timestamp
     InvalidTimestamp {
         /// The last seen timestamp
         last_seen_timestamp: Timestamp,
@@ -22,8 +24,9 @@ pub enum CommandFailure {
         received_timestamp: Timestamp,
     },
     /// The command is invalid
+    /// This happens when the command violates the invariants of a command
     InvalidCommand(CommandError),
-    /// The order was not found
+    /// The order was not found in the order book
     OrderNotFound,
 }
 

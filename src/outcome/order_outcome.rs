@@ -32,7 +32,7 @@ impl OrderOutcome {
         self
     }
 
-    /// Return this order outcome with the reason the order was cancelled set
+    /// Return this order outcome with the cancel reason set
     pub(crate) fn with_cancel_reason(mut self, cancel_reason: CancelReason) -> Self {
         self.cancel_reason = Some(cancel_reason);
         self
@@ -48,7 +48,7 @@ impl OrderOutcome {
         self.match_result.as_ref()
     }
 
-    /// Get the reason the order was cancelled, if it was cancelled
+    /// Get the cancel reason, if the order was cancelled
     pub fn cancel_reason(&self) -> Option<&CancelReason> {
         self.cancel_reason.as_ref()
     }

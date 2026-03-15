@@ -4,7 +4,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// Reason for cancelling an order
+/// Reason for the order cancellation
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelReason {
     /// Insufficient liquidity for immediate orders
