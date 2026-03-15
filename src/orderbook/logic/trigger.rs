@@ -56,6 +56,8 @@ impl OrderBook {
 
             // The post-only order cannot be a taker. Cancel the order.
             if post_only {
+                active_peg_level.quantity -= quantity;
+                active_peg_level.remove_head_order(pegged_orders);
                 outcomes.push(
                     OrderOutcome::new(order_id).with_cancel_reason(CancelReason::PostOnlyWouldTake),
                 );
@@ -75,11 +77,13 @@ impl OrderBook {
             self.last_trade_price = result.last_trade_price();
 
             let remaining = quantity - result.executed_quantity();
+            active_peg_level.quantity -= result.executed_quantity();
+
             if remaining.is_zero() {
                 // The order is fully matched, remove it from the peg level
                 active_peg_level.remove_head_order(pegged_orders);
             } else {
-                // The order is partially matched, update the quantity
+                // The order is partially matched, update the quantity of the order
                 pegged_orders
                     .get_mut(&order_id)
                     .unwrap()
