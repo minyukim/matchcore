@@ -84,7 +84,7 @@ impl LimitOrder {
         &self.flags
     }
 
-    /// Matches this order against an incoming quantity
+    /// Match this order against an incoming quantity
     ///
     /// Returns a tuple containing:
     /// - The quantity consumed from the incoming order

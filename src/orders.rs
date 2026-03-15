@@ -1,3 +1,5 @@
+//! Order specifications for the matchcore library
+
 mod flags;
 mod id;
 mod kind;
