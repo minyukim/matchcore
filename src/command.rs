@@ -1,3 +1,8 @@
+//! Command specifications for the matchcore library
+//!
+//! The `Command` type is the top-level command for all kinds of commands and orders,
+//! and is the only input accepted by the order book.
+
 mod amend;
 mod cancel;
 mod error;
@@ -13,7 +18,7 @@ use crate::{SequenceNumber, Timestamp};
 
 use serde::{Deserialize, Serialize};
 
-/// Represents a top-level command for all command and order kinds
+/// Represents a top-level command for all kinds of commands and orders
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Command {
     /// The common metadata for all command kinds
