@@ -26,16 +26,14 @@ impl OrderOutcome {
         }
     }
 
-    /// Return this order outcome with the match result set
-    pub(crate) fn with_match_result(mut self, match_result: MatchResult) -> Self {
+    /// Set the match result of the order
+    pub(crate) fn set_match_result(&mut self, match_result: MatchResult) {
         self.match_result = Some(match_result);
-        self
     }
 
-    /// Return this order outcome with the cancel reason set
-    pub(crate) fn with_cancel_reason(mut self, cancel_reason: CancelReason) -> Self {
+    /// Set the cancel reason of the order
+    pub(crate) fn set_cancel_reason(&mut self, cancel_reason: CancelReason) {
         self.cancel_reason = Some(cancel_reason);
-        self
     }
 
     /// Get the ID of the order
@@ -103,7 +101,7 @@ mod tests_order_outcome {
             requested: Quantity(100),
             available: Quantity(50),
         };
-        order_outcome = order_outcome.with_cancel_reason(cancel_reason.clone());
+        order_outcome.set_cancel_reason(cancel_reason.clone());
         assert_eq!(order_outcome.cancel_reason(), Some(&cancel_reason));
     }
 
@@ -113,20 +111,20 @@ mod tests_order_outcome {
         assert!(order_outcome.match_result().is_none());
 
         let match_result = MatchResult::new(Side::Buy);
-        order_outcome = order_outcome.with_match_result(match_result);
+        order_outcome.set_match_result(match_result);
         assert!(order_outcome.match_result().is_some());
     }
 
     #[test]
     fn test_display() {
-        let order_outcome = create_order_outcome();
+        let mut order_outcome = create_order_outcome();
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  not matched\n  not cancelled\n"
         );
 
-        let order_outcome = create_order_outcome().with_match_result(MatchResult::new(Side::Buy));
+        order_outcome.set_match_result(MatchResult::new(Side::Buy));
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
@@ -136,30 +134,30 @@ mod tests_order_outcome {
         let mut match_result = MatchResult::new(Side::Buy);
         match_result.add_trade(Trade::new(OrderId(2), Price(99), Quantity(20)));
         match_result.add_trade(Trade::new(OrderId(3), Price(100), Quantity(30)));
-        let order_outcome = create_order_outcome().with_match_result(match_result);
+        order_outcome.set_match_result(match_result);
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  matched: taker_side=BUY executed_quantity=50 executed_value=4980 trades=2\n    maker(2): 20@99\n    maker(3): 30@100\n  not cancelled\n"
         );
 
-        let order_outcome =
-            create_order_outcome().with_cancel_reason(CancelReason::InsufficientLiquidity {
-                requested: Quantity(100),
-                available: Quantity(50),
-            });
+        let mut order_outcome = create_order_outcome();
+        order_outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+            requested: Quantity(100),
+            available: Quantity(50),
+        });
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  not matched\n  cancelled: insufficient liquidity: requested 100, available 50\n"
         );
 
-        let order_outcome = create_order_outcome()
-            .with_match_result(MatchResult::new(Side::Buy))
-            .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                requested: Quantity(100),
-                available: Quantity(50),
-            });
+        let mut order_outcome = create_order_outcome();
+        order_outcome.set_match_result(MatchResult::new(Side::Buy));
+        order_outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+            requested: Quantity(100),
+            available: Quantity(50),
+        });
         println!("{}", order_outcome);
         assert_eq!(
             order_outcome.to_string(),
