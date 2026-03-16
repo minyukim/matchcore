@@ -8,8 +8,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-/// Order book that manages orders and levels.
-/// It supports adding, updating, cancelling, and matching orders.
+/// Pegged order book that manages pegged orders and peg levels.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PeggedBook {
     /// Pegged bid side levels, one for each reference price type
@@ -22,7 +21,7 @@ pub struct PeggedBook {
     pub(crate) orders: HashMap<OrderId, PeggedOrder>,
 
     /// Queue of pegged order IDs to be expired, stored in a min heap of tuples of
-    /// (expires_at, order_id) with O(log N) ordering
+    /// (expires_at, order_id) with O(log N) push and pop
     pub(crate) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 

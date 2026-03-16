@@ -8,8 +8,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-/// Order book that manages orders and levels.
-/// It supports adding, updating, cancelling, and matching orders.
+/// Limit order book that manages limit orders and price levels.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LimitBook {
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
@@ -22,7 +21,7 @@ pub struct LimitBook {
     pub(crate) orders: HashMap<OrderId, LimitOrder>,
 
     /// Queue of limit order IDs to be expired, stored in a min heap of tuples of
-    /// (expires_at, order_id) with O(log N) ordering
+    /// (expires_at, order_id) with O(log N) push and pop
     pub(crate) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 

@@ -1,3 +1,5 @@
+//! Analytics for the order book
+
 mod depth_statistics;
 mod market_impact;
 
@@ -9,7 +11,6 @@ use crate::{Notional, PegReference, Price, Quantity, Side};
 
 impl LimitBook {
     /// Get the best bid price and size, if exists
-    /// O(1) operation using the last key (highest price) and value in the BTreeMap
     pub fn best_bid(&self) -> Option<(Price, Quantity)> {
         self.bid_levels
             .iter()
@@ -18,7 +19,6 @@ impl LimitBook {
     }
 
     /// Get the best ask price and size, if exists
-    /// O(1) operation using the first key (lowest price) and value in the BTreeMap
     pub fn best_ask(&self) -> Option<(Price, Quantity)> {
         self.ask_levels
             .iter()
@@ -27,19 +27,16 @@ impl LimitBook {
     }
 
     /// Get the best bid price, if exists
-    /// O(1) operation using the last key (highest price) in the BTreeMap
     pub fn best_bid_price(&self) -> Option<Price> {
         self.bid_levels.keys().next_back().copied()
     }
 
     /// Get the best ask price, if exists
-    /// O(1) operation using the first key (lowest price) in the BTreeMap
     pub fn best_ask_price(&self) -> Option<Price> {
         self.ask_levels.keys().next().copied()
     }
 
     /// Get the best bid size, if exists
-    /// O(1) operation using the last value (highest price) in the BTreeMap
     pub fn best_bid_size(&self) -> Option<Quantity> {
         self.bid_levels
             .values()
@@ -48,13 +45,13 @@ impl LimitBook {
     }
 
     /// Get the best ask size, if exists
-    /// O(1) operation using the first value (lowest price) in the BTreeMap
     pub fn best_ask_size(&self) -> Option<Quantity> {
         self.ask_levels
             .values()
             .next()
             .map(|level| level.total_quantity())
     }
+
     /// Check if the side is empty
     pub fn is_side_empty(&self, side: Side) -> bool {
         match side {

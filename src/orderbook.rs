@@ -1,3 +1,5 @@
+//! Order book for the matchcore library
+
 mod analytics;
 mod book;
 mod execution;
@@ -12,8 +14,7 @@ use crate::{Price, SequenceNumber, Timestamp};
 
 use serde::{Deserialize, Serialize};
 
-/// Order book that manages orders and levels.
-/// It supports adding, updating, cancelling, and matching orders.
+/// Order book that manages all kinds of orders and levels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderBook {
     /// The symbol for this order book

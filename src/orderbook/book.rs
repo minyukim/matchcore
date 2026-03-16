@@ -1,3 +1,5 @@
+//! Order book components
+
 mod limit_book;
 mod peg_level;
 mod pegged_book;

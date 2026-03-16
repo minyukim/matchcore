@@ -2,8 +2,7 @@ use super::OrderBook;
 use crate::{OrderId, OrderKind, command::*, outcome::*};
 
 impl OrderBook {
-    /// Execute a cancel command against the order book
-    /// Returns the execution report for the command
+    /// Execute a cancel command against the order book and return the execution outcome
     pub(super) fn execute_cancel(&mut self, cmd: &CancelCmd) -> CommandOutcome {
         let result = match &cmd.order_kind {
             OrderKind::Limit => self.cancel_limit_order(cmd.order_id),

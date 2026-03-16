@@ -31,12 +31,12 @@ impl Level1 {
         self.last_trade_price
     }
 
-    /// Get the best bid price and volume, if exists
+    /// Get the best bid price and size, if exists
     pub fn best_bid(&self) -> Option<(Price, Quantity)> {
         self.best_bid
     }
 
-    /// Get the best ask price and volume, if exists
+    /// Get the best ask price and size, if exists
     pub fn best_ask(&self) -> Option<(Price, Quantity)> {
         self.best_ask
     }
