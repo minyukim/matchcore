@@ -5,8 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
 
 /// Price level that manages the status of the orders with the same price.
-/// It does not store the orders themselves, but only the queue of order IDs.
-/// The orders are stored in the `OrderBook` struct for memory efficiency.
+/// It does not store the orders themselves, but only the queue of order IDs for the time-priority.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level

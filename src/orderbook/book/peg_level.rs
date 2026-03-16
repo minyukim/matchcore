@@ -4,23 +4,21 @@ use std::collections::{HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
-/// Maker side array for primary peg reference price
+/// Maker side array for the primary peg reference
 pub(crate) static MAKER_ARRAY_PRIMARY: [PegReference; 1] = [PegReference::Primary];
-/// Maker side array for primary mid price peg reference price
+/// Maker side array for the primary and mid price peg references
 pub(crate) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
     [PegReference::Primary, PegReference::MidPrice];
 
-/// Pegged order level that manages the status of the orders with the same pegged reference price.
-/// Pegged orders do not have hidden quantity.
-/// It does not store the orders themselves, but only the queue of order IDs.
-/// The orders are stored in the `OrderBook` struct for memory efficiency.
+/// Peg level that manages the status of the orders with the same peg reference.
+/// It does not store the orders themselves, but only the queue of order IDs for the time-priority.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
-    /// Total quantity at this pegged order level
+    /// Total quantity at this peg level
     pub(crate) quantity: Quantity,
-    /// Number of orders at this pegged order level
+    /// Number of orders at this peg level
     order_count: u64,
-    /// Queue of order IDs at this pegged order level
+    /// Queue of order IDs at this peg level
     order_ids: VecDeque<OrderId>,
 }
 

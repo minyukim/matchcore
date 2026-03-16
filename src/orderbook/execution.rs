@@ -1,3 +1,5 @@
+//! Execution of commands against the order book
+
 mod amend;
 mod cancel;
 mod submit;
