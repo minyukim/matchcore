@@ -222,14 +222,20 @@ pub(crate) fn match_order(
     let mut remaining_quantity = quantity;
 
     while !remaining_quantity.is_zero() {
-        let best_price = match taker_side {
+        let best_price_and_level = match taker_side {
             // The best price is the lowest price for a buy order (asks)
-            Side::Buy => maker_side_price_levels.keys().next().copied(),
+            Side::Buy => maker_side_price_levels
+                .iter_mut()
+                .next()
+                .map(|(price, level)| (*price, level)),
             // The best price is the highest price for a sell order (bids)
-            Side::Sell => maker_side_price_levels.keys().next_back().copied(),
+            Side::Sell => maker_side_price_levels
+                .iter_mut()
+                .next_back()
+                .map(|(price, level)| (*price, level)),
         };
 
-        let Some(price) = best_price else {
+        let Some((price, price_level)) = best_price_and_level else {
             break;
         };
 
@@ -240,9 +246,6 @@ pub(crate) fn match_order(
                 _ => (),
             }
         }
-
-        // The price level is guaranteed to exist because the best price is not None
-        let price_level = maker_side_price_levels.get_mut(&price).unwrap();
 
         // Iterate over the orders at the price level
         while !remaining_quantity.is_zero() {
@@ -270,7 +273,7 @@ pub(crate) fn match_order(
 
         // Determine the active peg references based on the taker side best price
         // Primary: always active
-        // Market: not active
+        // Market: always inactive
         // MidPrice: active if the price is within 1 of the taker side best price
         let active_peg_references: &[PegReference] = match taker_side_best_price {
             Some(taker_side_best_price) if price.abs_diff(taker_side_best_price) <= 1 => {
