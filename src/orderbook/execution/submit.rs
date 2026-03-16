@@ -26,25 +26,23 @@ impl OrderBook {
 
         let order_id = OrderId::from(sequence_number);
 
+        let mut outcome = OrderOutcome::new(order_id);
+
         if self.is_side_empty(order.side().opposite()) {
-            return Ok(CommandEffects::new(
-                OrderOutcome::new(order_id).with_cancel_reason(
-                    CancelReason::InsufficientLiquidity {
-                        requested: order.quantity(),
-                        available: Quantity(0),
-                    },
-                ),
-            ));
+            outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                requested: order.quantity(),
+                available: Quantity(0),
+            });
+            return Ok(CommandEffects::new(outcome));
         }
 
         let result = self.match_order(order.side(), None, order.quantity());
-
         let executed_quantity = result.executed_quantity();
+        outcome.set_match_result(result);
+
         let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return Ok(CommandEffects::new(
-                OrderOutcome::new(order_id).with_match_result(result),
-            ));
+            return Ok(CommandEffects::new(outcome));
         }
 
         // If the order is a market to limit order and there is a remaining quantity,
@@ -66,20 +64,15 @@ impl OrderBook {
 
             let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
-            return Ok(
-                CommandEffects::new(OrderOutcome::new(order_id).with_match_result(result))
-                    .with_triggered_orders(triggered_orders),
-            );
+            return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
         }
 
-        Ok(CommandEffects::new(
-            OrderOutcome::new(order_id)
-                .with_match_result(result)
-                .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                    requested: order.quantity(),
-                    available: executed_quantity,
-                }),
-        ))
+        outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+            requested: order.quantity(),
+            available: executed_quantity,
+        });
+
+        Ok(CommandEffects::new(outcome))
     }
 
     /// Submit a limit order
@@ -112,10 +105,11 @@ impl OrderBook {
 
     /// Submit a crossable order
     fn submit_crossable_order(&mut self, id: OrderId, order: &LimitOrder) -> CommandEffects {
+        let mut outcome = OrderOutcome::new(id);
+
         if order.post_only() {
-            return CommandEffects::new(
-                OrderOutcome::new(id).with_cancel_reason(CancelReason::PostOnlyWouldTake),
-            );
+            outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
+            return CommandEffects::new(outcome);
         }
 
         if order.time_in_force() == TimeInForce::Fok {
@@ -125,32 +119,29 @@ impl OrderBook {
                 order.total_quantity(),
             );
             if executable_quantity < order.total_quantity() {
-                return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
-                    CancelReason::InsufficientLiquidity {
-                        requested: order.total_quantity(),
-                        available: executable_quantity,
-                    },
-                ));
+                outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                    requested: order.total_quantity(),
+                    available: executable_quantity,
+                });
+                return CommandEffects::new(outcome);
             }
         }
 
         let result = self.match_order(order.side(), None, order.total_quantity());
-
         let executed_quantity = result.executed_quantity();
+        outcome.set_match_result(result);
+
         let remaining_quantity = order.total_quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return CommandEffects::new(OrderOutcome::new(id).with_match_result(result));
+            return CommandEffects::new(outcome);
         }
 
         if order.time_in_force() == TimeInForce::Ioc {
-            return CommandEffects::new(
-                OrderOutcome::new(id)
-                    .with_match_result(result)
-                    .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                        requested: order.total_quantity(),
-                        available: executed_quantity,
-                    }),
-            );
+            outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                requested: order.total_quantity(),
+                available: executed_quantity,
+            });
+            return CommandEffects::new(outcome);
         }
 
         let quantity_policy = match order.quantity_policy() {
@@ -178,26 +169,26 @@ impl OrderBook {
 
         let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
-        CommandEffects::new(OrderOutcome::new(id).with_match_result(result))
-            .with_triggered_orders(triggered_orders)
+        CommandEffects::new(outcome).with_triggered_orders(triggered_orders)
     }
 
     /// Submit a non-crossable order
     fn submit_non_crossable_order(&mut self, id: OrderId, order: &LimitOrder) -> CommandEffects {
+        let mut outcome = OrderOutcome::new(id);
+
         if order.is_immediate() {
-            return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
-                CancelReason::InsufficientLiquidity {
-                    requested: order.total_quantity(),
-                    available: Quantity(0),
-                },
-            ));
+            outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                requested: order.total_quantity(),
+                available: Quantity(0),
+            });
+            return CommandEffects::new(outcome);
         }
 
         self.add_limit_order(id, order.clone());
 
         let triggered_orders = self.trigger_opposite_side_takers(order.side().opposite());
 
-        CommandEffects::new(OrderOutcome::new(id)).with_triggered_orders(triggered_orders)
+        CommandEffects::new(outcome).with_triggered_orders(triggered_orders)
     }
 
     /// Submit a pegged order
@@ -235,51 +226,49 @@ impl OrderBook {
 
     /// Submit a market pegged order
     fn submit_market_pegged_order(&mut self, id: OrderId, order: &PeggedOrder) -> CommandEffects {
+        let mut outcome = OrderOutcome::new(id);
+
         if self.is_side_empty(order.side().opposite()) {
             if order.is_immediate() {
-                return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
-                    CancelReason::InsufficientLiquidity {
-                        requested: order.quantity(),
-                        available: Quantity(0),
-                    },
-                ));
+                outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                    requested: order.quantity(),
+                    available: Quantity(0),
+                });
+                return CommandEffects::new(outcome);
             }
 
             self.add_pegged_order(id, order.clone());
 
-            return CommandEffects::new(OrderOutcome::new(id));
+            return CommandEffects::new(outcome);
         }
 
         if order.time_in_force() == TimeInForce::Fok {
             let executable_quantity =
                 self.max_executable_quantity_unchecked(order.side(), order.quantity());
             if executable_quantity < order.quantity() {
-                return CommandEffects::new(OrderOutcome::new(id).with_cancel_reason(
-                    CancelReason::InsufficientLiquidity {
-                        requested: order.quantity(),
-                        available: executable_quantity,
-                    },
-                ));
+                outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                    requested: order.quantity(),
+                    available: executable_quantity,
+                });
+                return CommandEffects::new(outcome);
             }
         }
 
         let result = self.match_order(order.side(), None, order.quantity());
-
         let executed_quantity = result.executed_quantity();
+        outcome.set_match_result(result);
+
         let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return CommandEffects::new(OrderOutcome::new(id).with_match_result(result));
+            return CommandEffects::new(outcome);
         }
 
         if order.time_in_force() == TimeInForce::Ioc {
-            return CommandEffects::new(
-                OrderOutcome::new(id)
-                    .with_match_result(result)
-                    .with_cancel_reason(CancelReason::InsufficientLiquidity {
-                        requested: order.quantity(),
-                        available: executed_quantity,
-                    }),
-            );
+            outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                requested: order.quantity(),
+                available: executed_quantity,
+            });
+            return CommandEffects::new(outcome);
         }
 
         self.add_pegged_order(
@@ -291,7 +280,7 @@ impl OrderBook {
             ),
         );
 
-        CommandEffects::new(OrderOutcome::new(id).with_match_result(result))
+        CommandEffects::new(outcome)
     }
 
     /// Submit a mid price pegged order

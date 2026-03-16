@@ -79,18 +79,15 @@ mod tests {
             "command rejected: invalid command: price is zero\n"
         );
 
+        let mut order_outcome1 = OrderOutcome::new(OrderId(1));
+        order_outcome1.set_match_result(MatchResult::new(Side::Buy));
+        let mut order_outcome2 = OrderOutcome::new(OrderId(2));
+        order_outcome2.set_match_result(MatchResult::new(Side::Buy));
+        let mut order_outcome3 = OrderOutcome::new(OrderId(3));
+        order_outcome3.set_cancel_reason(CancelReason::PostOnlyWouldTake);
         let outcome = CommandOutcome::Applied(CommandReport::Submit(
-            CommandEffects::new(
-                OrderOutcome::new(OrderId(1)).with_match_result(MatchResult::new(Side::Buy)),
-            )
-            .with_triggered_orders(vec![
-                OrderOutcome::new(OrderId(2)),
-                OrderOutcome::new(OrderId(3)),
-            ])
-            .with_triggered_orders(vec![
-                OrderOutcome::new(OrderId(2)).with_match_result(MatchResult::new(Side::Buy)),
-                OrderOutcome::new(OrderId(3)).with_cancel_reason(CancelReason::PostOnlyWouldTake),
-            ]),
+            CommandEffects::new(order_outcome1)
+                .with_triggered_orders(vec![order_outcome2, order_outcome3]),
         ));
         println!("{}", outcome);
         assert_eq!(
