@@ -40,3 +40,11 @@ check: fmt-check lint test build	## Run pre-push checks
 .PHONY: bench
 bench:								## Run all benchmarks
 	cargo bench --bench benches
+
+.PHONY: readme
+readme: check-cargo-readme			## Generate the README.md file
+	cargo readme > README.md
+
+.PHONY: check-cargo-readme
+check-cargo-readme:					## Check if cargo-readme is installed
+	@command -v cargo-readme > /dev/null || (echo "Installing cargo-readme..."; cargo install cargo-readme)
