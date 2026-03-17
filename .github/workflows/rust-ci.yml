@@ -1,4 +1,4 @@
-name: CI
+name: Rust CI
 
 on:
   pull_request:
@@ -11,12 +11,12 @@ on:
       - "examples/**"
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number }}
+  group: rust-ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: CI
+  rust-ci:
+    name: Rust CI
     runs-on: ubuntu-latest
 
     steps:
