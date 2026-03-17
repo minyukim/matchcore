@@ -1,11 +1,11 @@
-[![CI][ci-badge]][ci-url]
 [![Crates.io][crates-badge]][crates-url]
+[![Build Status][ci-badge]][ci-url]
 [![Docs][docs-badge]][docs-url]
 
-[ci-badge]: https://github.com/minyukim/matchcore/actions/workflows/rust-ci.yml/badge.svg
-[ci-url]: https://github.com/minyukim/matchcore/actions/workflows/rust-ci.yml
 [crates-badge]: https://img.shields.io/crates/v/matchcore
 [crates-url]: https://crates.io/crates/matchcore
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/minyukim/matchcore/rust-ci.yml
+[ci-url]: https://github.com/minyukim/matchcore/actions/workflows/rust-ci.yml
 [docs-badge]: https://docs.rs/matchcore/badge.svg
 [docs-url]: https://docs.rs/matchcore
 
