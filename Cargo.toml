@@ -13,8 +13,8 @@ repository = "https://github.com/minyukim/matchcore"
 homepage = "https://github.com/minyukim/matchcore"
 documentation = "https://docs.rs/matchcore"
 
-keywords = ["orderbook", "trading", "matching-engine", "exchange"]
-categories = ["finance", "trading", "data-structures"]
+keywords = ["orderbook", "matching-engine", "trading", "exchange", "finance"]
+categories = ["finance", "data-structures"]
 
 [dependencies]
 serde_json = "1.0"
