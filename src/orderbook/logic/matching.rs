@@ -295,12 +295,8 @@ pub(crate) fn match_order(
             for peg_reference in active_peg_references {
                 let idx = peg_reference.as_index();
 
-                let candidate_id = {
-                    let peg_level = &mut maker_side_peg_levels[idx];
-                    peg_level.peek_order_id(pegged_orders)
-                };
-
-                let Some(candidate_id) = candidate_id else {
+                let peg_level = &mut maker_side_peg_levels[idx];
+                let Some(candidate_id) = peg_level.peek() else {
                     continue;
                 };
 
@@ -320,9 +316,11 @@ pub(crate) fn match_order(
             };
 
             let peg_level = &mut maker_side_peg_levels[best_level_idx];
-
-            // The order is guaranteed to exist because the order ID is found in the peg level
-            let order = pegged_orders.get_mut(&order_id).unwrap();
+            let Some(order) = pegged_orders.get_mut(&order_id) else {
+                // Stale order ID in the peg level, remove it
+                peg_level.pop();
+                continue;
+            };
 
             let consumed = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;

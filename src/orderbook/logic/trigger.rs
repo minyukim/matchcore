@@ -41,18 +41,17 @@ impl OrderBook {
                 break;
             }
 
-            let order_id = active_peg_level.peek_order_id(pegged_orders);
-
-            // No more orders in the taker side
-            let Some(order_id) = order_id else {
+            let Some(order_id) = active_peg_level.peek() else {
+                // No more orders in the taker side
                 break;
             };
 
-            let (quantity, post_only) = {
-                // The order is guaranteed to exist because the order ID is found in the peg level
-                let order = pegged_orders.get(&order_id).unwrap();
-                (order.quantity(), order.post_only())
+            let Some(order) = pegged_orders.get(&order_id) else {
+                // Stale order ID in the peg level, remove it
+                active_peg_level.pop();
+                continue;
             };
+            let (quantity, post_only) = (order.quantity(), order.post_only());
 
             let mut outcome = OrderOutcome::new(order_id);
 

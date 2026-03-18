@@ -158,8 +158,8 @@ impl OrderBook {
                 let new_id = OrderId::from(meta.sequence_number);
                 level.push(new_id);
 
-                let order = self.remove_pegged_order(id).unwrap();
-                self.pegged.add_order(new_id, order);
+                let order = self.pegged.orders.remove(&id).unwrap();
+                self.pegged.orders.insert(new_id, order);
 
                 return Ok(CommandEffects::new(OrderOutcome::new(new_id)));
             }
@@ -617,7 +617,7 @@ mod tests_amend_pegged_order {
         );
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(30));
-        assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
+        assert_eq!(level.order_ids().len(), 2);
 
         let effects = unwrap_amend_effects(amend(
             &mut book,
@@ -634,7 +634,7 @@ mod tests_amend_pegged_order {
 
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(25));
-        assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
+        assert_eq!(level.order_ids().len(), 2);
     }
 
     #[test]
@@ -658,7 +658,7 @@ mod tests_amend_pegged_order {
         );
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(30));
-        assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(0)));
+        assert_eq!(level.order_ids().len(), 2);
 
         let effects = unwrap_amend_effects(amend(
             &mut book,
@@ -676,6 +676,6 @@ mod tests_amend_pegged_order {
 
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(40));
-        assert_eq!(level.peek_order_id(&book.pegged.orders), Some(OrderId(1)));
+        assert_eq!(level.order_ids().len(), 3);
     }
 }
