@@ -250,8 +250,12 @@ pub(crate) fn match_order(
         // Iterate over the orders at the price level
         while !remaining_quantity.is_zero() {
             // The price level is guaranteed to have at least one order
-            let order_id = price_level.peek_order_id(limit_orders).unwrap();
-            let order = limit_orders.get_mut(&order_id).unwrap();
+            let order_id = price_level.peek().unwrap();
+            let Some(order) = limit_orders.get_mut(&order_id) else {
+                // Stale order ID in the price level, remove it
+                price_level.pop();
+                continue;
+            };
 
             let (consumed, replenished) = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
