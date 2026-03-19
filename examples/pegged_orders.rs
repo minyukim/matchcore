@@ -154,7 +154,11 @@ fn main() {
             timestamp: helpers::now(),
         },
         kind: CommandKind::Submit(SubmitCmd {
-            order: NewOrder::Market(MarketOrder::new(Quantity(90), Side::Sell, false)),
+            order: NewOrder::Pegged(PeggedOrder::new(
+                PegReference::Market,
+                Quantity(90),
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            )),
         }),
     });
     println!("{}", outcome);
@@ -184,7 +188,11 @@ fn main() {
             timestamp: helpers::now(),
         },
         kind: CommandKind::Submit(SubmitCmd {
-            order: NewOrder::Market(MarketOrder::new(Quantity(130), Side::Sell, false)),
+            order: NewOrder::Pegged(PeggedOrder::new(
+                PegReference::Market,
+                Quantity(130),
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            )),
         }),
     });
     println!("{}", outcome);
