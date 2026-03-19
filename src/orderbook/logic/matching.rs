@@ -368,15 +368,15 @@ mod tests_match_order {
     /// Helper function to add a standard limit order to the book
     fn add_standard_order(
         book: &mut OrderBook,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         price: Price,
         quantity: Quantity,
         side: Side,
     ) {
         book.add_limit_order(
-            id,
             sequence_number,
+            id,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
@@ -389,8 +389,8 @@ mod tests_match_order {
     #[allow(clippy::too_many_arguments)]
     fn add_iceberg_order(
         book: &mut OrderBook,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         price: Price,
         visible_quantity: Quantity,
         hidden_quantity: Quantity,
@@ -398,8 +398,8 @@ mod tests_match_order {
         side: Side,
     ) {
         book.add_limit_order(
-            id,
             sequence_number,
+            id,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Iceberg {
@@ -417,8 +417,8 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -450,8 +450,8 @@ mod tests_match_order {
         // Add a sell order (maker) at 100 for 50
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -498,8 +498,8 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -565,8 +565,8 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -586,16 +586,16 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(20),
             Side::Sell,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(100),
             Quantity(30),
             Side::Sell,
@@ -626,16 +626,16 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(30),
             Side::Sell,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(101),
             Quantity(40),
             Side::Sell,
@@ -666,24 +666,24 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(25),
             Side::Sell,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(101),
             Quantity(25),
             Side::Sell,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(2),
             SequenceNumber(2),
+            OrderId(2),
             Price(102),
             Quantity(25),
             Side::Sell,
@@ -722,8 +722,8 @@ mod tests_match_order {
         // Iceberg: visible 20, hidden 30, replenish 10 (total 50)
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(20),
             Quantity(30),
@@ -753,8 +753,8 @@ mod tests_match_order {
         // Iceberg: visible 10, hidden 20, replenish 10
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -788,8 +788,8 @@ mod tests_match_order {
         // Iceberg: visible 10, hidden 30, replenish 10 (total 40)
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(30),
@@ -831,8 +831,8 @@ mod tests_match_order {
         // Iceberg: visible 10, hidden 20, replenish 10 (total 30)
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -868,8 +868,8 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -878,8 +878,8 @@ mod tests_match_order {
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -914,8 +914,8 @@ mod tests_match_order {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -973,8 +973,8 @@ mod tests_max_executable_quantity_unchecked {
         side: Side,
     ) {
         book.add_limit_order(
-            id,
             sequence_number,
+            id,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
@@ -993,8 +993,8 @@ mod tests_max_executable_quantity_unchecked {
         side: Side,
     ) {
         book.add_pegged_order(
-            id,
             sequence_number,
+            id,
             PeggedOrder::new(
                 peg,
                 quantity,
@@ -1263,15 +1263,15 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
     /// Helper function to add a standard limit order to the book
     fn add_standard_order(
         book: &mut OrderBook,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         price: Price,
         quantity: Quantity,
         side: Side,
     ) {
         book.add_limit_order(
-            id,
             sequence_number,
+            id,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
@@ -1284,8 +1284,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
     #[allow(clippy::too_many_arguments)]
     fn add_iceberg_order(
         book: &mut OrderBook,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         price: Price,
         visible_quantity: Quantity,
         hidden_quantity: Quantity,
@@ -1293,8 +1293,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         side: Side,
     ) {
         book.add_limit_order(
-            id,
             sequence_number,
+            id,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Iceberg {
@@ -1312,8 +1312,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -1333,8 +1333,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -1354,16 +1354,16 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(30),
             Side::Sell,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(101),
             Quantity(40),
             Side::Sell,
@@ -1383,16 +1383,16 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Side::Sell,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(102),
             Quantity(20),
             Side::Sell,
@@ -1412,8 +1412,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -1433,8 +1433,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -1454,16 +1454,16 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(98),
             Quantity(30),
             Side::Buy,
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -1485,8 +1485,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -1508,8 +1508,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(25),
@@ -1531,8 +1531,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(15),
             Quantity(25),
@@ -1554,8 +1554,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -1564,8 +1564,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(101),
             Quantity(40),
             Side::Sell,
@@ -1585,8 +1585,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_iceberg_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -1595,8 +1595,8 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         );
         add_standard_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(102),
             Quantity(50),
             Side::Sell,
@@ -1616,16 +1616,16 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             Price(98),
             Quantity(30),
             Side::Buy,
         );
         add_iceberg_order(
             &mut orderbook,
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             Price(100),
             Quantity(10),
             Quantity(40),

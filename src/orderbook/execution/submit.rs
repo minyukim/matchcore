@@ -52,8 +52,8 @@ impl OrderBook {
             let price = self.last_trade_price.unwrap();
 
             self.add_limit_order(
-                order_id,
                 sequence_number,
+                order_id,
                 LimitOrder::new(
                     price,
                     QuantityPolicy::Standard {
@@ -90,8 +90,8 @@ impl OrderBook {
         }
 
         Ok(self.submit_validated_limit_order(
-            OrderId::from(meta.sequence_number),
             meta.sequence_number,
+            OrderId::from(meta.sequence_number),
             order,
         ))
     }
@@ -99,22 +99,22 @@ impl OrderBook {
     /// Submit a validated limit order
     pub(super) fn submit_validated_limit_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &LimitOrder,
     ) -> CommandEffects {
         if self.has_crossable_order(order.side(), order.price()) {
-            self.submit_crossable_order(id, sequence_number, order)
+            self.submit_crossable_order(sequence_number, id, order)
         } else {
-            self.submit_non_crossable_order(id, sequence_number, order)
+            self.submit_non_crossable_order(sequence_number, id, order)
         }
     }
 
     /// Submit a crossable order
     fn submit_crossable_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &LimitOrder,
     ) -> CommandEffects {
         let mut outcome = OrderOutcome::new(id);
@@ -175,8 +175,8 @@ impl OrderBook {
         };
 
         self.add_limit_order(
-            id,
             sequence_number,
+            id,
             LimitOrder::new(order.price(), quantity_policy, order.flags().clone()),
         );
 
@@ -189,8 +189,8 @@ impl OrderBook {
     /// Submit a non-crossable order
     fn submit_non_crossable_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &LimitOrder,
     ) -> CommandEffects {
         let mut outcome = OrderOutcome::new(id);
@@ -203,7 +203,7 @@ impl OrderBook {
             return CommandEffects::new(outcome);
         }
 
-        self.add_limit_order(id, sequence_number, order.clone());
+        self.add_limit_order(sequence_number, id, order.clone());
 
         let triggered_orders =
             self.trigger_opposite_side_takers(sequence_number, order.side().opposite());
@@ -224,8 +224,8 @@ impl OrderBook {
         }
 
         Ok(self.submit_validated_pegged_order(
-            OrderId::from(meta.sequence_number),
             meta.sequence_number,
+            OrderId::from(meta.sequence_number),
             order,
         ))
     }
@@ -233,15 +233,15 @@ impl OrderBook {
     /// Submit a validated pegged order
     pub(super) fn submit_validated_pegged_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &PeggedOrder,
     ) -> CommandEffects {
         match order.peg_reference() {
-            PegReference::Primary => self.submit_primary_pegged_order(id, sequence_number, order),
-            PegReference::Market => self.submit_market_pegged_order(id, sequence_number, order),
+            PegReference::Primary => self.submit_primary_pegged_order(sequence_number, id, order),
+            PegReference::Market => self.submit_market_pegged_order(sequence_number, id, order),
             PegReference::MidPrice => {
-                self.submit_mid_price_pegged_order(id, sequence_number, order)
+                self.submit_mid_price_pegged_order(sequence_number, id, order)
             }
         }
     }
@@ -249,18 +249,18 @@ impl OrderBook {
     /// Submit a primary pegged order
     fn submit_primary_pegged_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &PeggedOrder,
     ) -> CommandEffects {
-        self.submit_unmarketable_pegged_order(id, sequence_number, order)
+        self.submit_unmarketable_pegged_order(sequence_number, id, order)
     }
 
     /// Submit a market pegged order
     fn submit_market_pegged_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &PeggedOrder,
     ) -> CommandEffects {
         let mut outcome = OrderOutcome::new(id);
@@ -274,7 +274,7 @@ impl OrderBook {
                 return CommandEffects::new(outcome);
             }
 
-            self.add_pegged_order(id, sequence_number, order.clone());
+            self.add_pegged_order(sequence_number, id, order.clone());
 
             return CommandEffects::new(outcome);
         }
@@ -309,8 +309,8 @@ impl OrderBook {
         }
 
         self.add_pegged_order(
-            id,
             sequence_number,
+            id,
             PeggedOrder::new(
                 order.peg_reference(),
                 remaining_quantity,
@@ -324,21 +324,21 @@ impl OrderBook {
     /// Submit a mid price pegged order
     fn submit_mid_price_pegged_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &PeggedOrder,
     ) -> CommandEffects {
-        self.submit_unmarketable_pegged_order(id, sequence_number, order)
+        self.submit_unmarketable_pegged_order(sequence_number, id, order)
     }
 
     /// Submit an unmarketable pegged order
     fn submit_unmarketable_pegged_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: &PeggedOrder,
     ) -> CommandEffects {
-        self.add_pegged_order(id, sequence_number, order.clone());
+        self.add_pegged_order(sequence_number, id, order.clone());
 
         CommandEffects::new(OrderOutcome::new(id))
     }
@@ -394,8 +394,8 @@ mod tests_submit_market_order {
 
         // Seed sell-side liquidity at 100 for 5 units.
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -510,8 +510,8 @@ mod tests_submit_limit_order {
 
         // Seed sell-side best ask at 100.
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -547,8 +547,8 @@ mod tests_submit_limit_order {
 
         // Seed sell-side liquidity at 100 for 5.
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -587,8 +587,8 @@ mod tests_submit_limit_order {
         let mut book = OrderBook::new("TEST");
 
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -631,8 +631,8 @@ mod tests_submit_limit_order {
         let mut book = OrderBook::new("TEST");
 
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -766,8 +766,8 @@ mod tests_submit_pegged_order {
 
         // Provide sell-side liquidity so the market-pegged buy can match.
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {

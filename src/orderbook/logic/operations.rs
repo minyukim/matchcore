@@ -9,11 +9,11 @@ impl OrderBook {
     /// Add a limit order to the order book
     pub(crate) fn add_limit_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: LimitOrder,
     ) {
-        self.limit.add_order(id, sequence_number, order);
+        self.limit.add_order(sequence_number, id, order);
     }
 
     /// Remove a limit order from the order book
@@ -24,11 +24,11 @@ impl OrderBook {
     /// Add a pegged order to the order book
     pub(crate) fn add_pegged_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: PeggedOrder,
     ) {
-        self.pegged.add_order(id, sequence_number, order);
+        self.pegged.add_order(sequence_number, id, order);
     }
 
     /// Remove a pegged order from the order book
@@ -41,8 +41,8 @@ impl LimitBook {
     /// Add a limit order to the order book
     pub(crate) fn add_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: LimitOrder,
     ) {
         if let Some(expires_at) = order.expires_at() {
@@ -98,8 +98,8 @@ impl PeggedBook {
     /// Add a pegged order to the order book
     pub(crate) fn add_order(
         &mut self,
-        id: OrderId,
         sequence_number: SequenceNumber,
+        id: OrderId,
         order: PeggedOrder,
     ) {
         if let Some(expires_at) = order.expires_at() {
@@ -155,7 +155,7 @@ mod tests {
             },
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_limit_order(OrderId(0), SequenceNumber(0), order.clone());
+        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert!(book.limit.ask_levels.is_empty());
         assert_eq!(book.limit.orders.len(), 1);
@@ -176,7 +176,7 @@ mod tests {
             },
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_limit_order(OrderId(1), SequenceNumber(1), order.clone());
+        book.add_limit_order(SequenceNumber(1), OrderId(1), order.clone());
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert!(book.limit.ask_levels.is_empty());
         assert_eq!(book.limit.orders.len(), 2);
@@ -197,7 +197,7 @@ mod tests {
             },
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         );
-        book.add_limit_order(OrderId(2), SequenceNumber(2), order.clone());
+        book.add_limit_order(SequenceNumber(2), OrderId(2), order.clone());
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert_eq!(book.limit.ask_levels.len(), 1);
         assert_eq!(book.limit.orders.len(), 3);
@@ -226,7 +226,7 @@ mod tests {
             },
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         );
-        book.add_limit_order(OrderId(3), SequenceNumber(3), order.clone());
+        book.add_limit_order(SequenceNumber(3), OrderId(3), order.clone());
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert_eq!(book.limit.ask_levels.len(), 2);
         assert_eq!(book.limit.orders.len(), 4);
@@ -275,7 +275,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(0), SequenceNumber(0), order.clone());
+        book.add_pegged_order(SequenceNumber(0), OrderId(0), order.clone());
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 0),
@@ -298,7 +298,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(1), SequenceNumber(1), order.clone());
+        book.add_pegged_order(SequenceNumber(1), OrderId(1), order.clone());
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 1),
@@ -321,7 +321,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(2), SequenceNumber(2), order.clone());
+        book.add_pegged_order(SequenceNumber(2), OrderId(2), order.clone());
         for (peg, count) in [
             (PegReference::Primary, 1),
             (PegReference::Market, 1),
@@ -344,7 +344,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(3), SequenceNumber(3), order.clone());
+        book.add_pegged_order(SequenceNumber(3), OrderId(3), order.clone());
         for (peg, count) in [
             (PegReference::Primary, 2),
             (PegReference::Market, 1),
@@ -367,7 +367,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(4), SequenceNumber(4), order.clone());
+        book.add_pegged_order(SequenceNumber(4), OrderId(4), order.clone());
         for (peg, count) in [
             (PegReference::Primary, 2),
             (PegReference::Market, 1),
@@ -390,7 +390,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(5), SequenceNumber(5), order.clone());
+        book.add_pegged_order(SequenceNumber(5), OrderId(5), order.clone());
         for (peg, count) in [
             (PegReference::Primary, 2),
             (PegReference::Market, 1),
@@ -419,7 +419,7 @@ mod tests {
             },
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_limit_order(OrderId(0), SequenceNumber(0), order.clone());
+        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(
             book.limit
@@ -454,7 +454,7 @@ mod tests {
                 },
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             );
-            book.add_limit_order(OrderId(i), SequenceNumber(i), order);
+            book.add_limit_order(SequenceNumber(i), OrderId(i), order);
         }
         assert_eq!(book.limit.orders.len(), 3);
         assert_eq!(
@@ -490,7 +490,7 @@ mod tests {
             },
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_limit_order(OrderId(0), SequenceNumber(0), order.clone());
+        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
         book.remove_limit_order(OrderId(0));
         assert!(book.limit.bid_levels.is_empty());
         assert!(book.limit.orders.is_empty());
@@ -500,8 +500,8 @@ mod tests {
     fn test_remove_limit_order_leave_other_prices_unchanged() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -511,8 +511,8 @@ mod tests {
             ),
         );
         book.add_limit_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             LimitOrder::new(
                 Price(200),
                 QuantityPolicy::Standard {
@@ -544,7 +544,7 @@ mod tests {
             Quantity(10),
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
-        book.add_pegged_order(OrderId(0), SequenceNumber(0), order.clone());
+        book.add_pegged_order(SequenceNumber(0), OrderId(0), order.clone());
         assert_eq!(book.pegged.orders.len(), 1);
         assert_eq!(
             book.pegged.bid_levels[PegReference::Primary.as_index()].order_count(),
@@ -576,7 +576,7 @@ mod tests {
                 Quantity(10),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             );
-            book.add_pegged_order(OrderId(i), SequenceNumber(i), order);
+            book.add_pegged_order(SequenceNumber(i), OrderId(i), order);
         }
         assert_eq!(book.pegged.orders.len(), 3);
         assert_eq!(
@@ -598,8 +598,8 @@ mod tests {
     fn test_remove_pegged_order_leave_other_peg_levels_unchanged() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -607,8 +607,8 @@ mod tests {
             ),
         );
         book.add_pegged_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             PeggedOrder::new(
                 PegReference::MidPrice,
                 Quantity(5),
