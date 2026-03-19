@@ -1,6 +1,6 @@
 use crate::{
-    LimitBook, LimitOrder, OrderBook, OrderId, PeggedBook, PeggedOrder, PriceLevel, QueueEntry,
-    RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
+    LimitBook, LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, PriceLevel,
+    QueueEntry, RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
 };
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
@@ -17,8 +17,40 @@ impl OrderBook {
     }
 
     /// Remove a limit order from the order book
-    pub(crate) fn remove_limit_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
-        self.limit.remove_order(order_id)
+    pub(crate) fn remove_limit_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        order_id: OrderId,
+    ) -> Option<LimitOrder> {
+        let order = self.limit.orders.remove(&order_id)?.into_order();
+
+        let levels = match order.side() {
+            Side::Buy => &mut self.limit.bid_levels,
+            Side::Sell => &mut self.limit.ask_levels,
+        };
+        let level = levels.get_mut(&order.price()).unwrap();
+
+        level.on_order_removed(order.visible_quantity(), order.hidden_quantity());
+        if level.is_empty() {
+            let (best_price, peg_levels) = match order.side() {
+                Side::Buy => (
+                    levels.keys().next_back().copied().unwrap(),
+                    &mut self.pegged.bid_levels,
+                ),
+                Side::Sell => (
+                    levels.keys().next().copied().unwrap(),
+                    &mut self.pegged.ask_levels,
+                ),
+            };
+            if order.price() == best_price {
+                // Only the same side primary peg reprice matters on the best price level removal
+                peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
+            }
+
+            levels.remove(&order.price());
+        }
+
+        Some(order)
     }
 
     /// Add a pegged order to the order book
@@ -73,24 +105,6 @@ impl LimitBook {
                 e.insert(price_level);
             }
         }
-    }
-
-    /// Remove a limit order from the order book
-    pub(crate) fn remove_order(&mut self, order_id: OrderId) -> Option<LimitOrder> {
-        let order = self.orders.remove(&order_id)?.into_order();
-
-        let levels = match order.side() {
-            Side::Buy => &mut self.bid_levels,
-            Side::Sell => &mut self.ask_levels,
-        };
-        let level = levels.get_mut(&order.price()).unwrap();
-
-        level.on_order_removed(order.visible_quantity(), order.hidden_quantity());
-        if level.is_empty() {
-            levels.remove(&order.price());
-        }
-
-        Some(order)
     }
 }
 
@@ -430,7 +444,7 @@ mod tests {
             1
         );
 
-        let removed = book.remove_limit_order(OrderId(0));
+        let removed = book.remove_limit_order(SequenceNumber(1), OrderId(0));
         assert_eq!(removed.as_ref(), Some(&order));
         assert!(book.limit.orders.is_empty());
         assert!(!book.limit.bid_levels.contains_key(&Price(100)));
@@ -439,7 +453,7 @@ mod tests {
     #[test]
     fn test_remove_limit_order_returns_none_when_absent() {
         let mut book = OrderBook::new("TEST");
-        let removed = book.remove_limit_order(OrderId(999));
+        let removed = book.remove_limit_order(SequenceNumber(1000), OrderId(999));
         assert_eq!(removed, None);
     }
 
@@ -466,7 +480,7 @@ mod tests {
             3
         );
 
-        let removed = book.remove_limit_order(OrderId(1));
+        let removed = book.remove_limit_order(SequenceNumber(4), OrderId(1));
         assert!(removed.is_some());
         assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(
@@ -491,7 +505,7 @@ mod tests {
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
         book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
-        book.remove_limit_order(OrderId(0));
+        book.remove_limit_order(SequenceNumber(1), OrderId(0));
         assert!(book.limit.bid_levels.is_empty());
         assert!(book.limit.orders.is_empty());
     }
@@ -523,7 +537,7 @@ mod tests {
         );
         assert_eq!(book.limit.bid_levels.len(), 2);
 
-        book.remove_limit_order(OrderId(0));
+        book.remove_limit_order(SequenceNumber(2), OrderId(0));
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert!(book.limit.bid_levels.contains_key(&Price(200)));
         assert_eq!(

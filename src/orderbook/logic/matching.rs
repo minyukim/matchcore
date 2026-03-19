@@ -223,6 +223,7 @@ pub(crate) fn match_order(
 ) -> MatchResult {
     let mut match_result = MatchResult::new(taker_side);
     let mut remaining_quantity = quantity;
+    let mut needs_reprice = false;
 
     while !remaining_quantity.is_zero() {
         let best_price_and_level = match taker_side {
@@ -281,6 +282,7 @@ pub(crate) fn match_order(
                 price_level.remove_head_order(limit_orders);
                 if price_level.is_empty() {
                     maker_side_price_levels.remove(&price);
+                    needs_reprice = true;
                     break;
                 }
             }
@@ -350,6 +352,11 @@ pub(crate) fn match_order(
                 peg_level.remove_head_order(pegged_orders);
             }
         }
+    }
+
+    // Only the maker side primary peg reprice matters on the best price level removal
+    if needs_reprice {
+        maker_side_peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
     }
 
     match_result

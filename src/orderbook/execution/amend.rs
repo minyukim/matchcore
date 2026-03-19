@@ -49,7 +49,7 @@ impl OrderBook {
         if let Some(price) = patch.price
             && price != old_price
         {
-            let mut order = self.remove_limit_order(id).unwrap();
+            let mut order = self.remove_limit_order(meta.sequence_number, id).unwrap();
             patch
                 .apply(&mut order)
                 .map_err(CommandFailure::InvalidCommand)?;

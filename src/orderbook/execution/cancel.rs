@@ -1,11 +1,15 @@
 use super::OrderBook;
-use crate::{OrderId, OrderKind, command::*, outcome::*};
+use crate::{OrderId, OrderKind, SequenceNumber, command::*, outcome::*};
 
 impl OrderBook {
     /// Execute a cancel command against the order book and return the execution outcome
-    pub(super) fn execute_cancel(&mut self, cmd: &CancelCmd) -> CommandOutcome {
+    pub(super) fn execute_cancel(
+        &mut self,
+        sequence_number: SequenceNumber,
+        cmd: &CancelCmd,
+    ) -> CommandOutcome {
         let result = match &cmd.order_kind {
-            OrderKind::Limit => self.cancel_limit_order(cmd.order_id),
+            OrderKind::Limit => self.cancel_limit_order(sequence_number, cmd.order_id),
             OrderKind::Pegged => self.cancel_pegged_order(cmd.order_id),
         };
 
@@ -16,8 +20,12 @@ impl OrderBook {
     }
 
     /// Cancel a limit order
-    fn cancel_limit_order(&mut self, id: OrderId) -> Result<(), CommandFailure> {
-        self.remove_limit_order(id)
+    fn cancel_limit_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+    ) -> Result<(), CommandFailure> {
+        self.remove_limit_order(sequence_number, id)
             .ok_or(CommandFailure::OrderNotFound)?;
 
         Ok(())
@@ -41,11 +49,19 @@ mod tests {
         TimeInForce,
     };
 
-    fn cancel(book: &mut OrderBook, order_id: OrderId, order_kind: OrderKind) -> CommandOutcome {
-        book.execute_cancel(&CancelCmd {
-            order_id,
-            order_kind,
-        })
+    fn cancel(
+        book: &mut OrderBook,
+        sequence_number: SequenceNumber,
+        order_id: OrderId,
+        order_kind: OrderKind,
+    ) -> CommandOutcome {
+        book.execute_cancel(
+            sequence_number,
+            &CancelCmd {
+                order_id,
+                order_kind,
+            },
+        )
     }
 
     #[test]
@@ -63,7 +79,7 @@ mod tests {
             ),
         );
 
-        let outcome = cancel(&mut book, OrderId(0), OrderKind::Limit);
+        let outcome = cancel(&mut book, SequenceNumber(1), OrderId(0), OrderKind::Limit);
 
         match outcome {
             CommandOutcome::Applied(CommandReport::Cancel) => {}
@@ -77,7 +93,12 @@ mod tests {
     fn cancel_limit_order_not_found() {
         let mut book = OrderBook::new("TEST");
 
-        let outcome = cancel(&mut book, OrderId(999), OrderKind::Limit);
+        let outcome = cancel(
+            &mut book,
+            SequenceNumber(1000),
+            OrderId(999),
+            OrderKind::Limit,
+        );
 
         match outcome {
             CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
@@ -98,7 +119,7 @@ mod tests {
             ),
         );
 
-        let outcome = cancel(&mut book, OrderId(0), OrderKind::Pegged);
+        let outcome = cancel(&mut book, SequenceNumber(1), OrderId(0), OrderKind::Pegged);
 
         match outcome {
             CommandOutcome::Applied(CommandReport::Cancel) => {}
@@ -111,7 +132,12 @@ mod tests {
     fn cancel_pegged_order_not_found() {
         let mut book = OrderBook::new("TEST");
 
-        let outcome = cancel(&mut book, OrderId(999), OrderKind::Pegged);
+        let outcome = cancel(
+            &mut book,
+            SequenceNumber(1000),
+            OrderId(999),
+            OrderKind::Pegged,
+        );
 
         match outcome {
             CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
@@ -135,7 +161,7 @@ mod tests {
         );
 
         // Requesting Pegged for a Limit order looks in pegged book, finds nothing
-        let outcome = cancel(&mut book, OrderId(0), OrderKind::Pegged);
+        let outcome = cancel(&mut book, SequenceNumber(1), OrderId(0), OrderKind::Pegged);
 
         match outcome {
             CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
