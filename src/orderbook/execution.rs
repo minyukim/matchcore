@@ -238,8 +238,8 @@ mod tests {
         assert_eq!(book.limit.expiration_queue.len(), 0);
 
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -253,8 +253,8 @@ mod tests {
         assert_eq!(book.limit.expiration_queue.len(), 1);
 
         book.add_limit_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             LimitOrder::new(
                 Price(101),
                 QuantityPolicy::Standard {
@@ -268,8 +268,8 @@ mod tests {
         assert_eq!(book.limit.expiration_queue.len(), 2);
 
         book.add_limit_order(
-            OrderId(2),
             SequenceNumber(2),
+            OrderId(2),
             LimitOrder::new(
                 Price(101),
                 QuantityPolicy::Standard {
@@ -283,8 +283,8 @@ mod tests {
         assert_eq!(book.limit.expiration_queue.len(), 3);
 
         book.add_limit_order(
-            OrderId(3),
             SequenceNumber(3),
+            OrderId(3),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -324,8 +324,8 @@ mod tests {
         assert_eq!(book.limit.expiration_queue.len(), 0);
 
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -359,8 +359,8 @@ mod tests {
         assert_eq!(book.pegged.expiration_queue.len(), 0);
 
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -385,8 +385,8 @@ mod tests {
         assert_eq!(book.pegged.expiration_queue.len(), 1);
 
         book.add_pegged_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             PeggedOrder::new(
                 PegReference::Market,
                 Quantity(10),
@@ -411,8 +411,8 @@ mod tests {
         assert_eq!(book.pegged.expiration_queue.len(), 2);
 
         book.add_pegged_order(
-            OrderId(2),
             SequenceNumber(2),
+            OrderId(2),
             PeggedOrder::new(
                 PegReference::MidPrice,
                 Quantity(10),
@@ -437,8 +437,8 @@ mod tests {
         assert_eq!(book.pegged.expiration_queue.len(), 3);
 
         book.add_pegged_order(
-            OrderId(3),
             SequenceNumber(3),
+            OrderId(3),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),

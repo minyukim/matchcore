@@ -52,8 +52,8 @@ mod tests {
     fn cancel_limit_order_success() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -89,8 +89,8 @@ mod tests {
     fn cancel_pegged_order_success() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -123,8 +123,8 @@ mod tests {
     fn cancel_limit_order_with_wrong_kind_returns_not_found() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {

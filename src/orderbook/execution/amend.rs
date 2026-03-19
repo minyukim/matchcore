@@ -54,7 +54,7 @@ impl OrderBook {
                 .apply(&mut order)
                 .map_err(CommandFailure::InvalidCommand)?;
 
-            return Ok(self.submit_validated_limit_order(id, meta.sequence_number, &order));
+            return Ok(self.submit_validated_limit_order(meta.sequence_number, id, &order));
         }
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
@@ -125,7 +125,7 @@ impl OrderBook {
                 .apply(&mut order)
                 .map_err(CommandFailure::InvalidCommand)?;
 
-            return Ok(self.submit_validated_pegged_order(id, meta.sequence_number, &order));
+            return Ok(self.submit_validated_pegged_order(meta.sequence_number, id, &order));
         }
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
@@ -195,8 +195,8 @@ mod tests_amend_limit_order {
     fn reject_empty_patch() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -218,8 +218,8 @@ mod tests_amend_limit_order {
     fn reject_expired_tif() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -267,8 +267,8 @@ mod tests_amend_limit_order {
     fn price_change_reprioritizes_order_and_move_to_new_price_level() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -315,8 +315,8 @@ mod tests_amend_limit_order {
     fn gtd_patch_updates_expiration_queue() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -347,8 +347,8 @@ mod tests_amend_limit_order {
     fn quantity_decrease_no_reprioritization() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -358,8 +358,8 @@ mod tests_amend_limit_order {
             ),
         );
         book.add_limit_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -414,8 +414,8 @@ mod tests_amend_limit_order {
     fn quantity_increase_reprioritizes_order() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -425,8 +425,8 @@ mod tests_amend_limit_order {
             ),
         );
         book.add_limit_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -517,8 +517,8 @@ mod tests_amend_pegged_order {
     fn reject_empty_patch() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -538,8 +538,8 @@ mod tests_amend_pegged_order {
     fn reject_expired_tif() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -585,8 +585,8 @@ mod tests_amend_pegged_order {
     fn peg_reference_change_reprioritizes_order_and_move_to_new_peg_level() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -627,8 +627,8 @@ mod tests_amend_pegged_order {
     fn gtd_patch_updates_expiration_queue() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -654,8 +654,8 @@ mod tests_amend_pegged_order {
     fn quantity_decrease_no_reprioritization() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -663,8 +663,8 @@ mod tests_amend_pegged_order {
             ),
         );
         book.add_pegged_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(20),
@@ -716,8 +716,8 @@ mod tests_amend_pegged_order {
     fn quantity_increase_reprioritizes_order() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
-            OrderId(0),
             SequenceNumber(0),
+            OrderId(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -725,8 +725,8 @@ mod tests_amend_pegged_order {
             ),
         );
         book.add_pegged_order(
-            OrderId(1),
             SequenceNumber(1),
+            OrderId(1),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(20),
