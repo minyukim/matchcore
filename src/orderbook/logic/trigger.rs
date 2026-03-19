@@ -1,5 +1,5 @@
 use super::matching::match_order;
-use crate::{CancelReason, OrderBook, OrderOutcome, types::*};
+use crate::{CancelReason, OrderBook, OrderOutcome, SequenceNumber, types::*};
 
 impl OrderBook {
     /// Trigger the opposite side of the conditional orders to become active takers.
@@ -8,7 +8,11 @@ impl OrderBook {
     /// the orders at the maker side. It stops when any one side is exhausted.
     ///
     /// Returns a vector of `OrderOutcome` structs containing the outcomes of the order execution.
-    pub(crate) fn trigger_opposite_side_takers(&mut self, taker_side: Side) -> Vec<OrderOutcome> {
+    pub(crate) fn trigger_opposite_side_takers(
+        &mut self,
+        sequence_number: SequenceNumber,
+        taker_side: Side,
+    ) -> Vec<OrderOutcome> {
         let mut outcomes = Vec::new();
 
         let (
@@ -41,16 +45,22 @@ impl OrderBook {
                 break;
             }
 
-            let Some(order_id) = active_peg_level.peek() else {
+            let Some(queue_entry) = active_peg_level.peek() else {
                 // No more orders in the taker side
                 break;
             };
+            let order_id = queue_entry.order_id();
 
             let Some(order) = pegged_orders.get(&order_id) else {
-                // Stale order ID in the peg level, remove it
+                // Stale queue entry in the peg level, remove it
                 active_peg_level.pop();
                 continue;
             };
+            if queue_entry.time_priority() != order.time_priority() {
+                // Stale queue entry in the peg level, remove it
+                active_peg_level.pop();
+                continue;
+            }
             let (quantity, post_only) = (order.quantity(), order.post_only());
 
             let mut outcome = OrderOutcome::new(order_id);
@@ -66,6 +76,7 @@ impl OrderBook {
             }
 
             let result = match_order(
+                sequence_number,
                 taker_side,
                 taker_side_best_price,
                 maker_side_price_levels,

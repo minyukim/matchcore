@@ -249,7 +249,7 @@ impl fmt::Display for Level2 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LimitOrder, OrderFlags, OrderId, QuantityPolicy, TimeInForce};
+    use crate::{LimitOrder, OrderFlags, OrderId, QuantityPolicy, SequenceNumber, TimeInForce};
 
     const EPS: f64 = 1e-9;
 
@@ -271,10 +271,10 @@ mod tests {
     /// Ask 101 (qty 40), Ask 102 (qty 60)
     fn basic_book() -> OrderBook {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 50, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(99, 30, Side::Buy));
-        book.add_limit_order(OrderId(2), standard(101, 40, Side::Sell));
-        book.add_limit_order(OrderId(3), standard(102, 60, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 50, Side::Buy));
+        book.add_limit_order(OrderId(1), SequenceNumber(1), standard(99, 30, Side::Buy));
+        book.add_limit_order(OrderId(2), SequenceNumber(2), standard(101, 40, Side::Sell));
+        book.add_limit_order(OrderId(3), SequenceNumber(3), standard(102, 60, Side::Sell));
         book
     }
 
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn from_orderbook_bids_only() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 10, Side::Buy));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 10, Side::Buy));
         let l2 = Level2::from(&book);
         assert_eq!(l2.bid_levels().len(), 1);
         assert!(l2.ask_levels().is_empty());
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn from_orderbook_asks_only() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(101, 10, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(101, 10, Side::Sell));
         let l2 = Level2::from(&book);
         assert!(l2.bid_levels().is_empty());
         assert_eq!(l2.ask_levels().len(), 1);
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn mid_price_one_side_only() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 10, Side::Buy));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 10, Side::Buy));
         assert_eq!(Level2::from(&book).mid_price(), None);
     }
 
@@ -394,7 +394,7 @@ mod tests {
     #[test]
     fn spread_one_side_only() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(101, 10, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(101, 10, Side::Sell));
         assert_eq!(Level2::from(&book).spread(), None);
     }
 
@@ -413,8 +413,8 @@ mod tests {
     #[test]
     fn micro_price_equal_sizes() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 10, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(102, 10, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 10, Side::Buy));
+        book.add_limit_order(OrderId(1), SequenceNumber(1), standard(102, 10, Side::Sell));
         let l2 = Level2::from(&book);
         let micro = l2.micro_price().unwrap();
         let mid = l2.mid_price().unwrap();
@@ -432,8 +432,8 @@ mod tests {
     #[test]
     fn micro_price_skewed_toward_bid() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 10, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(102, 90, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 10, Side::Buy));
+        book.add_limit_order(OrderId(1), SequenceNumber(1), standard(102, 90, Side::Sell));
         let l2 = Level2::from(&book);
         let micro = l2.micro_price().unwrap();
         let mid = l2.mid_price().unwrap();
@@ -499,8 +499,8 @@ mod tests {
     #[test]
     fn imbalance_balanced() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 50, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(101, 50, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 50, Side::Buy));
+        book.add_limit_order(OrderId(1), SequenceNumber(1), standard(101, 50, Side::Sell));
         let l2 = Level2::from(&book);
         assert!((l2.order_book_imbalance(5) - 0.0).abs() < EPS);
     }

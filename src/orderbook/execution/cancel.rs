@@ -37,7 +37,8 @@ mod tests {
     use super::*;
     use crate::{
         CancelCmd, CommandFailure, CommandOutcome, LimitOrder, OrderFlags, OrderId, OrderKind,
-        PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, Side, TimeInForce,
+        PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, SequenceNumber, Side,
+        TimeInForce,
     };
 
     fn cancel(book: &mut OrderBook, order_id: OrderId, order_kind: OrderKind) -> CommandOutcome {
@@ -52,6 +53,7 @@ mod tests {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -88,6 +90,7 @@ mod tests {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -121,6 +124,7 @@ mod tests {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {

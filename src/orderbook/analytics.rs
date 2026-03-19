@@ -985,7 +985,7 @@ mod tests_order_book {
     use super::*;
     use crate::{
         LimitOrder, OrderFlags, OrderId, PegReference, PeggedOrder, Price, Quantity,
-        QuantityPolicy, Side, TimeInForce,
+        QuantityPolicy, SequenceNumber, Side, TimeInForce,
     };
 
     const EPS: f64 = 1e-9;
@@ -1028,10 +1028,10 @@ mod tests_order_book {
     /// Ask 101 (qty 40), Ask 102 (qty 60)
     fn basic_book() -> OrderBook {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), standard(100, 50, Side::Buy));
-        book.add_limit_order(OrderId(1), standard(99, 30, Side::Buy));
-        book.add_limit_order(OrderId(2), standard(101, 40, Side::Sell));
-        book.add_limit_order(OrderId(3), standard(102, 60, Side::Sell));
+        book.add_limit_order(OrderId(0), SequenceNumber(0), standard(100, 50, Side::Buy));
+        book.add_limit_order(OrderId(1), SequenceNumber(1), standard(99, 30, Side::Buy));
+        book.add_limit_order(OrderId(2), SequenceNumber(2), standard(101, 40, Side::Sell));
+        book.add_limit_order(OrderId(3), SequenceNumber(3), standard(102, 60, Side::Sell));
         book
     }
 
@@ -1040,28 +1040,68 @@ mod tests_order_book {
     /// Ask 101 (vis 40, hid 5), Ask 102 (vis 60, hid 15)
     fn book_with_hidden() -> OrderBook {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(0), iceberg(100, 50, 10, Side::Buy));
-        book.add_limit_order(OrderId(1), iceberg(99, 30, 20, Side::Buy));
-        book.add_limit_order(OrderId(2), iceberg(101, 40, 5, Side::Sell));
-        book.add_limit_order(OrderId(3), iceberg(102, 60, 15, Side::Sell));
+        book.add_limit_order(
+            OrderId(0),
+            SequenceNumber(0),
+            iceberg(100, 50, 10, Side::Buy),
+        );
+        book.add_limit_order(
+            OrderId(1),
+            SequenceNumber(1),
+            iceberg(99, 30, 20, Side::Buy),
+        );
+        book.add_limit_order(
+            OrderId(2),
+            SequenceNumber(2),
+            iceberg(101, 40, 5, Side::Sell),
+        );
+        book.add_limit_order(
+            OrderId(3),
+            SequenceNumber(3),
+            iceberg(102, 60, 15, Side::Sell),
+        );
         book
     }
 
     /// basic_book + Primary peg bid 20, Primary peg ask 25
     fn book_with_pegs() -> OrderBook {
         let mut book = basic_book();
-        book.add_pegged_order(OrderId(10), pegged(PegReference::Primary, 20, Side::Buy));
-        book.add_pegged_order(OrderId(11), pegged(PegReference::Primary, 25, Side::Sell));
+        book.add_pegged_order(
+            OrderId(10),
+            SequenceNumber(10),
+            pegged(PegReference::Primary, 20, Side::Buy),
+        );
+        book.add_pegged_order(
+            OrderId(11),
+            SequenceNumber(11),
+            pegged(PegReference::Primary, 25, Side::Sell),
+        );
         book
     }
 
     /// Spread = 1 (Bid 100, Ask 101) with MidPrice peg levels active
     fn book_with_mid_price_pegs() -> OrderBook {
         let mut book = basic_book();
-        book.add_pegged_order(OrderId(10), pegged(PegReference::Primary, 20, Side::Buy));
-        book.add_pegged_order(OrderId(11), pegged(PegReference::Primary, 25, Side::Sell));
-        book.add_pegged_order(OrderId(12), pegged(PegReference::MidPrice, 15, Side::Buy));
-        book.add_pegged_order(OrderId(13), pegged(PegReference::MidPrice, 10, Side::Sell));
+        book.add_pegged_order(
+            OrderId(10),
+            SequenceNumber(10),
+            pegged(PegReference::Primary, 20, Side::Buy),
+        );
+        book.add_pegged_order(
+            OrderId(11),
+            SequenceNumber(11),
+            pegged(PegReference::Primary, 25, Side::Sell),
+        );
+        book.add_pegged_order(
+            OrderId(12),
+            SequenceNumber(12),
+            pegged(PegReference::MidPrice, 15, Side::Buy),
+        );
+        book.add_pegged_order(
+            OrderId(13),
+            SequenceNumber(13),
+            pegged(PegReference::MidPrice, 10, Side::Sell),
+        );
         book
     }
 
@@ -1217,9 +1257,13 @@ mod tests_order_book {
     #[test]
     fn price_at_depth_mid_price_peg_inactive_wide_spread() {
         let mut book = OrderBook::new("TEST");
-        book.add_limit_order(OrderId(1), standard(100, 50, Side::Buy));
-        book.add_limit_order(OrderId(2), standard(102, 40, Side::Sell)); // spread = 2 > 1
-        book.add_pegged_order(OrderId(10), pegged(PegReference::MidPrice, 100, Side::Buy));
+        book.add_limit_order(OrderId(1), SequenceNumber(1), standard(100, 50, Side::Buy));
+        book.add_limit_order(OrderId(2), SequenceNumber(2), standard(102, 40, Side::Sell)); // spread = 2 > 1
+        book.add_pegged_order(
+            OrderId(10),
+            SequenceNumber(10),
+            pegged(PegReference::MidPrice, 100, Side::Buy),
+        );
 
         // Spread = 2 => MidPrice NOT active, only Primary (which is 0 here)
         // Buy: Depth 50 => price 100

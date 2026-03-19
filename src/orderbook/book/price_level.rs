@@ -1,11 +1,12 @@
-use crate::{LimitOrder, OrderId, Quantity};
+use super::QueueEntry;
+use crate::{OrderId, Quantity, RestingLimitOrder, SequenceNumber};
 
 use std::collections::{HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
 /// Price level that manages the status of the orders with the same price.
-/// It does not store the orders themselves, but only the queue of order IDs for the time-priority.
+/// It does not store the orders themselves, but only the time priority information of the orders.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level
@@ -14,8 +15,8 @@ pub struct PriceLevel {
     pub(crate) hidden_quantity: Quantity,
     /// Number of orders at this price level
     order_count: u64,
-    /// Queue of order IDs at this price level
-    order_ids: VecDeque<OrderId>,
+    /// The time priority queue of this price level
+    queue: VecDeque<QueueEntry>,
 }
 
 impl Default for PriceLevel {
@@ -31,7 +32,7 @@ impl PriceLevel {
             visible_quantity: Quantity(0),
             hidden_quantity: Quantity(0),
             order_count: 0,
-            order_ids: VecDeque::new(),
+            queue: VecDeque::new(),
         }
     }
 
@@ -55,9 +56,9 @@ impl PriceLevel {
         self.order_count
     }
 
-    /// Get the queue of order IDs at this price level
-    pub fn order_ids(&self) -> &VecDeque<OrderId> {
-        &self.order_ids
+    /// Get the time priority queue of this price level
+    pub fn queue(&self) -> &VecDeque<QueueEntry> {
+        &self.queue
     }
 
     /// Increment the number of orders at this price level
@@ -77,76 +78,71 @@ impl PriceLevel {
 }
 
 impl PriceLevel {
-    /// Push an order ID to the queue
-    pub(crate) fn push(&mut self, order_id: OrderId) {
-        self.order_ids.push_back(order_id);
+    /// Push a queue entry to the queue
+    pub(crate) fn push(&mut self, queue_entry: QueueEntry) {
+        self.queue.push_back(queue_entry);
     }
 
-    /// Attempt to peek the first order ID in the queue without removing it
-    pub(crate) fn peek(&self) -> Option<OrderId> {
-        self.order_ids.front().copied()
+    /// Attempt to peek the first queue entry in the queue without removing it
+    pub(crate) fn peek(&self) -> Option<QueueEntry> {
+        self.queue.front().copied()
     }
 
-    /// Attempt to pop the first order ID in the queue
-    pub(crate) fn pop(&mut self) -> Option<OrderId> {
-        self.order_ids.pop_front()
+    /// Attempt to pop the first queue entry in the queue
+    pub(crate) fn pop(&mut self) -> Option<QueueEntry> {
+        self.queue.pop_front()
     }
 
     /// Update the level when an order is added
-    pub(crate) fn on_order_added(&mut self, id: OrderId, visible: Quantity, hidden: Quantity) {
+    pub(crate) fn on_order_added(
+        &mut self,
+        queue_entry: QueueEntry,
+        visible: Quantity,
+        hidden: Quantity,
+    ) {
         self.visible_quantity += visible;
         self.hidden_quantity += hidden;
 
-        self.push(id);
+        self.push(queue_entry);
         self.increment_order_count();
     }
 
     /// Update the level when an order is removed
-    /// Note that it does not remove the order ID from the queue.
-    /// The stale order ID will be cleaned up when the order is peeked from the queue.
+    /// Note that it does not remove the queue entry from the queue.
+    /// The stale queue entry will be cleaned up when the order is peeked from the queue.
     pub(crate) fn on_order_removed(&mut self, visible: Quantity, hidden: Quantity) {
         self.visible_quantity -= visible;
         self.hidden_quantity -= hidden;
         self.decrement_order_count();
     }
 
-    /// Pop the first order ID from the price level and remove it from the order book
+    /// Pop the first queue entry from the price level and remove the order from the order book
     /// If the price level is empty, do nothing
     /// Note that it does not update the quantity of the price level
-    pub(crate) fn remove_head_order(&mut self, limit_orders: &mut HashMap<OrderId, LimitOrder>) {
-        let Some(order_id) = self.pop() else {
+    pub(crate) fn remove_head_order(
+        &mut self,
+        limit_orders: &mut HashMap<OrderId, RestingLimitOrder>,
+    ) {
+        let Some(queue_entry) = self.pop() else {
             return;
         };
-        limit_orders.remove(&order_id);
+        limit_orders.remove(&queue_entry.order_id());
         self.decrement_order_count();
     }
 
-    /// Handle the replenishment of an order in this price level
-    /// It applies the replenished quantity and cycles the front order to the back.
-    ///
-    /// # Panics
-    /// Panics if the queue is empty.
-    pub(crate) fn handle_replenishment(&mut self, replenished: Quantity) {
-        self.apply_replenishment(replenished);
-        self.cycle_front();
-    }
-
     /// Apply the replenished quantity to the price level
-    fn apply_replenishment(&mut self, replenished: Quantity) {
+    pub(crate) fn apply_replenishment(&mut self, replenished: Quantity) {
         self.visible_quantity += replenished;
         self.hidden_quantity -= replenished;
     }
 
-    /// Rotates the queue by moving the front order ID to the back.
-    ///
-    /// This is used to preserve time priority when the front order
-    /// remains active but should yield priority to other orders.
+    /// Reprioritize the front order and move it to the back of the queue
     ///
     /// # Panics
     /// Panics if the queue is empty.
-    fn cycle_front(&mut self) {
-        let order_id = self.pop().unwrap();
-        self.push(order_id);
+    pub(crate) fn reprioritize_front(&mut self, time_priority: SequenceNumber) {
+        let queue_entry = self.pop().unwrap();
+        self.push(queue_entry.reprioritize(time_priority));
     }
 }
 
@@ -189,27 +185,47 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
 
-        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(0), OrderId(0)),
+            Quantity(10),
+            Quantity(0),
+        );
         assert_eq!(price_level.visible_quantity, Quantity(10));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 1);
 
-        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(1), OrderId(1)),
+            Quantity(20),
+            Quantity(0),
+        );
         assert_eq!(price_level.visible_quantity, Quantity(30));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 2);
 
-        price_level.on_order_added(OrderId(2), Quantity(30), Quantity(0));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(2), OrderId(2)),
+            Quantity(30),
+            Quantity(0),
+        );
         assert_eq!(price_level.visible_quantity, Quantity(60));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 3);
 
-        price_level.on_order_added(OrderId(3), Quantity(40), Quantity(0));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(3), OrderId(3)),
+            Quantity(40),
+            Quantity(0),
+        );
         assert_eq!(price_level.visible_quantity, Quantity(100));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 4);
 
-        price_level.on_order_added(OrderId(4), Quantity(50), Quantity(50));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(4), OrderId(4)),
+            Quantity(50),
+            Quantity(50),
+        );
         assert_eq!(price_level.visible_quantity, Quantity(150));
         assert_eq!(price_level.hidden_quantity, Quantity(50));
         assert_eq!(price_level.order_count(), 5);
@@ -249,72 +265,120 @@ mod tests {
 
         limit_orders.insert(
             OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            RestingLimitOrder::new(
+                SequenceNumber(0),
+                LimitOrder::new(
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
-        price_level.on_order_added(OrderId(0), Quantity(10), Quantity(0));
-        assert_eq!(price_level.peek(), Some(OrderId(0)));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(0), OrderId(0)),
+            Quantity(10),
+            Quantity(0),
+        );
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(0), OrderId(0)))
+        );
 
         price_level.remove_head_order(&mut limit_orders);
         assert!(price_level.peek().is_none());
 
         limit_orders.insert(
             OrderId(1),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(20),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            RestingLimitOrder::new(
+                SequenceNumber(1),
+                LimitOrder::new(
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(20),
+                    },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
-        price_level.on_order_added(OrderId(1), Quantity(20), Quantity(0));
-        assert_eq!(price_level.peek(), Some(OrderId(1)));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(1), OrderId(1)),
+            Quantity(20),
+            Quantity(0),
+        );
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(1)))
+        );
 
         limit_orders.insert(
             OrderId(2),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(30),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            RestingLimitOrder::new(
+                SequenceNumber(2),
+                LimitOrder::new(
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(30),
+                    },
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
-        price_level.on_order_added(OrderId(2), Quantity(30), Quantity(0));
-        assert_eq!(price_level.peek(), Some(OrderId(1)));
+        price_level.on_order_added(
+            QueueEntry::new(SequenceNumber(2), OrderId(2)),
+            Quantity(30),
+            Quantity(0),
+        );
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(1)))
+        );
 
         price_level.remove_head_order(&mut limit_orders);
-        assert_eq!(price_level.peek(), Some(OrderId(2)));
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(2), OrderId(2)))
+        );
 
         price_level.remove_head_order(&mut limit_orders);
         assert!(price_level.peek().is_none());
     }
 
     #[test]
-    fn test_cycle_front() {
+    fn test_reprioritize_front() {
         let mut price_level = PriceLevel::new();
         assert_eq!(price_level.peek(), None);
 
-        price_level.push(OrderId(0));
-        assert_eq!(price_level.peek(), Some(OrderId(0)));
+        price_level.push(QueueEntry::new(SequenceNumber(0), OrderId(0)));
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(0), OrderId(0)))
+        );
 
-        price_level.cycle_front();
-        assert_eq!(price_level.peek(), Some(OrderId(0)));
+        price_level.reprioritize_front(SequenceNumber(1));
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(0)))
+        );
 
-        price_level.push(OrderId(1));
-        assert_eq!(price_level.peek(), Some(OrderId(0)));
+        price_level.push(QueueEntry::new(SequenceNumber(2), OrderId(2)));
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(0)))
+        );
 
-        price_level.cycle_front();
-        assert_eq!(price_level.peek(), Some(OrderId(1)));
+        price_level.reprioritize_front(SequenceNumber(3));
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(2), OrderId(2)))
+        );
 
-        price_level.cycle_front();
-        assert_eq!(price_level.peek(), Some(OrderId(0)));
+        price_level.reprioritize_front(SequenceNumber(4));
+        assert_eq!(
+            price_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(3), OrderId(0)))
+        );
     }
 
     #[test]

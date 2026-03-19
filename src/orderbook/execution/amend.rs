@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{OrderId, Side, TimeInForce, command::*, outcome::*};
+use crate::{OrderId, QueueEntry, Side, TimeInForce, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
@@ -54,8 +54,7 @@ impl OrderBook {
                 .apply(&mut order)
                 .map_err(CommandFailure::InvalidCommand)?;
 
-            let new_id = OrderId::from(meta.sequence_number);
-            return Ok(self.submit_validated_limit_order(new_id, &order));
+            return Ok(self.submit_validated_limit_order(id, meta.sequence_number, &order));
         }
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
@@ -80,15 +79,10 @@ impl OrderBook {
             level.hidden_quantity =
                 level.hidden_quantity + quantity_policy.hidden_quantity() - old_hidden_quantity;
 
-            // Lose time-priority due to quantity increase
+            // Lose time priority due to quantity increase
             if quantity_policy.visible_quantity() > old_visible_quantity {
-                let new_id = OrderId::from(meta.sequence_number);
-                level.push(new_id);
-
-                let order = self.limit.orders.remove(&id).unwrap();
-                self.limit.orders.insert(new_id, order);
-
-                return Ok(CommandEffects::new(OrderOutcome::new(new_id)));
+                order.update_time_priority(meta.sequence_number);
+                level.push(QueueEntry::new(meta.sequence_number, id));
             }
         }
 
@@ -131,8 +125,7 @@ impl OrderBook {
                 .apply(&mut order)
                 .map_err(CommandFailure::InvalidCommand)?;
 
-            let new_id = OrderId::from(meta.sequence_number);
-            return Ok(self.submit_validated_pegged_order(new_id, &order));
+            return Ok(self.submit_validated_pegged_order(id, meta.sequence_number, &order));
         }
 
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
@@ -153,15 +146,10 @@ impl OrderBook {
             };
             level.quantity = level.quantity + quantity - old_quantity;
 
-            // Lose time-priority due to quantity increase
+            // Lose time priority due to quantity increase
             if quantity > old_quantity {
-                let new_id = OrderId::from(meta.sequence_number);
-                level.push(new_id);
-
-                let order = self.pegged.orders.remove(&id).unwrap();
-                self.pegged.orders.insert(new_id, order);
-
-                return Ok(CommandEffects::new(OrderOutcome::new(new_id)));
+                order.update_time_priority(meta.sequence_number);
+                level.push(QueueEntry::new(meta.sequence_number, id));
             }
         }
 
@@ -208,6 +196,7 @@ mod tests_amend_limit_order {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -230,6 +219,7 @@ mod tests_amend_limit_order {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -274,10 +264,11 @@ mod tests_amend_limit_order {
     }
 
     #[test]
-    fn price_change_removes_and_resubmits_with_new_id() {
+    fn price_change_reprioritizes_order_and_move_to_new_price_level() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -285,6 +276,14 @@ mod tests_amend_limit_order {
                 },
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
+        );
+        let order = book.limit.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.price(), Price(100));
+        assert_eq!(order.total_quantity(), Quantity(10));
+        assert_eq!(
+            book.limit.bid_levels.get(&Price(100)).unwrap().queue(),
+            &[QueueEntry::new(SequenceNumber(0), OrderId(0))]
         );
 
         let effects = unwrap_amend_effects(amend(
@@ -298,14 +297,18 @@ mod tests_amend_limit_order {
                     quantity: Quantity(10),
                 }),
         ));
-
-        assert_eq!(effects.target_order().order_id(), OrderId(1));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(effects.target_order().cancel_reason().is_none());
-        assert!(!book.limit.orders.contains_key(&OrderId(0)));
 
-        let new_order = book.limit.orders.get(&OrderId(1)).unwrap();
-        assert_eq!(new_order.price(), Price(101));
-        assert_eq!(new_order.total_quantity(), Quantity(10));
+        let order = book.limit.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(1));
+        assert_eq!(order.price(), Price(101));
+        assert_eq!(order.total_quantity(), Quantity(10));
+        assert_eq!(
+            book.limit.bid_levels.get(&Price(101)).unwrap().queue(),
+            &[QueueEntry::new(SequenceNumber(1), OrderId(0))]
+        );
+        assert!(!book.limit.bid_levels.contains_key(&Price(100)));
     }
 
     #[test]
@@ -313,6 +316,7 @@ mod tests_amend_limit_order {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -334,17 +338,17 @@ mod tests_amend_limit_order {
                 })
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
-
         assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(book.limit.orders.contains_key(&OrderId(0)));
         assert!(!book.limit.expiration_queue.is_empty());
     }
 
     #[test]
-    fn quantity_decrease_same_id_level_updated() {
+    fn quantity_decrease_no_reprioritization() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -355,6 +359,7 @@ mod tests_amend_limit_order {
         );
         book.add_limit_order(
             OrderId(1),
+            SequenceNumber(1),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -363,10 +368,20 @@ mod tests_amend_limit_order {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
+        let order = book.limit.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.price(), Price(100));
+        assert_eq!(order.total_quantity(), Quantity(10));
 
         let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(30));
-        assert_eq!(level.order_ids().len(), 2);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1))
+            ]
+        );
 
         let effects = unwrap_amend_effects(amend(
             &mut book,
@@ -377,22 +392,30 @@ mod tests_amend_limit_order {
                 quantity: Quantity(5),
             }),
         ));
-
         assert_eq!(effects.target_order().order_id(), OrderId(0));
 
         let order = book.limit.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(5));
 
         let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(25));
-        assert_eq!(level.order_ids().len(), 2);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1))
+            ]
+        );
     }
 
     #[test]
-    fn quantity_increase_new_id_loses_time_priority() {
+    fn quantity_increase_reprioritizes_order() {
         let mut book = OrderBook::new("TEST");
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -401,9 +424,9 @@ mod tests_amend_limit_order {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
-
         book.add_limit_order(
             OrderId(1),
+            SequenceNumber(1),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -412,10 +435,20 @@ mod tests_amend_limit_order {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
+        let order = book.limit.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.price(), Price(100));
+        assert_eq!(order.total_quantity(), Quantity(10));
 
         let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(30));
-        assert_eq!(level.order_ids().len(), 2);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1))
+            ]
+        );
 
         let effects = unwrap_amend_effects(amend(
             &mut book,
@@ -426,16 +459,23 @@ mod tests_amend_limit_order {
                 quantity: Quantity(20),
             }),
         ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
-        assert_eq!(effects.target_order().order_id(), OrderId(2));
-        assert!(!book.limit.orders.contains_key(&OrderId(0)));
-
-        let order = book.limit.orders.get(&OrderId(2)).unwrap();
+        let order = book.limit.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(2));
+        assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(20));
 
         let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(40));
-        assert_eq!(level.order_ids().len(), 3);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1)),
+                QueueEntry::new(SequenceNumber(2), OrderId(0))
+            ]
+        );
     }
 }
 
@@ -478,6 +518,7 @@ mod tests_amend_pegged_order {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -498,6 +539,7 @@ mod tests_amend_pegged_order {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -540,15 +582,24 @@ mod tests_amend_pegged_order {
     }
 
     #[test]
-    fn peg_reference_change_removes_and_resubmits_with_new_id() {
+    fn peg_reference_change_reprioritizes_order_and_move_to_new_peg_level() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
+        );
+        let order = book.pegged.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.peg_reference(), PegReference::Primary);
+        assert_eq!(order.quantity(), Quantity(10));
+        assert_eq!(
+            book.pegged.bid_levels[PegReference::Primary.as_index()].queue(),
+            &[QueueEntry::new(SequenceNumber(0), OrderId(0))]
         );
 
         let effects = unwrap_amend_effects(amend(
@@ -560,13 +611,16 @@ mod tests_amend_pegged_order {
                 .with_peg_reference(PegReference::Market)
                 .with_quantity(Quantity(10)),
         ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
-        assert_eq!(effects.target_order().order_id(), OrderId(1));
-        assert!(!book.pegged.orders.contains_key(&OrderId(0)));
-
-        let new_order = book.pegged.orders.get(&OrderId(1)).unwrap();
-        assert_eq!(new_order.peg_reference(), PegReference::Market);
-        assert_eq!(new_order.quantity(), Quantity(10));
+        let order = book.pegged.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(1));
+        assert_eq!(order.peg_reference(), PegReference::Market);
+        assert_eq!(order.quantity(), Quantity(10));
+        assert_eq!(
+            book.pegged.bid_levels[PegReference::Market.as_index()].queue(),
+            &[QueueEntry::new(SequenceNumber(1), OrderId(0))]
+        );
     }
 
     #[test]
@@ -574,6 +628,7 @@ mod tests_amend_pegged_order {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -590,17 +645,17 @@ mod tests_amend_pegged_order {
                 .with_quantity(Quantity(10))
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
-
         assert_eq!(effects.target_order().order_id(), OrderId(0));
         assert!(book.pegged.orders.contains_key(&OrderId(0)));
         assert!(!book.pegged.expiration_queue.is_empty());
     }
 
     #[test]
-    fn quantity_decrease_same_id_level_updated() {
+    fn quantity_decrease_no_reprioritization() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -609,15 +664,27 @@ mod tests_amend_pegged_order {
         );
         book.add_pegged_order(
             OrderId(1),
+            SequenceNumber(1),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(20),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
+        let order = book.pegged.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.peg_reference(), PegReference::Primary);
+        assert_eq!(order.quantity(), Quantity(10));
+
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(30));
-        assert_eq!(level.order_ids().len(), 2);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1))
+            ]
+        );
 
         let effects = unwrap_amend_effects(amend(
             &mut book,
@@ -630,18 +697,27 @@ mod tests_amend_pegged_order {
         assert_eq!(effects.target_order().order_id(), OrderId(0));
 
         let order = book.pegged.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.peg_reference(), PegReference::Primary);
         assert_eq!(order.quantity(), Quantity(5));
 
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(25));
-        assert_eq!(level.order_ids().len(), 2);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1))
+            ]
+        );
     }
 
     #[test]
-    fn quantity_increase_new_id_loses_time_priority() {
+    fn quantity_increase_reprioritizes_order() {
         let mut book = OrderBook::new("TEST");
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -650,15 +726,27 @@ mod tests_amend_pegged_order {
         );
         book.add_pegged_order(
             OrderId(1),
+            SequenceNumber(1),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(20),
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
+        let order = book.pegged.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+        assert_eq!(order.peg_reference(), PegReference::Primary);
+        assert_eq!(order.quantity(), Quantity(10));
+
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(30));
-        assert_eq!(level.order_ids().len(), 2);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1))
+            ]
+        );
 
         let effects = unwrap_amend_effects(amend(
             &mut book,
@@ -667,15 +755,22 @@ mod tests_amend_pegged_order {
             OrderId(0),
             PeggedOrderPatch::new().with_quantity(Quantity(20)),
         ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
 
-        assert_eq!(effects.target_order().order_id(), OrderId(2));
-        assert!(!book.pegged.orders.contains_key(&OrderId(0)));
-
-        let order = book.pegged.orders.get(&OrderId(2)).unwrap();
+        let order = book.pegged.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(2));
+        assert_eq!(order.peg_reference(), PegReference::Primary);
         assert_eq!(order.quantity(), Quantity(20));
 
         let level = &mut book.pegged.bid_levels[PegReference::Primary.as_index()];
         assert_eq!(level.quantity, Quantity(40));
-        assert_eq!(level.order_ids().len(), 3);
+        assert_eq!(
+            level.queue(),
+            &[
+                QueueEntry::new(SequenceNumber(0), OrderId(0)),
+                QueueEntry::new(SequenceNumber(1), OrderId(1)),
+                QueueEntry::new(SequenceNumber(2), OrderId(0))
+            ]
+        );
     }
 }

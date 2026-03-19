@@ -1,5 +1,5 @@
 use super::PriceLevel;
-use crate::{LimitOrder, OrderId, Price, Timestamp};
+use crate::{OrderId, Price, RestingLimitOrder, Timestamp};
 
 use std::{
     cmp::Reverse,
@@ -18,7 +18,7 @@ pub struct LimitBook {
     pub(crate) ask_levels: BTreeMap<Price, PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(crate) orders: HashMap<OrderId, LimitOrder>,
+    pub(crate) orders: HashMap<OrderId, RestingLimitOrder>,
 
     /// Queue of limit order IDs to be expired, stored in a min heap of tuples of
     /// (expires_at, order_id) with O(log N) push and pop
@@ -42,7 +42,7 @@ impl LimitBook {
     }
 
     /// Get the limit orders indexed by order ID
-    pub fn orders(&self) -> &HashMap<OrderId, LimitOrder> {
+    pub fn orders(&self) -> &HashMap<OrderId, RestingLimitOrder> {
         &self.orders
     }
 

@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandEffects {
     /// Outcome of the order that was explicitly targeted by the command
-    /// Note that for the amend command, the order ID would be different from the original ID
-    /// if the order was replaced due to losing time-priority (price change or quantity increase)
     target_order: OrderOutcome,
 
     /// Outcomes of the other orders whose state changed as a consequence

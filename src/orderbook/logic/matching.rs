@@ -11,6 +11,7 @@ impl OrderBook {
     /// Returns a `MatchResult` struct containing the result of the match.
     pub(crate) fn match_order(
         &mut self,
+        sequence_number: SequenceNumber,
         taker_side: Side,
         limit_price: Option<Price>,
         quantity: Quantity,
@@ -30,6 +31,7 @@ impl OrderBook {
             };
 
         let result = match_order(
+            sequence_number,
             taker_side,
             taker_side_best_price,
             maker_side_price_levels,
@@ -209,12 +211,13 @@ impl OrderBook {
 /// Returns a `MatchResult` struct containing the result of the match.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn match_order(
+    sequence_number: SequenceNumber,
     taker_side: Side,
     taker_side_best_price: Option<Price>,
     maker_side_price_levels: &mut BTreeMap<Price, PriceLevel>,
-    limit_orders: &mut HashMap<OrderId, LimitOrder>,
+    limit_orders: &mut HashMap<OrderId, RestingLimitOrder>,
     maker_side_peg_levels: &mut [PegLevel; PegReference::COUNT],
-    pegged_orders: &mut HashMap<OrderId, PeggedOrder>,
+    pegged_orders: &mut HashMap<OrderId, RestingPeggedOrder>,
     limit_price: Option<Price>,
     quantity: Quantity,
 ) -> MatchResult {
@@ -250,12 +253,18 @@ pub(crate) fn match_order(
         // Iterate over the orders at the price level
         while !remaining_quantity.is_zero() {
             // The price level is guaranteed to have at least one order
-            let order_id = price_level.peek().unwrap();
+            let queue_entry = price_level.peek().unwrap();
+            let order_id = queue_entry.order_id();
             let Some(order) = limit_orders.get_mut(&order_id) else {
-                // Stale order ID in the price level, remove it
+                // Stale queue entry in the price level, remove it
                 price_level.pop();
                 continue;
             };
+            if queue_entry.time_priority() != order.time_priority() {
+                // Stale queue entry in the price level, remove it
+                price_level.pop();
+                continue;
+            }
 
             let (consumed, replenished) = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
@@ -264,7 +273,9 @@ pub(crate) fn match_order(
             match_result.add_trade(Trade::new(order_id, price, consumed));
 
             if !replenished.is_zero() {
-                price_level.handle_replenishment(replenished);
+                price_level.apply_replenishment(replenished);
+                price_level.reprioritize_front(sequence_number);
+                order.update_time_priority(sequence_number);
             } else if order.is_filled() {
                 // The order is filled, remove it from the price level
                 price_level.remove_head_order(limit_orders);
@@ -289,38 +300,44 @@ pub(crate) fn match_order(
         // Iterate over the orders at the active peg levels
         while !remaining_quantity.is_zero() {
             // (peg_level_index, order_id)
-            let mut best: Option<(usize, OrderId)> = None;
+            let mut best: Option<(usize, QueueEntry)> = None;
 
-            // Find the earliest order
+            // Find the highest priority order
             for peg_reference in active_peg_references {
                 let idx = peg_reference.as_index();
 
                 let peg_level = &mut maker_side_peg_levels[idx];
-                let Some(candidate_id) = peg_level.peek() else {
+                let Some(candidate) = peg_level.peek() else {
                     continue;
                 };
 
                 match best {
-                    None => best = Some((idx, candidate_id)),
-                    Some((_, best_id)) => {
-                        if candidate_id < best_id {
-                            best = Some((idx, candidate_id));
+                    None => best = Some((idx, candidate)),
+                    Some((_, best_queue_entry)) => {
+                        if candidate < best_queue_entry {
+                            best = Some((idx, candidate));
                         }
                     }
                 }
             }
 
             // No more orders in the active peg levels
-            let Some((best_level_idx, order_id)) = best else {
+            let Some((level_idx, queue_entry)) = best else {
                 break;
             };
+            let order_id = queue_entry.order_id();
 
-            let peg_level = &mut maker_side_peg_levels[best_level_idx];
+            let peg_level = &mut maker_side_peg_levels[level_idx];
             let Some(order) = pegged_orders.get_mut(&order_id) else {
-                // Stale order ID in the peg level, remove it
+                // Stale queue entry in the peg level, remove it
                 peg_level.pop();
                 continue;
             };
+            if queue_entry.time_priority() != order.time_priority() {
+                // Stale queue entry in the peg level, remove it
+                peg_level.pop();
+                continue;
+            }
 
             let consumed = order.match_against(remaining_quantity);
             remaining_quantity -= consumed;
@@ -352,12 +369,14 @@ mod tests_match_order {
     fn add_standard_order(
         book: &mut OrderBook,
         id: OrderId,
+        sequence_number: SequenceNumber,
         price: Price,
         quantity: Quantity,
         side: Side,
     ) {
         book.add_limit_order(
             id,
+            sequence_number,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
@@ -367,9 +386,11 @@ mod tests_match_order {
     }
 
     /// Helper function to add an iceberg limit order to the book
+    #[allow(clippy::too_many_arguments)]
     fn add_iceberg_order(
         book: &mut OrderBook,
         id: OrderId,
+        sequence_number: SequenceNumber,
         price: Price,
         visible_quantity: Quantity,
         hidden_quantity: Quantity,
@@ -378,6 +399,7 @@ mod tests_match_order {
     ) {
         book.add_limit_order(
             id,
+            sequence_number,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Iceberg {
@@ -396,12 +418,14 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Sell,
         );
 
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(50));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(100)), Quantity(50));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(50));
@@ -427,6 +451,7 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -434,7 +459,8 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
 
         // Match a buy order at 100 for 30 against the book
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(100)), Quantity(30));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(30));
@@ -450,7 +476,8 @@ mod tests_match_order {
         assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
 
         // Match a buy order at 100 for 40 against the book
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40));
+        let result =
+            orderbook.match_order(SequenceNumber(2), Side::Buy, Some(Price(100)), Quantity(40));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(20));
@@ -472,12 +499,18 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Buy,
         );
 
-        let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(40));
+        let result = orderbook.match_order(
+            SequenceNumber(1),
+            Side::Sell,
+            Some(Price(100)),
+            Quantity(40),
+        );
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), Quantity(40));
@@ -493,7 +526,12 @@ mod tests_match_order {
         assert_eq!(orderbook.best_bid_price(), Some(Price(100)));
 
         // Match a sell order at 100 for 20 against the book
-        let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(20));
+        let result = orderbook.match_order(
+            SequenceNumber(2),
+            Side::Sell,
+            Some(Price(100)),
+            Quantity(20),
+        );
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), Quantity(10));
@@ -513,7 +551,7 @@ mod tests_match_order {
     fn test_empty_book_no_fill() {
         let mut orderbook = new_test_book();
 
-        let result = orderbook.match_order(Side::Buy, None, Quantity(30));
+        let result = orderbook.match_order(SequenceNumber(0), Side::Buy, None, Quantity(30));
 
         assert_eq!(result.taker_side(), Side::Buy);
         assert_eq!(result.executed_quantity(), Quantity(0));
@@ -528,13 +566,15 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Sell,
         );
 
         // Buy limit 99 does not cross best ask 100
-        let result = orderbook.match_order(Side::Buy, Some(Price(99)), Quantity(30));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(99)), Quantity(30));
 
         assert_eq!(result.executed_quantity(), Quantity(0));
         assert!(result.trades().is_empty());
@@ -547,6 +587,7 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(20),
             Side::Sell,
@@ -554,13 +595,15 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(100),
             Quantity(30),
             Side::Sell,
         );
 
         // Buy 40: fills first maker fully (20), second maker partially (20)
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(40));
+        let result =
+            orderbook.match_order(SequenceNumber(2), Side::Buy, Some(Price(100)), Quantity(40));
 
         assert_eq!(result.executed_quantity(), Quantity(40));
         assert_eq!(result.executed_value(), Notional(100 * 40));
@@ -584,6 +627,7 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(30),
             Side::Sell,
@@ -591,13 +635,15 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(101),
             Quantity(40),
             Side::Sell,
         );
 
         // Buy 50 at limit 101: 30 @ 100, then 20 @ 101
-        let result = orderbook.match_order(Side::Buy, Some(Price(101)), Quantity(50));
+        let result =
+            orderbook.match_order(SequenceNumber(2), Side::Buy, Some(Price(101)), Quantity(50));
 
         assert_eq!(result.executed_quantity(), Quantity(50));
         assert_eq!(result.executed_value(), Notional(30 * 100 + 20 * 101));
@@ -621,6 +667,7 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(25),
             Side::Sell,
@@ -628,6 +675,7 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(101),
             Quantity(25),
             Side::Sell,
@@ -635,13 +683,14 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(2),
+            SequenceNumber(2),
             Price(102),
             Quantity(25),
             Side::Sell,
         );
 
         // Market buy (None limit) for 60: 25 @ 100, 25 @ 101, 10 @ 102
-        let result = orderbook.match_order(Side::Buy, None, Quantity(60));
+        let result = orderbook.match_order(SequenceNumber(3), Side::Buy, None, Quantity(60));
 
         assert_eq!(result.executed_quantity(), Quantity(60));
         assert_eq!(
@@ -674,6 +723,7 @@ mod tests_match_order {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(20),
             Quantity(30),
@@ -682,7 +732,8 @@ mod tests_match_order {
         );
 
         // Buy 15: only consumes visible, no replenish yet
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(15));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(100)), Quantity(15));
 
         assert_eq!(result.executed_quantity(), Quantity(15));
         assert_eq!(result.executed_value(), Notional(100 * 15));
@@ -703,6 +754,7 @@ mod tests_match_order {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -711,7 +763,8 @@ mod tests_match_order {
         );
 
         // Buy 15: consumes 10 (trade 10), replenish 10, then consumes 5 (trade 5)
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(15));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(100)), Quantity(15));
 
         assert_eq!(result.executed_quantity(), Quantity(15));
         assert_eq!(result.executed_value(), Notional(100 * 15));
@@ -736,6 +789,7 @@ mod tests_match_order {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(30),
@@ -744,7 +798,8 @@ mod tests_match_order {
         );
 
         // Buy 35: 10 + 10 (replenish) + 10 + 5
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(35));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(100)), Quantity(35));
 
         assert_eq!(result.executed_quantity(), Quantity(35));
         assert_eq!(result.executed_value(), Notional(100 * 35));
@@ -777,6 +832,7 @@ mod tests_match_order {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -784,7 +840,8 @@ mod tests_match_order {
             Side::Sell,
         );
 
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(30));
+        let result =
+            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(100)), Quantity(30));
 
         assert_eq!(result.executed_quantity(), Quantity(30));
         assert_eq!(result.executed_value(), Notional(100 * 30));
@@ -812,6 +869,7 @@ mod tests_match_order {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -821,13 +879,15 @@ mod tests_match_order {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(100),
             Quantity(50),
             Side::Sell,
         );
 
         // Buy 70: replenish moves iceberg to back, so we get 10 (iceberg), then 50 (standard), then 10 (iceberg) = 3 trades
-        let result = orderbook.match_order(Side::Buy, Some(Price(100)), Quantity(70));
+        let result =
+            orderbook.match_order(SequenceNumber(2), Side::Buy, Some(Price(100)), Quantity(70));
 
         assert_eq!(result.executed_quantity(), Quantity(70));
         assert_eq!(result.executed_value(), Notional(100 * 70));
@@ -855,6 +915,7 @@ mod tests_match_order {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -863,7 +924,12 @@ mod tests_match_order {
         );
 
         // Sell 25: 10 + 10 (replenish) + 5
-        let result = orderbook.match_order(Side::Sell, Some(Price(100)), Quantity(25));
+        let result = orderbook.match_order(
+            SequenceNumber(1),
+            Side::Sell,
+            Some(Price(100)),
+            Quantity(25),
+        );
 
         assert_eq!(result.taker_side(), Side::Sell);
         assert_eq!(result.executed_quantity(), Quantity(25));
@@ -901,12 +967,14 @@ mod tests_max_executable_quantity_unchecked {
     fn add_standard_order(
         book: &mut OrderBook,
         id: OrderId,
+        sequence_number: SequenceNumber,
         price: Price,
         quantity: Quantity,
         side: Side,
     ) {
         book.add_limit_order(
             id,
+            sequence_number,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
@@ -919,12 +987,14 @@ mod tests_max_executable_quantity_unchecked {
     fn add_pegged_order(
         book: &mut OrderBook,
         id: OrderId,
+        sequence_number: SequenceNumber,
         peg: PegReference,
         quantity: Quantity,
         side: Side,
     ) {
         book.add_pegged_order(
             id,
+            sequence_number,
             PeggedOrder::new(
                 peg,
                 quantity,
@@ -936,7 +1006,14 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_buy_fully_executable_returns_requested() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Sell);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(50),
+            Side::Sell,
+        );
 
         let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(30));
         assert_eq!(qty, Quantity(30));
@@ -945,7 +1022,14 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_buy_capped_by_available_liquidity() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Sell);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(50),
+            Side::Sell,
+        );
 
         let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(100));
         assert_eq!(qty, Quantity(50));
@@ -954,8 +1038,22 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_buy_multiple_limit_levels_summed() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(30), Side::Sell);
-        add_standard_order(&mut book, OrderId(1), Price(101), Quantity(40), Side::Sell);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(30),
+            Side::Sell,
+        );
+        add_standard_order(
+            &mut book,
+            OrderId(1),
+            SequenceNumber(1),
+            Price(101),
+            Quantity(40),
+            Side::Sell,
+        );
 
         // All ask levels: 30 + 40 = 70. Request 100 → 70 executable.
         let qty = book.max_executable_quantity_unchecked(Side::Buy, Quantity(100));
@@ -965,7 +1063,14 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_sell_fully_executable_returns_requested() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Buy);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(50),
+            Side::Buy,
+        );
 
         let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(30));
         assert_eq!(qty, Quantity(30));
@@ -974,7 +1079,14 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_sell_capped_by_available_liquidity() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(50), Side::Buy);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(50),
+            Side::Buy,
+        );
 
         let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(100));
         assert_eq!(qty, Quantity(50));
@@ -983,8 +1095,22 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_sell_multiple_limit_levels_summed() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(30), Side::Buy);
-        add_standard_order(&mut book, OrderId(1), Price(99), Quantity(40), Side::Buy);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(30),
+            Side::Buy,
+        );
+        add_standard_order(
+            &mut book,
+            OrderId(1),
+            SequenceNumber(1),
+            Price(99),
+            Quantity(40),
+            Side::Buy,
+        );
 
         // All bid levels (best first): 30 + 40 = 70. Request 100 → 70 executable.
         let qty = book.max_executable_quantity_unchecked(Side::Sell, Quantity(100));
@@ -994,10 +1120,18 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_buy_includes_primary_peg_ask() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(20), Side::Sell);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(20),
+            Side::Sell,
+        );
         add_pegged_order(
             &mut book,
             OrderId(1),
+            SequenceNumber(1),
             PegReference::Primary,
             Quantity(15),
             Side::Sell,
@@ -1011,10 +1145,18 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_sell_includes_primary_peg_bid() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(20), Side::Buy);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(20),
+            Side::Buy,
+        );
         add_pegged_order(
             &mut book,
             OrderId(1),
+            SequenceNumber(1),
             PegReference::Primary,
             Quantity(15),
             Side::Buy,
@@ -1028,11 +1170,26 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_buy_includes_mid_price_peg_when_spread_at_most_one() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(100), Quantity(10), Side::Buy);
-        add_standard_order(&mut book, OrderId(1), Price(101), Quantity(10), Side::Sell);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(100),
+            Quantity(10),
+            Side::Buy,
+        );
+        add_standard_order(
+            &mut book,
+            OrderId(1),
+            SequenceNumber(1),
+            Price(101),
+            Quantity(10),
+            Side::Sell,
+        );
         add_pegged_order(
             &mut book,
             OrderId(2),
+            SequenceNumber(2),
             PegReference::Primary,
             Quantity(5),
             Side::Sell,
@@ -1040,6 +1197,7 @@ mod tests_max_executable_quantity_unchecked {
         add_pegged_order(
             &mut book,
             OrderId(3),
+            SequenceNumber(3),
             PegReference::MidPrice,
             Quantity(7),
             Side::Sell,
@@ -1053,11 +1211,26 @@ mod tests_max_executable_quantity_unchecked {
     #[test]
     fn test_buy_excludes_mid_price_peg_when_spread_wide() {
         let mut book = new_test_book();
-        add_standard_order(&mut book, OrderId(0), Price(98), Quantity(10), Side::Buy);
-        add_standard_order(&mut book, OrderId(1), Price(102), Quantity(10), Side::Sell);
+        add_standard_order(
+            &mut book,
+            OrderId(0),
+            SequenceNumber(0),
+            Price(98),
+            Quantity(10),
+            Side::Buy,
+        );
+        add_standard_order(
+            &mut book,
+            OrderId(1),
+            SequenceNumber(1),
+            Price(102),
+            Quantity(10),
+            Side::Sell,
+        );
         add_pegged_order(
             &mut book,
             OrderId(2),
+            SequenceNumber(2),
             PegReference::Primary,
             Quantity(5),
             Side::Sell,
@@ -1065,6 +1238,7 @@ mod tests_max_executable_quantity_unchecked {
         add_pegged_order(
             &mut book,
             OrderId(3),
+            SequenceNumber(3),
             PegReference::MidPrice,
             Quantity(7),
             Side::Sell,
@@ -1090,12 +1264,14 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
     fn add_standard_order(
         book: &mut OrderBook,
         id: OrderId,
+        sequence_number: SequenceNumber,
         price: Price,
         quantity: Quantity,
         side: Side,
     ) {
         book.add_limit_order(
             id,
+            sequence_number,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Standard { quantity },
@@ -1105,9 +1281,11 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
     }
 
     /// Helper function to add an iceberg limit order to the book
+    #[allow(clippy::too_many_arguments)]
     fn add_iceberg_order(
         book: &mut OrderBook,
         id: OrderId,
+        sequence_number: SequenceNumber,
         price: Price,
         visible_quantity: Quantity,
         hidden_quantity: Quantity,
@@ -1116,6 +1294,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
     ) {
         book.add_limit_order(
             id,
+            sequence_number,
             LimitOrder::new(
                 price,
                 QuantityPolicy::Iceberg {
@@ -1134,6 +1313,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -1154,6 +1334,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Sell,
@@ -1174,6 +1355,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(30),
             Side::Sell,
@@ -1181,6 +1363,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(101),
             Quantity(40),
             Side::Sell,
@@ -1201,6 +1384,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Side::Sell,
@@ -1208,6 +1392,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(102),
             Quantity(20),
             Side::Sell,
@@ -1228,6 +1413,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -1248,6 +1434,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -1268,6 +1455,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(98),
             Quantity(30),
             Side::Buy,
@@ -1275,6 +1463,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(100),
             Quantity(50),
             Side::Buy,
@@ -1297,6 +1486,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -1319,6 +1509,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(25),
@@ -1341,6 +1532,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(15),
             Quantity(25),
@@ -1363,6 +1555,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -1372,6 +1565,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(101),
             Quantity(40),
             Side::Sell,
@@ -1392,6 +1586,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_iceberg_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(100),
             Quantity(10),
             Quantity(20),
@@ -1401,6 +1596,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(102),
             Quantity(50),
             Side::Sell,
@@ -1421,6 +1617,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_standard_order(
             &mut orderbook,
             OrderId(0),
+            SequenceNumber(0),
             Price(98),
             Quantity(30),
             Side::Buy,
@@ -1428,6 +1625,7 @@ mod tests_max_executable_quantity_with_limit_price_unchecked {
         add_iceberg_order(
             &mut orderbook,
             OrderId(1),
+            SequenceNumber(1),
             Price(100),
             Quantity(10),
             Quantity(40),
