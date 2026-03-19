@@ -1,6 +1,6 @@
 use crate::{
-    LimitBook, LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, PriceLevel,
-    QueueEntry, RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
+    LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, PriceLevel, QueueEntry,
+    RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
 };
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
@@ -13,7 +13,56 @@ impl OrderBook {
         id: OrderId,
         order: LimitOrder,
     ) {
-        self.limit.add_order(sequence_number, id, order);
+        if let Some(expires_at) = order.expires_at() {
+            self.limit.expiration_queue.push(Reverse((expires_at, id)));
+        }
+
+        let (price, visible, hidden, side) = (
+            order.price(),
+            order.visible_quantity(),
+            order.hidden_quantity(),
+            order.side(),
+        );
+        self.limit
+            .orders
+            .insert(id, RestingLimitOrder::new(sequence_number, order));
+
+        let queue_entry = QueueEntry::new(sequence_number, id);
+        let levels = match side {
+            Side::Buy => &mut self.limit.bid_levels,
+            Side::Sell => &mut self.limit.ask_levels,
+        };
+        match levels.entry(price) {
+            Entry::Occupied(mut e) => {
+                e.get_mut().on_order_added(queue_entry, visible, hidden);
+            }
+            Entry::Vacant(e) => {
+                let mut price_level = PriceLevel::new();
+                price_level.on_order_added(queue_entry, visible, hidden);
+                e.insert(price_level);
+
+                let (best_price, peg_levels) = match side {
+                    Side::Buy => (
+                        levels.keys().next_back().copied().unwrap(),
+                        &mut self.pegged.bid_levels,
+                    ),
+                    Side::Sell => (
+                        levels.keys().next().copied().unwrap(),
+                        &mut self.pegged.ask_levels,
+                    ),
+                };
+                if price == best_price {
+                    // Reprice the same side primary peg
+                    peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
+
+                    // Reprice the both side mid price pegs
+                    self.pegged.bid_levels[PegReference::MidPrice.as_index()].repriced_at =
+                        sequence_number;
+                    self.pegged.ask_levels[PegReference::MidPrice.as_index()].repriced_at =
+                        sequence_number;
+                }
+            }
+        }
     }
 
     /// Remove a limit order from the order book
@@ -66,45 +115,6 @@ impl OrderBook {
     /// Remove a pegged order from the order book
     pub(crate) fn remove_pegged_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
         self.pegged.remove_order(order_id)
-    }
-}
-
-impl LimitBook {
-    /// Add a limit order to the order book
-    pub(crate) fn add_order(
-        &mut self,
-        sequence_number: SequenceNumber,
-        id: OrderId,
-        order: LimitOrder,
-    ) {
-        if let Some(expires_at) = order.expires_at() {
-            self.expiration_queue.push(Reverse((expires_at, id)));
-        }
-
-        let (price, visible, hidden, side) = (
-            order.price(),
-            order.visible_quantity(),
-            order.hidden_quantity(),
-            order.side(),
-        );
-        self.orders
-            .insert(id, RestingLimitOrder::new(sequence_number, order));
-
-        let queue_entry = QueueEntry::new(sequence_number, id);
-        let levels = match side {
-            Side::Buy => &mut self.bid_levels,
-            Side::Sell => &mut self.ask_levels,
-        };
-        match levels.entry(price) {
-            Entry::Occupied(mut e) => {
-                e.get_mut().on_order_added(queue_entry, visible, hidden);
-            }
-            Entry::Vacant(e) => {
-                let mut price_level = PriceLevel::new();
-                price_level.on_order_added(queue_entry, visible, hidden);
-                e.insert(price_level);
-            }
-        }
     }
 }
 
