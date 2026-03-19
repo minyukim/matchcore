@@ -239,6 +239,7 @@ mod tests {
 
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -253,6 +254,7 @@ mod tests {
 
         book.add_limit_order(
             OrderId(1),
+            SequenceNumber(1),
             LimitOrder::new(
                 Price(101),
                 QuantityPolicy::Standard {
@@ -267,6 +269,7 @@ mod tests {
 
         book.add_limit_order(
             OrderId(2),
+            SequenceNumber(2),
             LimitOrder::new(
                 Price(101),
                 QuantityPolicy::Standard {
@@ -281,6 +284,7 @@ mod tests {
 
         book.add_limit_order(
             OrderId(3),
+            SequenceNumber(3),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -321,6 +325,7 @@ mod tests {
 
         book.add_limit_order(
             OrderId(0),
+            SequenceNumber(0),
             LimitOrder::new(
                 Price(100),
                 QuantityPolicy::Standard {
@@ -355,6 +360,7 @@ mod tests {
 
         book.add_pegged_order(
             OrderId(0),
+            SequenceNumber(0),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),
@@ -380,6 +386,7 @@ mod tests {
 
         book.add_pegged_order(
             OrderId(1),
+            SequenceNumber(1),
             PeggedOrder::new(
                 PegReference::Market,
                 Quantity(10),
@@ -405,6 +412,7 @@ mod tests {
 
         book.add_pegged_order(
             OrderId(2),
+            SequenceNumber(2),
             PeggedOrder::new(
                 PegReference::MidPrice,
                 Quantity(10),
@@ -430,6 +438,7 @@ mod tests {
 
         book.add_pegged_order(
             OrderId(3),
+            SequenceNumber(3),
             PeggedOrder::new(
                 PegReference::Primary,
                 Quantity(10),

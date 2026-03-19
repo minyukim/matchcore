@@ -1,5 +1,5 @@
 use super::{OrderFlags, OrderKind};
-use crate::{Price, Quantity, QuantityPolicy};
+use crate::{Price, Quantity, QuantityPolicy, SequenceNumber};
 
 use std::{
     fmt,
@@ -7,6 +7,58 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+
+/// Represents a limit order resting in the order book
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestingLimitOrder {
+    /// The time priority of the order
+    time_priority: SequenceNumber,
+    /// The limit order
+    order: LimitOrder,
+}
+
+impl RestingLimitOrder {
+    /// Create a new resting limit order
+    pub fn new(time_priority: SequenceNumber, order: LimitOrder) -> Self {
+        Self {
+            time_priority,
+            order,
+        }
+    }
+
+    /// Get the time priority of the order
+    pub fn time_priority(&self) -> SequenceNumber {
+        self.time_priority
+    }
+
+    /// Update the time priority of the order
+    pub(crate) fn update_time_priority(&mut self, new_time_priority: SequenceNumber) {
+        self.time_priority = new_time_priority;
+    }
+
+    /// Get the limit order
+    pub fn order(&self) -> &LimitOrder {
+        &self.order
+    }
+
+    /// Convert the resting limit order into a limit order
+    pub(crate) fn into_order(self) -> LimitOrder {
+        self.order
+    }
+}
+
+impl Deref for RestingLimitOrder {
+    type Target = LimitOrder;
+
+    fn deref(&self) -> &Self::Target {
+        &self.order
+    }
+}
+impl DerefMut for RestingLimitOrder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.order
+    }
+}
 
 /// Generic limit order with various configuration options
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -190,6 +242,15 @@ mod tests {
             },
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         )
+    }
+
+    #[test]
+    fn test_time_priority() {
+        let mut order = RestingLimitOrder::new(SequenceNumber(0), create_standard_order());
+        assert_eq!(order.time_priority(), SequenceNumber(0));
+
+        order.update_time_priority(SequenceNumber(1));
+        assert_eq!(order.time_priority(), SequenceNumber(1));
     }
 
     #[test]

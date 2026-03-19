@@ -1,4 +1,5 @@
-use crate::{OrderId, PegReference, PeggedOrder, Quantity};
+use super::QueueEntry;
+use crate::{OrderId, PegReference, Quantity, RestingPeggedOrder};
 
 use std::collections::{HashMap, VecDeque};
 
@@ -11,15 +12,15 @@ pub(crate) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
     [PegReference::Primary, PegReference::MidPrice];
 
 /// Peg level that manages the status of the orders with the same peg reference.
-/// It does not store the orders themselves, but only the queue of order IDs for the time-priority.
+/// It does not store the orders themselves, but only the time priority information of the orders.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
     /// Total quantity at this peg level
     pub(crate) quantity: Quantity,
     /// Number of orders at this peg level
     order_count: u64,
-    /// Queue of order IDs at this peg level
-    order_ids: VecDeque<OrderId>,
+    /// The time priority queue of this peg level
+    queue: VecDeque<QueueEntry>,
 }
 
 impl Default for PegLevel {
@@ -34,7 +35,7 @@ impl PegLevel {
         Self {
             quantity: Quantity(0),
             order_count: 0,
-            order_ids: VecDeque::new(),
+            queue: VecDeque::new(),
         }
     }
 
@@ -48,9 +49,9 @@ impl PegLevel {
         self.order_count
     }
 
-    /// Get the queue of order IDs at this peg level
-    pub fn order_ids(&self) -> &VecDeque<OrderId> {
-        &self.order_ids
+    /// Get the time priority queue of this peg level
+    pub fn queue(&self) -> &VecDeque<QueueEntry> {
+        &self.queue
     }
 
     /// Increment the number of orders at this peg level
@@ -65,45 +66,48 @@ impl PegLevel {
 }
 
 impl PegLevel {
-    /// Push an order ID to the queue
-    pub(crate) fn push(&mut self, order_id: OrderId) {
-        self.order_ids.push_back(order_id);
+    /// Push an order ID and time priority to the queue
+    pub(crate) fn push(&mut self, queue_entry: QueueEntry) {
+        self.queue.push_back(queue_entry);
     }
 
-    /// Attempt to peek the first order ID in the queue without removing it
-    pub(crate) fn peek(&self) -> Option<OrderId> {
-        self.order_ids.front().copied()
+    /// Attempt to peek the first queue entry in the queue without removing it
+    pub(crate) fn peek(&self) -> Option<QueueEntry> {
+        self.queue.front().copied()
     }
 
-    /// Attempt to pop the first order ID in the queue
-    pub(crate) fn pop(&mut self) -> Option<OrderId> {
-        self.order_ids.pop_front()
+    /// Attempt to pop the first queue entry in the queue
+    pub(crate) fn pop(&mut self) -> Option<QueueEntry> {
+        self.queue.pop_front()
     }
 
     /// Update the level when an order is added
-    pub(crate) fn on_order_added(&mut self, id: OrderId, quantity: Quantity) {
+    pub(crate) fn on_order_added(&mut self, queue_entry: QueueEntry, quantity: Quantity) {
         self.quantity += quantity;
 
-        self.push(id);
+        self.push(queue_entry);
         self.increment_order_count();
     }
 
     /// Update the level when an order is removed
-    /// Note that it does not remove the order ID from the queue.
-    /// The stale order ID will be cleaned up when the order is peeked from the queue.
+    /// Note that it does not remove the queue entry from the queue.
+    /// The stale queue entry will be cleaned up when the order is peeked from the queue.
     pub(crate) fn on_order_removed(&mut self, quantity: Quantity) {
         self.quantity -= quantity;
         self.decrement_order_count();
     }
 
-    /// Pop the first order ID from the peg level and remove it from the order book
+    /// Pop the first queue entry from the peg level and remove the order from the order book
     /// If the peg level is empty, do nothing
     /// Note that it does not update the quantity of the peg level
-    pub(crate) fn remove_head_order(&mut self, pegged_orders: &mut HashMap<OrderId, PeggedOrder>) {
-        let Some(order_id) = self.pop() else {
+    pub(crate) fn remove_head_order(
+        &mut self,
+        pegged_orders: &mut HashMap<OrderId, RestingPeggedOrder>,
+    ) {
+        let Some(queue_entry) = self.pop() else {
             return;
         };
-        pegged_orders.remove(&order_id);
+        pegged_orders.remove(&queue_entry.order_id());
         self.decrement_order_count();
     }
 }
@@ -133,23 +137,23 @@ mod tests {
         assert_eq!(peg_level.quantity(), Quantity(0));
         assert_eq!(peg_level.order_count(), 0);
 
-        peg_level.on_order_added(OrderId(0), Quantity(10));
+        peg_level.on_order_added(QueueEntry::new(SequenceNumber(0), OrderId(0)), Quantity(10));
         assert_eq!(peg_level.quantity(), Quantity(10));
         assert_eq!(peg_level.order_count(), 1);
 
-        peg_level.on_order_added(OrderId(1), Quantity(20));
+        peg_level.on_order_added(QueueEntry::new(SequenceNumber(1), OrderId(1)), Quantity(20));
         assert_eq!(peg_level.quantity(), Quantity(30));
         assert_eq!(peg_level.order_count(), 2);
 
-        peg_level.on_order_added(OrderId(2), Quantity(30));
+        peg_level.on_order_added(QueueEntry::new(SequenceNumber(2), OrderId(2)), Quantity(30));
         assert_eq!(peg_level.quantity(), Quantity(60));
         assert_eq!(peg_level.order_count(), 3);
 
-        peg_level.on_order_added(OrderId(3), Quantity(40));
+        peg_level.on_order_added(QueueEntry::new(SequenceNumber(3), OrderId(3)), Quantity(40));
         assert_eq!(peg_level.quantity(), Quantity(100));
         assert_eq!(peg_level.order_count(), 4);
 
-        peg_level.on_order_added(OrderId(4), Quantity(50));
+        peg_level.on_order_added(QueueEntry::new(SequenceNumber(4), OrderId(4)), Quantity(50));
         assert_eq!(peg_level.quantity(), Quantity(150));
         assert_eq!(peg_level.order_count(), 5);
 
@@ -183,42 +187,72 @@ mod tests {
 
         pegged_orders.insert(
             OrderId(0),
-            PeggedOrder::new(
-                PegReference::Primary,
-                Quantity(100),
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            RestingPeggedOrder::new(
+                SequenceNumber(0),
+                PeggedOrder::new(
+                    PegReference::Primary,
+                    Quantity(100),
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
-        peg_level.on_order_added(OrderId(0), Quantity(100));
-        assert_eq!(peg_level.peek(), Some(OrderId(0)));
+        peg_level.on_order_added(
+            QueueEntry::new(SequenceNumber(0), OrderId(0)),
+            Quantity(100),
+        );
+        assert_eq!(
+            peg_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(0), OrderId(0)))
+        );
 
         peg_level.remove_head_order(&mut pegged_orders);
         assert!(peg_level.peek().is_none());
 
         pegged_orders.insert(
             OrderId(1),
-            PeggedOrder::new(
-                PegReference::Primary,
-                Quantity(100),
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            RestingPeggedOrder::new(
+                SequenceNumber(1),
+                PeggedOrder::new(
+                    PegReference::Primary,
+                    Quantity(100),
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
-        peg_level.on_order_added(OrderId(1), Quantity(100));
-        assert_eq!(peg_level.peek(), Some(OrderId(1)));
+        peg_level.on_order_added(
+            QueueEntry::new(SequenceNumber(1), OrderId(1)),
+            Quantity(100),
+        );
+        assert_eq!(
+            peg_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(1)))
+        );
 
         pegged_orders.insert(
             OrderId(2),
-            PeggedOrder::new(
-                PegReference::Primary,
-                Quantity(100),
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            RestingPeggedOrder::new(
+                SequenceNumber(2),
+                PeggedOrder::new(
+                    PegReference::Primary,
+                    Quantity(100),
+                    OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+                ),
             ),
         );
-        peg_level.on_order_added(OrderId(2), Quantity(100));
-        assert_eq!(peg_level.peek(), Some(OrderId(1)));
+        peg_level.on_order_added(
+            QueueEntry::new(SequenceNumber(2), OrderId(2)),
+            Quantity(100),
+        );
+        assert_eq!(
+            peg_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(1)))
+        );
 
         peg_level.remove_head_order(&mut pegged_orders);
-        assert_eq!(peg_level.peek(), Some(OrderId(2)));
+        assert_eq!(
+            peg_level.peek(),
+            Some(QueueEntry::new(SequenceNumber(2), OrderId(2)))
+        );
 
         peg_level.remove_head_order(&mut pegged_orders);
         assert!(peg_level.peek().is_none());
