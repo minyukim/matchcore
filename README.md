@@ -158,29 +158,31 @@ println!("{}", outcome);
 
 More examples can be found in the [examples](examples) directory.
 
-## Order Model
+## Supported Order Features
+
+Matchcore supports the following order types and execution options.
 
 ### Types
 
-- [Market order](src/orders/market.rs)
-- [Limit order](src/orders/limit.rs)
-- [Pegged order](src/orders/pegged.rs)
+- **Market Order**: executes immediately against the best available liquidity; optionally supports market-to-limit behavior if not fully filled
+- **Limit Order**: executes at the specified price or better
+- **Pegged Order**: dynamically reprices based on a reference price (e.g., best bid/ask)
 
 ### Flags
 
-- [Post-only](src/orders/flags.rs)
-- [Time-in-force](src/types/time_in_force.rs)
+- **Post-Only**: ensures the order adds liquidity only
+- **Time-in-Force**: defines order lifetime (e.g., GTC, IOC, FOK, GTD)
 
 ### Quantity Policies
 
-- [Standard](src/types/quantity_policy.rs)
-- [Iceberg](src/types/quantity_policy.rs)
+- **Standard**: fully visible quantity
+- **Iceberg**: partially visible quantity with hidden reserve that replenishes
 
 ### Peg References
 
-- [Primary](src/types/peg_reference.rs)
-- [Market](src/types/peg_reference.rs)
-- [Mid-price](src/types/peg_reference.rs)
+- **Primary**: pegs to the same-side best price (e.g., best bid for buy)
+- **Market**: pegs to the opposite-side best price (e.g., best ask for buy)
+- **Mid-Price**: pegs to the midpoint between best bid and best ask
 
 ## Performance
 
@@ -263,8 +265,8 @@ To run the benchmarks in your environment, run `make bench`.
 
 ### Additional Order Features
 
-- Last-trade peg reference
 - Stop orders
+- Last-trade peg reference
 
 ### Potential Performance Improvements
 
