@@ -1,5 +1,5 @@
 use super::QueueEntry;
-use crate::{OrderId, PegReference, Quantity, RestingPeggedOrder};
+use crate::{OrderId, PegReference, Quantity, RestingPeggedOrder, SequenceNumber};
 
 use std::collections::{HashMap, VecDeque};
 
@@ -15,6 +15,8 @@ pub(crate) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
 /// It does not store the orders themselves, but only the time priority information of the orders.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PegLevel {
+    /// The sequence number at which the peg level was last repriced
+    pub(crate) repriced_at: SequenceNumber,
     /// Total quantity at this peg level
     pub(crate) quantity: Quantity,
     /// Number of orders at this peg level
@@ -33,10 +35,16 @@ impl PegLevel {
     /// Create a new peg level
     pub fn new() -> Self {
         Self {
+            repriced_at: SequenceNumber(0),
             quantity: Quantity(0),
             order_count: 0,
             queue: VecDeque::new(),
         }
+    }
+
+    /// Get the sequence number at which the peg level was last repriced
+    pub fn repriced_at(&self) -> SequenceNumber {
+        self.repriced_at
     }
 
     /// Get the quantity at this peg level

@@ -17,12 +17,14 @@ impl OrderBook {
             return CommandOutcome::Rejected(failure);
         }
 
-        self.clean_up_expired_orders(cmd.meta.timestamp);
+        self.clean_up_expired_orders(cmd.meta);
 
         match &cmd.kind {
             CommandKind::Submit(submit_cmd) => self.execute_submit(cmd.meta, submit_cmd),
             CommandKind::Amend(amend_cmd) => self.execute_amend(cmd.meta, amend_cmd),
-            CommandKind::Cancel(cancel_cmd) => self.execute_cancel(cancel_cmd),
+            CommandKind::Cancel(cancel_cmd) => {
+                self.execute_cancel(cmd.meta.sequence_number, cancel_cmd)
+            }
         }
     }
 
@@ -77,13 +79,17 @@ impl OrderBook {
     }
 
     /// Clean up expired orders
-    fn clean_up_expired_orders(&mut self, timestamp: Timestamp) {
-        self.clean_up_expired_limit_orders(timestamp);
-        self.clean_up_expired_pegged_orders(timestamp);
+    fn clean_up_expired_orders(&mut self, meta: CommandMeta) {
+        self.clean_up_expired_limit_orders(meta.sequence_number, meta.timestamp);
+        self.clean_up_expired_pegged_orders(meta.timestamp);
     }
 
     /// Clean up expired limit orders
-    fn clean_up_expired_limit_orders(&mut self, timestamp: Timestamp) {
+    fn clean_up_expired_limit_orders(
+        &mut self,
+        sequence_number: SequenceNumber,
+        timestamp: Timestamp,
+    ) {
         while let Some(Reverse((expires_at, order_id))) = self.limit.expiration_queue.peek() {
             if *expires_at > timestamp {
                 break;
@@ -99,7 +105,7 @@ impl OrderBook {
             // Check if the order is actually expired, as the TIF of the order may have changed
             // since the order was added to the expiration queue
             if expired {
-                self.remove_limit_order(*order_id);
+                self.remove_limit_order(sequence_number, *order_id);
             }
 
             self.limit.expiration_queue.pop();
@@ -298,19 +304,19 @@ mod tests {
         assert_eq!(book.limit.expiration_queue.len(), 4);
 
         // No orders should be expired
-        book.clean_up_expired_limit_orders(Timestamp(999));
+        book.clean_up_expired_limit_orders(SequenceNumber(999), Timestamp(999));
         assert_eq!(book.limit.bid_levels.len(), 2);
         assert_eq!(book.limit.orders.len(), 4);
         assert_eq!(book.limit.expiration_queue.len(), 4);
 
         // Two orders at GTD 1000 should be expired
-        book.clean_up_expired_limit_orders(Timestamp(1000));
+        book.clean_up_expired_limit_orders(SequenceNumber(1000), Timestamp(1000));
         assert_eq!(book.limit.bid_levels.len(), 2);
         assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(book.limit.expiration_queue.len(), 2);
 
         // Two remaining orders should be expired
-        book.clean_up_expired_limit_orders(Timestamp(1002));
+        book.clean_up_expired_limit_orders(SequenceNumber(1002), Timestamp(1002));
         assert_eq!(book.limit.bid_levels.len(), 0);
         assert_eq!(book.limit.orders.len(), 0);
         assert_eq!(book.limit.expiration_queue.len(), 0);
@@ -338,7 +344,7 @@ mod tests {
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(book.limit.expiration_queue.len(), 0);
 
-        book.clean_up_expired_limit_orders(Timestamp(1000));
+        book.clean_up_expired_limit_orders(SequenceNumber(1000), Timestamp(1000));
         assert_eq!(book.limit.bid_levels.len(), 1);
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(book.limit.expiration_queue.len(), 0);
