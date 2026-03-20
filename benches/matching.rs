@@ -180,9 +180,9 @@ fn build_single_level_iceberg_book(n_orders: u64) -> OrderBook {
                 order: NewOrder::Limit(LimitOrder::new(
                     Price(100),
                     QuantityPolicy::Iceberg {
-                        visible_quantity: Quantity(10),
-                        hidden_quantity: Quantity(90),
-                        replenish_quantity: Quantity(10),
+                        visible_quantity: Quantity(2),
+                        hidden_quantity: Quantity(8),
+                        replenish_quantity: Quantity(2),
                     },
                     OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
                 )),
@@ -208,9 +208,9 @@ fn build_multi_level_iceberg_book(n_orders: u64) -> OrderBook {
                 order: NewOrder::Limit(LimitOrder::new(
                     Price(price),
                     QuantityPolicy::Iceberg {
-                        visible_quantity: Quantity(10),
-                        hidden_quantity: Quantity(90),
-                        replenish_quantity: Quantity(10),
+                        visible_quantity: Quantity(2),
+                        hidden_quantity: Quantity(8),
+                        replenish_quantity: Quantity(2),
                     },
                     OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
                 )),
