@@ -48,10 +48,10 @@ pub fn benches_matching(c: &mut Criterion) {
             }),
         };
         group.bench_function(
-            format!("single_level_iceberg_book_match_volume_{}", match_volume),
+            format!("multi_level_standard_book_match_volume_{}", match_volume),
             |b| {
                 b.iter_batched(
-                    || build_single_level_iceberg_book(n_orders),
+                    || build_multi_level_standard_book(n_orders),
                     |mut book| {
                         let outcome = book.execute(black_box(&command));
                         black_box(outcome);
@@ -73,10 +73,10 @@ pub fn benches_matching(c: &mut Criterion) {
             }),
         };
         group.bench_function(
-            format!("multi_level_standard_book_match_volume_{}", match_volume),
+            format!("single_level_iceberg_book_match_volume_{}", match_volume),
             |b| {
                 b.iter_batched(
-                    || build_multi_level_standard_book(n_orders),
+                    || build_single_level_iceberg_book(n_orders),
                     |mut book| {
                         let outcome = book.execute(black_box(&command));
                         black_box(outcome);
@@ -140,6 +140,32 @@ fn build_single_level_standard_book(n_orders: u64) -> OrderBook {
     book
 }
 
+/// Helper function to build a multi-level standard order book with `n_orders` orders
+fn build_multi_level_standard_book(n_orders: u64) -> OrderBook {
+    let mut book = OrderBook::new("TEST");
+
+    for i in 0..n_orders {
+        let price = 100 + (i % 10);
+        book.execute(&Command {
+            meta: CommandMeta {
+                sequence_number: SequenceNumber(i),
+                timestamp: Timestamp(i),
+            },
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Limit(LimitOrder::new(
+                    Price(price),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                )),
+            }),
+        });
+    }
+
+    book
+}
+
 /// Helper function to build a single-level iceberg order book with `n_orders` orders
 fn build_single_level_iceberg_book(n_orders: u64) -> OrderBook {
     let mut book = OrderBook::new("TEST");
@@ -157,32 +183,6 @@ fn build_single_level_iceberg_book(n_orders: u64) -> OrderBook {
                         visible_quantity: Quantity(10),
                         hidden_quantity: Quantity(90),
                         replenish_quantity: Quantity(10),
-                    },
-                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
-                )),
-            }),
-        });
-    }
-
-    book
-}
-
-/// Helper function to build a multi-level standard order book with `n_orders` orders
-fn build_multi_level_standard_book(n_orders: u64) -> OrderBook {
-    let mut book = OrderBook::new("TEST");
-
-    for i in 0..n_orders {
-        let price = 100 + (i % 10);
-        book.execute(&Command {
-            meta: CommandMeta {
-                sequence_number: SequenceNumber(i),
-                timestamp: Timestamp(i),
-            },
-            kind: CommandKind::Submit(SubmitCmd {
-                order: NewOrder::Limit(LimitOrder::new(
-                    Price(price),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(10),
                     },
                     OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
                 )),
