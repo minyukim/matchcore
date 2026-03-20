@@ -33,6 +33,98 @@ pub fn benches_submit(c: &mut Criterion) {
         })
     });
 
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(0),
+            timestamp: Timestamp(0),
+        },
+        kind: CommandKind::Submit(SubmitCmd {
+            order: NewOrder::Limit(LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Iceberg {
+                    visible_quantity: Quantity(10),
+                    hidden_quantity: Quantity(90),
+                    replenish_quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            )),
+        }),
+    };
+    group.bench_function("single_iceberg_order_fresh_book", |b| {
+        b.iter(|| {
+            let mut book: OrderBook = OrderBook::new("TEST");
+            let outcome = book.execute(black_box(&command));
+            black_box(outcome);
+        })
+    });
+
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(0),
+            timestamp: Timestamp(0),
+        },
+        kind: CommandKind::Submit(SubmitCmd {
+            order: NewOrder::Limit(LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(100),
+                },
+                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
+            )),
+        }),
+    };
+    group.bench_function("single_post_only_order_fresh_book", |b| {
+        b.iter(|| {
+            let mut book: OrderBook = OrderBook::new("TEST");
+            let outcome = book.execute(black_box(&command));
+            black_box(outcome);
+        })
+    });
+
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(0),
+            timestamp: Timestamp(0),
+        },
+        kind: CommandKind::Submit(SubmitCmd {
+            order: NewOrder::Limit(LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(100),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(100))),
+            )),
+        }),
+    };
+    group.bench_function("single_good_till_date_order_fresh_book", |b| {
+        b.iter(|| {
+            let mut book: OrderBook = OrderBook::new("TEST");
+            let outcome = book.execute(black_box(&command));
+            black_box(outcome);
+        })
+    });
+
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(0),
+            timestamp: Timestamp(0),
+        },
+        kind: CommandKind::Submit(SubmitCmd {
+            order: NewOrder::Pegged(PeggedOrder::new(
+                PegReference::Primary,
+                Quantity(100),
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            )),
+        }),
+    };
+    group.bench_function("single_pegged_order_fresh_book", |b| {
+        b.iter(|| {
+            let mut book: OrderBook = OrderBook::new("TEST");
+            let outcome = book.execute(black_box(&command));
+            black_box(outcome);
+        })
+    });
+
     let commands: Vec<Command> = (0..10_000)
         .map(|i| {
             let side = if i % 2 == 0 { Side::Buy } else { Side::Sell };
@@ -67,31 +159,6 @@ pub fn benches_submit(c: &mut Criterion) {
                 black_box(outcome);
             }
             black_box(book);
-        })
-    });
-
-    let command = Command {
-        meta: CommandMeta {
-            sequence_number: SequenceNumber(0),
-            timestamp: Timestamp(0),
-        },
-        kind: CommandKind::Submit(SubmitCmd {
-            order: NewOrder::Limit(LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Iceberg {
-                    visible_quantity: Quantity(10),
-                    hidden_quantity: Quantity(90),
-                    replenish_quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            )),
-        }),
-    };
-    group.bench_function("single_iceberg_order_fresh_book", |b| {
-        b.iter(|| {
-            let mut book: OrderBook = OrderBook::new("TEST");
-            let outcome = book.execute(black_box(&command));
-            black_box(outcome);
         })
     });
 
@@ -134,29 +201,6 @@ pub fn benches_submit(c: &mut Criterion) {
         })
     });
 
-    let command = Command {
-        meta: CommandMeta {
-            sequence_number: SequenceNumber(0),
-            timestamp: Timestamp(0),
-        },
-        kind: CommandKind::Submit(SubmitCmd {
-            order: NewOrder::Limit(LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(100),
-                },
-                OrderFlags::new(Side::Buy, true, TimeInForce::Gtc),
-            )),
-        }),
-    };
-    group.bench_function("single_post_only_order_fresh_book", |b| {
-        b.iter(|| {
-            let mut book: OrderBook = OrderBook::new("TEST");
-            let outcome = book.execute(black_box(&command));
-            black_box(outcome);
-        })
-    });
-
     let commands: Vec<Command> = (0..10_000)
         .map(|i| {
             let side = if i % 2 == 0 { Side::Buy } else { Side::Sell };
@@ -194,29 +238,6 @@ pub fn benches_submit(c: &mut Criterion) {
         })
     });
 
-    let command = Command {
-        meta: CommandMeta {
-            sequence_number: SequenceNumber(0),
-            timestamp: Timestamp(0),
-        },
-        kind: CommandKind::Submit(SubmitCmd {
-            order: NewOrder::Limit(LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(100),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(100))),
-            )),
-        }),
-    };
-    group.bench_function("single_good_till_date_order_fresh_book", |b| {
-        b.iter(|| {
-            let mut book: OrderBook = OrderBook::new("TEST");
-            let outcome = book.execute(black_box(&command));
-            black_box(outcome);
-        })
-    });
-
     let commands: Vec<Command> = (0..10_000)
         .map(|i| {
             let side = if i % 2 == 0 { Side::Buy } else { Side::Sell };
@@ -251,27 +272,6 @@ pub fn benches_submit(c: &mut Criterion) {
                 black_box(outcome);
             }
             black_box(book);
-        })
-    });
-
-    let command = Command {
-        meta: CommandMeta {
-            sequence_number: SequenceNumber(0),
-            timestamp: Timestamp(0),
-        },
-        kind: CommandKind::Submit(SubmitCmd {
-            order: NewOrder::Pegged(PeggedOrder::new(
-                PegReference::Primary,
-                Quantity(100),
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            )),
-        }),
-    };
-    group.bench_function("single_pegged_order_fresh_book", |b| {
-        b.iter(|| {
-            let mut book: OrderBook = OrderBook::new("TEST");
-            let outcome = book.execute(black_box(&command));
-            black_box(outcome);
         })
     });
 
