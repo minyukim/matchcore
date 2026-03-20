@@ -1,6 +1,9 @@
 use crate::{orderbook::*, orders::*, outcome::*, types::*};
 
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    cmp::max,
+    collections::{BTreeMap, HashMap},
+};
 
 impl OrderBook {
     /// Match an order against existing orders in the order book.
@@ -202,11 +205,9 @@ impl OrderBook {
 
 /// Match an order against existing orders in the order book.
 ///
-/// It first tries to find the best price level for the order, and consumes the orders in the price level.
-/// If the price level is exhausted, it starts consuming the active peg levels.
-/// If the active peg levels are exhausted, it moves to the next best price level,
-/// and then active peg levels again, and so on.
-/// It stops when the order is fully matched or all the levels are exhausted.
+/// It decides the next order to consume by comparing the time priority of
+/// the highest priority limit order and the highest priority pegged order.
+/// If the time priority of them are the same, it consumes the limit order first.
 ///
 /// Returns a `MatchResult` struct containing the result of the match.
 #[allow(clippy::too_many_arguments)]
@@ -251,43 +252,6 @@ pub(crate) fn match_order(
             }
         }
 
-        // Iterate over the orders at the price level
-        while !remaining_quantity.is_zero() {
-            // The price level is guaranteed to have at least one order
-            let queue_entry = price_level.peek().unwrap();
-            let order_id = queue_entry.order_id();
-            let Some(order) = limit_orders.get_mut(&order_id) else {
-                // Stale queue entry in the price level, remove it
-                price_level.pop();
-                continue;
-            };
-            if queue_entry.time_priority() != order.time_priority() {
-                // Stale queue entry in the price level, remove it
-                price_level.pop();
-                continue;
-            }
-
-            let (consumed, replenished) = order.match_against(remaining_quantity);
-            remaining_quantity -= consumed;
-            price_level.visible_quantity -= consumed;
-
-            match_result.add_trade(Trade::new(order_id, price, consumed));
-
-            if !replenished.is_zero() {
-                price_level.apply_replenishment(replenished);
-                price_level.reprioritize_front(sequence_number);
-                order.update_time_priority(sequence_number);
-            } else if order.is_filled() {
-                // The order is filled, remove it from the price level
-                price_level.remove_head_order(limit_orders);
-                if price_level.is_empty() {
-                    maker_side_price_levels.remove(&price);
-                    needs_reprice = true;
-                    break;
-                }
-            }
-        }
-
         // Determine the active peg references based on the taker side best price
         // Primary: always active
         // Market: always inactive
@@ -299,58 +263,119 @@ pub(crate) fn match_order(
             _ => &MAKER_ARRAY_PRIMARY,
         };
 
-        // Iterate over the orders at the active peg levels
+        // Iterate over the orders at the best price levels
         while !remaining_quantity.is_zero() {
-            // (peg_level_index, order_id)
-            let mut best: Option<(usize, QueueEntry)> = None;
+            let limit_queue_entry = {
+                if price_level.is_empty() {
+                    None
+                } else {
+                    // The price level is guaranteed to have at least one order
+                    Some(price_level.peek().unwrap())
+                }
+            };
+            let best_peg_info = get_best_peg_info(maker_side_peg_levels, active_peg_references);
 
-            // Find the highest priority order
-            for peg_reference in active_peg_references {
-                let idx = peg_reference.as_index();
+            enum NextOrder {
+                Limit(QueueEntry),
+                Peg {
+                    level_idx: usize,
+                    queue_entry: QueueEntry,
+                },
+            }
 
-                let peg_level = &mut maker_side_peg_levels[idx];
-                let Some(candidate) = peg_level.peek() else {
-                    continue;
-                };
-
-                match best {
-                    None => best = Some((idx, candidate)),
-                    Some((_, best_queue_entry)) => {
-                        if candidate < best_queue_entry {
-                            best = Some((idx, candidate));
+            let next_order = match (limit_queue_entry, best_peg_info) {
+                (
+                    Some(limit_queue_entry),
+                    Some((peg_level_idx, peg_time_priority, peg_queue_entry)),
+                ) => {
+                    if peg_time_priority < limit_queue_entry.time_priority() {
+                        NextOrder::Peg {
+                            level_idx: peg_level_idx,
+                            queue_entry: peg_queue_entry,
                         }
+                    } else {
+                        NextOrder::Limit(limit_queue_entry)
+                    }
+                }
+                (Some(limit_queue_entry), None) => NextOrder::Limit(limit_queue_entry),
+                (None, Some((peg_level_idx, _peg_time_priority, peg_queue_entry))) => {
+                    NextOrder::Peg {
+                        level_idx: peg_level_idx,
+                        queue_entry: peg_queue_entry,
+                    }
+                }
+                (None, None) => {
+                    break;
+                }
+            };
+
+            match next_order {
+                // Consume the limit order
+                NextOrder::Limit(limit_queue_entry) => {
+                    let order_id = limit_queue_entry.order_id();
+
+                    let Some(order) = limit_orders.get_mut(&order_id) else {
+                        // Stale queue entry in the price level, remove it
+                        price_level.pop();
+                        continue;
+                    };
+                    if limit_queue_entry.time_priority() != order.time_priority() {
+                        // Stale queue entry in the price level, remove it
+                        price_level.pop();
+                        continue;
+                    }
+
+                    let (consumed, replenished) = order.match_against(remaining_quantity);
+                    remaining_quantity -= consumed;
+                    price_level.visible_quantity -= consumed;
+
+                    match_result.add_trade(Trade::new(order_id, price, consumed));
+
+                    if !replenished.is_zero() {
+                        price_level.apply_replenishment(replenished);
+                        price_level.reprioritize_front(sequence_number);
+                        order.update_time_priority(sequence_number);
+                    } else if order.is_filled() {
+                        // The order is filled, remove it from the price level
+                        price_level.remove_head_order(limit_orders);
+                    }
+                }
+                // Consume the pegged order
+                NextOrder::Peg {
+                    level_idx,
+                    queue_entry,
+                } => {
+                    let order_id = queue_entry.order_id();
+
+                    let peg_level = &mut maker_side_peg_levels[level_idx];
+                    let Some(order) = pegged_orders.get_mut(&order_id) else {
+                        // Stale queue entry in the peg level, remove it
+                        peg_level.pop();
+                        continue;
+                    };
+                    if queue_entry.time_priority() != order.time_priority() {
+                        // Stale queue entry in the peg level, remove it
+                        peg_level.pop();
+                        continue;
+                    }
+
+                    let consumed = order.match_against(remaining_quantity);
+                    remaining_quantity -= consumed;
+                    peg_level.quantity -= consumed;
+
+                    match_result.add_trade(Trade::new(order_id, price, consumed));
+
+                    // The order is filled, remove it from the peg level
+                    if order.is_filled() {
+                        peg_level.remove_head_order(pegged_orders);
                     }
                 }
             }
+        }
 
-            // No more orders in the active peg levels
-            let Some((level_idx, queue_entry)) = best else {
-                break;
-            };
-            let order_id = queue_entry.order_id();
-
-            let peg_level = &mut maker_side_peg_levels[level_idx];
-            let Some(order) = pegged_orders.get_mut(&order_id) else {
-                // Stale queue entry in the peg level, remove it
-                peg_level.pop();
-                continue;
-            };
-            if queue_entry.time_priority() != order.time_priority() {
-                // Stale queue entry in the peg level, remove it
-                peg_level.pop();
-                continue;
-            }
-
-            let consumed = order.match_against(remaining_quantity);
-            remaining_quantity -= consumed;
-            peg_level.quantity -= consumed;
-
-            match_result.add_trade(Trade::new(order_id, price, consumed));
-
-            // The order is filled, remove it from the peg level
-            if order.is_filled() {
-                peg_level.remove_head_order(pegged_orders);
-            }
+        if price_level.is_empty() {
+            maker_side_price_levels.remove(&price);
+            needs_reprice = true;
         }
     }
 
@@ -362,10 +387,54 @@ pub(crate) fn match_order(
     match_result
 }
 
+/// Get the best (highest priority) pegged order information from the active peg references
+///
+/// The time priority is decided by the following criteria:
+/// 1. When the level was last repriced
+/// 2. When the order was entered into the level
+///
+/// Returns the tuple of (index of the peg level, time priority of the order, queue entry) if found; otherwise `None`.
+fn get_best_peg_info(
+    maker_side_peg_levels: &[PegLevel],
+    active_peg_references: &[PegReference],
+) -> Option<(usize, SequenceNumber, QueueEntry)> {
+    let mut best: Option<(usize, SequenceNumber, QueueEntry)> = None;
+
+    // Find the highest priority pegged order
+    for peg_reference in active_peg_references {
+        let idx = peg_reference.as_index();
+
+        let peg_level = &maker_side_peg_levels[idx];
+        let Some(queue_entry) = peg_level.peek() else {
+            continue;
+        };
+
+        // If the order entered the peg level before the last reprice, the time priority should be adjusted
+        let time_priority = max(peg_level.repriced_at(), queue_entry.time_priority());
+
+        match best {
+            None => best = Some((idx, time_priority, queue_entry)),
+            Some((_, best_time_priority, best_queue_entry)) => {
+                if time_priority < best_time_priority
+                    || (time_priority == best_time_priority && queue_entry < best_queue_entry)
+                {
+                    best = Some((idx, time_priority, queue_entry));
+                }
+            }
+        }
+    }
+
+    let (idx, time_priority, queue_entry) = best?;
+
+    Some((idx, time_priority, queue_entry))
+}
+
 #[cfg(test)]
 mod tests_match_order {
     use crate::*;
-    use crate::{LimitOrder, Notional, OrderFlags, Quantity, QuantityPolicy, TimeInForce};
+    use crate::{
+        LimitOrder, Notional, OrderFlags, PeggedOrder, Quantity, QuantityPolicy, TimeInForce,
+    };
 
     /// Helper function to create a new test order book
     fn new_test_book() -> OrderBook {
@@ -414,6 +483,26 @@ mod tests_match_order {
                     hidden_quantity,
                     replenish_quantity,
                 },
+                OrderFlags::new(side, false, TimeInForce::Gtc),
+            ),
+        );
+    }
+
+    /// Helper function to add a pegged order to the book
+    fn add_pegged_order(
+        book: &mut OrderBook,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        peg: PegReference,
+        quantity: Quantity,
+        side: Side,
+    ) {
+        book.add_pegged_order(
+            sequence_number,
+            id,
+            PeggedOrder::new(
+                peg,
+                quantity,
                 OrderFlags::new(side, false, TimeInForce::Gtc),
             ),
         );
@@ -957,6 +1046,124 @@ mod tests_match_order {
         assert_eq!(orderbook.last_trade_price(), Some(Price(100)));
         // Iceberg bid has 5 visible left
         assert_eq!(orderbook.best_bid_price(), Some(Price(100)));
+    }
+
+    #[test]
+    fn test_limit_order_prioritized_when_older_than_pegged() {
+        let mut orderbook = new_test_book();
+        add_standard_order(
+            &mut orderbook,
+            SequenceNumber(0),
+            OrderId(0),
+            Price(100),
+            Quantity(10),
+            Side::Sell,
+        );
+        add_pegged_order(
+            &mut orderbook,
+            SequenceNumber(1),
+            OrderId(1),
+            PegReference::Primary,
+            Quantity(10),
+            Side::Sell,
+        );
+
+        let result =
+            orderbook.match_order(SequenceNumber(2), Side::Buy, Some(Price(100)), Quantity(15));
+
+        assert_eq!(result.executed_quantity(), Quantity(15));
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(
+            result.trades()[0],
+            Trade::new(OrderId(0), Price(100), Quantity(10))
+        );
+        assert_eq!(
+            result.trades()[1],
+            Trade::new(OrderId(1), Price(100), Quantity(5))
+        );
+    }
+
+    #[test]
+    fn test_pegged_order_prioritized_when_older_than_limit() {
+        let mut orderbook = new_test_book();
+        add_standard_order(
+            &mut orderbook,
+            SequenceNumber(0),
+            OrderId(0),
+            Price(100),
+            Quantity(10),
+            Side::Sell,
+        );
+        add_pegged_order(
+            &mut orderbook,
+            SequenceNumber(1),
+            OrderId(1),
+            PegReference::Primary,
+            Quantity(10),
+            Side::Sell,
+        );
+        add_standard_order(
+            &mut orderbook,
+            SequenceNumber(2),
+            OrderId(2),
+            Price(100),
+            Quantity(10),
+            Side::Sell,
+        );
+
+        let result =
+            orderbook.match_order(SequenceNumber(3), Side::Buy, Some(Price(100)), Quantity(25));
+
+        assert_eq!(result.executed_quantity(), Quantity(25));
+        assert_eq!(result.trades().len(), 3);
+        assert_eq!(
+            result.trades()[0],
+            Trade::new(OrderId(0), Price(100), Quantity(10))
+        );
+        assert_eq!(
+            result.trades()[1],
+            Trade::new(OrderId(1), Price(100), Quantity(10))
+        );
+        assert_eq!(
+            result.trades()[2],
+            Trade::new(OrderId(2), Price(100), Quantity(5))
+        );
+    }
+
+    #[test]
+    fn test_limit_order_prioritized_when_time_priority_ties() {
+        let mut orderbook = new_test_book();
+        add_pegged_order(
+            &mut orderbook,
+            SequenceNumber(0),
+            OrderId(0),
+            PegReference::Primary,
+            Quantity(10),
+            Side::Sell,
+        );
+        // The primary peg level is repriced at sequence number 1 when the standard order is added
+        add_standard_order(
+            &mut orderbook,
+            SequenceNumber(1),
+            OrderId(1),
+            Price(100),
+            Quantity(10),
+            Side::Sell,
+        );
+
+        let result =
+            orderbook.match_order(SequenceNumber(2), Side::Buy, Some(Price(100)), Quantity(15));
+
+        assert_eq!(result.executed_quantity(), Quantity(15));
+        assert_eq!(result.trades().len(), 2);
+        assert_eq!(
+            result.trades()[0],
+            Trade::new(OrderId(1), Price(100), Quantity(10))
+        );
+        assert_eq!(
+            result.trades()[1],
+            Trade::new(OrderId(0), Price(100), Quantity(5))
+        );
     }
 }
 
