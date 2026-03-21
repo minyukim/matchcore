@@ -2,10 +2,9 @@ use crate::{OrderId, Price, Quantity};
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// A trade that was made during a match
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Trade {
     /// The ID of the maker order
     maker_order_id: OrderId,
@@ -77,15 +76,16 @@ mod tests {
     }
 
     #[test]
+    fn test_display() {
+        assert_eq!(create_trade().to_string(), "maker(1): 10@100");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn test_round_trip_serialization() {
         let trade = create_trade();
         let serialized = serde_json::to_string(&trade).unwrap();
         let deserialized: Trade = serde_json::from_str(&serialized).unwrap();
         assert_eq!(trade, deserialized);
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(create_trade().to_string(), "maker(1): 10@100");
     }
 }

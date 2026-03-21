@@ -1,9 +1,8 @@
 use crate::{Side, TimeInForce, Timestamp};
 
-use serde::{Deserialize, Serialize};
-
 /// Flags that are common to all order types
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrderFlags {
     /// The side of the order (buy or sell)
     side: Side,
@@ -117,6 +116,7 @@ mod tests {
         assert!(order.is_expired(Timestamp(1771180000 + 1000)));
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_roundtrip_serialization() {
         let order = create_order_flags();

@@ -6,10 +6,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a limit order resting in the order book
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestingLimitOrder {
     /// The time priority of the order
     time_priority: SequenceNumber,
@@ -61,7 +60,8 @@ impl DerefMut for RestingLimitOrder {
 }
 
 /// Generic limit order with various configuration options
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LimitOrder {
     /// The price of the order
     price: Price,
@@ -422,15 +422,6 @@ mod tests {
     }
 
     #[test]
-    fn test_roundtrip_serialization() {
-        for order in [create_standard_order(), create_iceberg_order()] {
-            let serialized = serde_json::to_string(&order).unwrap();
-            let deserialized: LimitOrder = serde_json::from_str(&serialized).unwrap();
-            assert_eq!(order, deserialized);
-        }
-    }
-
-    #[test]
     fn test_display() {
         assert_eq!(
             create_standard_order().to_string(),
@@ -440,5 +431,15 @@ mod tests {
             create_iceberg_order().to_string(),
             "Iceberg: price=100 visible_quantity=20 hidden_quantity=40 replenish_quantity=20 side=SELL post_only=false time_in_force=GTC"
         );
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_roundtrip_serialization() {
+        for order in [create_standard_order(), create_iceberg_order()] {
+            let serialized = serde_json::to_string(&order).unwrap();
+            let deserialized: LimitOrder = serde_json::from_str(&serialized).unwrap();
+            assert_eq!(order, deserialized);
+        }
     }
 }

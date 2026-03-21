@@ -1,15 +1,14 @@
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the side of an order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Side {
     /// Buy side (bids)
-    #[serde(rename = "BUY")]
+    #[cfg_attr(feature = "serde", serde(rename = "BUY"))]
     Buy,
     /// Sell side (asks)
-    #[serde(rename = "SELL")]
+    #[cfg_attr(feature = "serde", serde(rename = "SELL"))]
     Sell,
 }
 
@@ -68,11 +67,19 @@ mod tests {
     }
 
     #[test]
+    fn test_display() {
+        assert_eq!(Side::Buy.to_string(), "BUY");
+        assert_eq!(Side::Sell.to_string(), "SELL");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn test_serialize() {
         assert_eq!(serde_json::to_string(&Side::Buy).unwrap(), "\"BUY\"");
         assert_eq!(serde_json::to_string(&Side::Sell).unwrap(), "\"SELL\"");
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_deserialize() {
         assert_eq!(serde_json::from_str::<Side>("\"BUY\"").unwrap(), Side::Buy);
@@ -82,6 +89,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_round_trip_serialization() {
         for side in [Side::Buy, Side::Sell] {
@@ -91,6 +99,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_invalid_deserialization() {
         assert!(serde_json::from_str::<Side>("\"INVALID\"").is_err());
@@ -98,11 +107,5 @@ mod tests {
         assert!(serde_json::from_str::<Side>("\"SELLING\"").is_err());
         assert!(serde_json::from_str::<Side>("123").is_err());
         assert!(serde_json::from_str::<Side>("null").is_err());
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(Side::Buy.to_string(), "BUY");
-        assert_eq!(Side::Sell.to_string(), "SELL");
     }
 }

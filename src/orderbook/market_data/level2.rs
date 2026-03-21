@@ -2,10 +2,9 @@ use crate::{DepthStatistics, MarketImpact, Notional, OrderBook, Price, Quantity,
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the level 1 market data of the order book
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Level2 {
     /// Bid side price levels, stored in a sorted vector from the best bid to the worst bid
     bid_levels: Vec<(Price, Quantity)>,

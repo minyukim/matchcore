@@ -3,10 +3,9 @@ use crate::utils::write_indented;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Effects from the execution of a command
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct CommandEffects {
     /// Outcome of the order that was explicitly targeted by the command
     target_order: OrderOutcome,

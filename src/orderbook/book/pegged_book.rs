@@ -6,10 +6,9 @@ use std::{
     collections::{BinaryHeap, HashMap},
 };
 
-use serde::{Deserialize, Serialize};
-
 /// Pegged order book that manages pegged orders and peg levels.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default)]
 pub struct PeggedBook {
     /// Pegged bid side levels, one for each reference price type
     pub(crate) bid_levels: [PegLevel; PegReference::COUNT],

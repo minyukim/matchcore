@@ -1,9 +1,8 @@
 use crate::{Level2, Notional, OrderBook, PegReference, Price, Quantity, Side};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the market impact analysis of a market order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketImpact {
     /// Requested quantity of the order
     requested_quantity: Quantity,

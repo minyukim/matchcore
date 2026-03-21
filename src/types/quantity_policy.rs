@@ -2,10 +2,9 @@ use super::Quantity;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the quantity policy of an order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuantityPolicy {
     /// Standard quantity policy
     Standard {
@@ -294,6 +293,27 @@ mod tests {
     }
 
     #[test]
+    fn test_display() {
+        assert_eq!(
+            QuantityPolicy::Standard {
+                quantity: Quantity(100)
+            }
+            .to_string(),
+            "Standard: 100"
+        );
+        assert_eq!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(10),
+                hidden_quantity: Quantity(50),
+                replenish_quantity: Quantity(10)
+            }
+            .to_string(),
+            "Iceberg: visible_quantity=10 hidden_quantity=50 replenish_quantity=10"
+        );
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn test_serialize() {
         assert_eq!(
             serde_json::to_string(&QuantityPolicy::Standard {
@@ -313,6 +333,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_deserialize() {
         assert_eq!(
@@ -334,6 +355,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_round_trip_serialization() {
         for quantity_policy in [
@@ -352,6 +374,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_invalid_deserialization() {
         assert!(serde_json::from_str::<QuantityPolicy>("\"Invalid\"").is_err());
@@ -362,25 +385,5 @@ mod tests {
             .is_err()
         );
         assert!(serde_json::from_str::<QuantityPolicy>("{\"Iceberg\":{\"visible_quantity\":\"not_a_number\",\"hidden_quantity\":\"not_a_number\",\"replenish_quantity\":\"not_a_number\"}}").is_err());
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(
-            QuantityPolicy::Standard {
-                quantity: Quantity(100)
-            }
-            .to_string(),
-            "Standard: 100"
-        );
-        assert_eq!(
-            QuantityPolicy::Iceberg {
-                visible_quantity: Quantity(10),
-                hidden_quantity: Quantity(50),
-                replenish_quantity: Quantity(10)
-            }
-            .to_string(),
-            "Iceberg: visible_quantity=10 hidden_quantity=50 replenish_quantity=10"
-        );
     }
 }

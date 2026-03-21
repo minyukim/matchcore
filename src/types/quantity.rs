@@ -4,10 +4,9 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a quantity
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Quantity(pub u64);
 
 impl Quantity {

@@ -1,9 +1,8 @@
 use crate::{OrderId, OrderKind};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a command to cancel an existing order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CancelCmd {
     /// The ID of the order to cancel
     pub order_id: OrderId,

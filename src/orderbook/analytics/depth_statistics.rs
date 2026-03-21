@@ -1,9 +1,8 @@
 use crate::{Level2, LimitBook, Notional, Price, Quantity, Side};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the depth statistics of the order book
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DepthStatistics {
     /// Number of price levels analyzed
     n_analyzed_levels: usize,

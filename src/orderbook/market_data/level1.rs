@@ -2,10 +2,9 @@ use crate::{OrderBook, Price, Quantity};
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the level 1 market data of the order book
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Level1 {
     /// The last trade price
     last_trade_price: Option<Price>,

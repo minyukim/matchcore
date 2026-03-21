@@ -2,27 +2,26 @@ use super::Timestamp;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Specifies how long an order remains active before it is executed or expires.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeInForce {
     /// Good 'Til Canceled - The order remains active until it is filled or canceled.
-    #[serde(rename = "GTC")]
+    #[cfg_attr(feature = "serde", serde(rename = "GTC"))]
     Gtc,
 
     /// Immediate Or Cancel - The order must be filled immediately in its entirety.
     /// If the order cannot be filled completely, the unfilled portion is canceled.
-    #[serde(rename = "IOC")]
+    #[cfg_attr(feature = "serde", serde(rename = "IOC"))]
     Ioc,
 
     /// Fill Or Kill - The order must be filled immediately and completely.
     /// If the order cannot be filled entirely, the entire order is canceled.
-    #[serde(rename = "FOK")]
+    #[cfg_attr(feature = "serde", serde(rename = "FOK"))]
     Fok,
 
     /// Good 'Til Date - The order remains active until a specified date and time.
-    #[serde(rename = "GTD")]
+    #[cfg_attr(feature = "serde", serde(rename = "GTD"))]
     Gtd(Timestamp),
 }
 
@@ -113,6 +112,18 @@ mod tests {
     }
 
     #[test]
+    fn test_display() {
+        assert_eq!(TimeInForce::Gtc.to_string(), "GTC");
+        assert_eq!(TimeInForce::Ioc.to_string(), "IOC");
+        assert_eq!(TimeInForce::Fok.to_string(), "FOK");
+        assert_eq!(
+            TimeInForce::Gtd(Timestamp(1616823000000)).to_string(),
+            "GTD-1616823000000"
+        );
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn test_serialize() {
         assert_eq!(serde_json::to_string(&TimeInForce::Gtc).unwrap(), "\"GTC\"");
         assert_eq!(serde_json::to_string(&TimeInForce::Ioc).unwrap(), "\"IOC\"");
@@ -123,6 +134,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_deserialize() {
         assert_eq!(
@@ -143,6 +155,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_round_trip_serialization() {
         for tif in [
@@ -157,21 +170,11 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_invalid_deserialization() {
         assert!(serde_json::from_str::<TimeInForce>("\"Invalid\"").is_err());
         assert!(serde_json::from_str::<TimeInForce>("{\"GTD\":\"not_a_number\"}").is_err());
         assert!(serde_json::from_str::<TimeInForce>("{\"InvalidType\":12345}").is_err());
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(TimeInForce::Gtc.to_string(), "GTC");
-        assert_eq!(TimeInForce::Ioc.to_string(), "IOC");
-        assert_eq!(TimeInForce::Fok.to_string(), "FOK");
-        assert_eq!(
-            TimeInForce::Gtd(Timestamp(1616823000000)).to_string(),
-            "GTD-1616823000000"
-        );
     }
 }

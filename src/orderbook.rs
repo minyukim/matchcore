@@ -12,10 +12,9 @@ pub use market_data::*;
 
 use crate::{Price, SequenceNumber, Timestamp};
 
-use serde::{Deserialize, Serialize};
-
 /// Order book that manages all kinds of orders and levels
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct OrderBook {
     /// The symbol for this order book
     symbol: String,

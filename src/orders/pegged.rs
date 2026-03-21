@@ -6,10 +6,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a pegged order resting in the order book
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestingPeggedOrder {
     /// The time priority of the order
     time_priority: SequenceNumber,
@@ -61,7 +60,8 @@ impl DerefMut for RestingPeggedOrder {
 }
 
 /// Pegged order that adjusts based on reference price
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PeggedOrder {
     /// Reference price to track
     peg_reference: PegReference,
@@ -265,18 +265,19 @@ mod tests {
     }
 
     #[test]
-    fn test_roundtrip_serialization() {
-        let order = create_pegged_order();
-        let serialized = serde_json::to_string(&order).unwrap();
-        let deserialized: PeggedOrder = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(order, deserialized);
-    }
-
-    #[test]
     fn test_display() {
         assert_eq!(
             create_pegged_order().to_string(),
             "Pegged: peg_reference=Primary quantity=20 side=BUY post_only=true time_in_force=GTC"
         );
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_roundtrip_serialization() {
+        let order = create_pegged_order();
+        let serialized = serde_json::to_string(&order).unwrap();
+        let deserialized: PeggedOrder = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(order, deserialized);
     }
 }
