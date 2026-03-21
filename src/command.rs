@@ -16,10 +16,9 @@ pub use submit::*;
 
 use crate::{SequenceNumber, Timestamp};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a top-level command for all kinds of commands and orders
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command {
     /// The common metadata for all command kinds
     pub meta: CommandMeta,
@@ -28,7 +27,8 @@ pub struct Command {
 }
 
 /// Represents the common metadata for all command kinds
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CommandMeta {
     /// The sequence number of the command
     pub sequence_number: SequenceNumber,
@@ -37,7 +37,8 @@ pub struct CommandMeta {
 }
 
 /// Represents the kind of command
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandKind {
     /// A command to submit a new order
     Submit(SubmitCmd),

@@ -6,10 +6,9 @@ use std::{
     collections::{BTreeMap, BinaryHeap, HashMap},
 };
 
-use serde::{Deserialize, Serialize};
-
 /// Limit order book that manages limit orders and price levels.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default)]
 pub struct LimitBook {
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
     pub(crate) bid_levels: BTreeMap<Price, PriceLevel>,

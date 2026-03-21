@@ -1,9 +1,8 @@
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Reference price type for pegged orders
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PegReference {
     /// Pegged to the primary price (same side best price)
     Primary,
@@ -70,6 +69,14 @@ mod tests {
     }
 
     #[test]
+    fn test_display() {
+        assert_eq!(PegReference::Primary.to_string(), "Primary");
+        assert_eq!(PegReference::Market.to_string(), "Market");
+        assert_eq!(PegReference::MidPrice.to_string(), "MidPrice");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn test_serialize() {
         assert_eq!(
             serde_json::to_string(&PegReference::Primary).unwrap(),
@@ -85,6 +92,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_deserialize() {
         assert_eq!(
@@ -101,6 +109,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_round_trip_serialization() {
         // Test from_str -> to_string round trip
@@ -115,6 +124,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_invalid_deserialization() {
         assert!(serde_json::from_str::<PegReference>("\"INVALID\"").is_err());
@@ -124,12 +134,5 @@ mod tests {
         assert!(serde_json::from_str::<PegReference>("\"LAST_TRADE\"").is_err());
         assert!(serde_json::from_str::<PegReference>("123").is_err());
         assert!(serde_json::from_str::<PegReference>("null").is_err());
-    }
-
-    #[test]
-    fn test_display() {
-        assert_eq!(PegReference::Primary.to_string(), "Primary");
-        assert_eq!(PegReference::Market.to_string(), "Market");
-        assert_eq!(PegReference::MidPrice.to_string(), "MidPrice");
     }
 }

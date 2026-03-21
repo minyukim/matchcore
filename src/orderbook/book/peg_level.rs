@@ -3,8 +3,6 @@ use crate::{OrderId, PegReference, Quantity, RestingPeggedOrder, SequenceNumber}
 
 use std::collections::{HashMap, VecDeque};
 
-use serde::{Deserialize, Serialize};
-
 /// Maker side array for the primary peg reference
 pub(crate) static MAKER_ARRAY_PRIMARY: [PegReference; 1] = [PegReference::Primary];
 /// Maker side array for the primary and mid price peg references
@@ -13,7 +11,8 @@ pub(crate) static MAKER_ARRAY_PRIMARY_MID_PRICE: [PegReference; 2] =
 
 /// Peg level that manages the status of the orders with the same peg reference.
 /// It does not store the orders themselves, but only the time priority information of the orders.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct PegLevel {
     /// The sequence number at which the peg level was last repriced
     pub(crate) repriced_at: SequenceNumber,

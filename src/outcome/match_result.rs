@@ -3,10 +3,9 @@ use crate::{Notional, Price, Quantity, Side};
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Result of a match operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct MatchResult {
     /// The side of the taker order
     taker_side: Side,

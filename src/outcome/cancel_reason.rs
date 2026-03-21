@@ -2,10 +2,9 @@ use crate::Quantity;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Reason for the order cancellation
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CancelReason {
     /// Insufficient liquidity for immediate orders
     InsufficientLiquidity {

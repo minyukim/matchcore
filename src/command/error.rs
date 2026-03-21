@@ -1,9 +1,8 @@
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Error that violates the invariants of a command
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandError {
     /// The price of the order is zero
     ZeroPrice,

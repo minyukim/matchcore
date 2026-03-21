@@ -2,10 +2,9 @@ use super::CommandEffects;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Report from the execution of a command
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub enum CommandReport {
     /// The effects of the submission of a new order
     Submit(CommandEffects),

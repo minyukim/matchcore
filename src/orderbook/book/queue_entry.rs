@@ -1,14 +1,13 @@
 use crate::{OrderId, SequenceNumber};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a time priority queue entry
 ///
 /// Time priority rules:
 /// 1. The order with the smaller sequence number is higher priority
 /// 2. If the sequence numbers are the same, limit orders are higher priority than pegged orders
 /// 3. If the pegged orders have the same sequence number, the order with the smaller order ID is higher priority
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QueueEntry {
     /// The time priority of the order
     time_priority: SequenceNumber,

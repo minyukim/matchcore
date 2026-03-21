@@ -1,9 +1,8 @@
 use std::{fmt, ops::Sub};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a price
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Price(pub u64);
 
 impl Price {

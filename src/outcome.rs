@@ -21,10 +21,9 @@ pub use trade::*;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents the outcome of a command execution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub enum CommandOutcome {
     Applied(CommandReport),
     Rejected(CommandFailure),

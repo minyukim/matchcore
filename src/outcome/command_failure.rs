@@ -2,10 +2,9 @@ use crate::{CommandError, SequenceNumber, Timestamp};
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Reason for the command execution failure
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandFailure {
     /// The sequence number of the command is invalid
     /// This happens when the command is received out of order

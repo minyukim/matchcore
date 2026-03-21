@@ -1,10 +1,9 @@
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a timestamp
 /// The timestamp is expressed as a Unix timestamp (seconds since epoch).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(pub u64);
 
 impl fmt::Display for Timestamp {

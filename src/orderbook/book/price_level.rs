@@ -3,11 +3,10 @@ use crate::{OrderId, Quantity, RestingLimitOrder, SequenceNumber};
 
 use std::collections::{HashMap, VecDeque};
 
-use serde::{Deserialize, Serialize};
-
 /// Price level that manages the status of the orders with the same price.
 /// It does not store the orders themselves, but only the time priority information of the orders.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct PriceLevel {
     /// Total visible quantity at this price level
     pub(crate) visible_quantity: Quantity,

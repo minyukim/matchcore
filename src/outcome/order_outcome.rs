@@ -3,10 +3,9 @@ use crate::{OrderId, utils::write_indented};
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Outcome of the order execution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct OrderOutcome {
     /// The ID of the order
     order_id: OrderId,

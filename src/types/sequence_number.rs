@@ -1,9 +1,8 @@
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a sequence number
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SequenceNumber(pub u64);
 
 impl SequenceNumber {

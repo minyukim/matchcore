@@ -9,10 +9,9 @@ use crate::{
 
 use std::ops::{Deref, DerefMut};
 
-use serde::{Deserialize, Serialize};
-
 /// Represents a command to amend an existing order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AmendCmd {
     /// The ID of the order to amend
     pub order_id: OrderId,
@@ -21,7 +20,8 @@ pub struct AmendCmd {
 }
 
 /// Represents the patch to an existing order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AmendPatch {
     /// The patch to a limit order
     Limit(LimitOrderPatch),
@@ -30,7 +30,8 @@ pub enum AmendPatch {
 }
 
 /// Represents the patch to a limit order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LimitOrderPatch {
     /// The new price of the order
     pub price: Option<Price>,
@@ -121,7 +122,8 @@ impl DerefMut for LimitOrderPatch {
 }
 
 /// Represents the patch to a pegged order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PeggedOrderPatch {
     /// The new peg reference type
     pub peg_reference: Option<PegReference>,
@@ -212,7 +214,8 @@ impl DerefMut for PeggedOrderPatch {
 }
 
 /// Represents the patch to the flags of an order
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OrderFlagsPatch {
     /// The new post-only flag
     pub post_only: Option<bool>,

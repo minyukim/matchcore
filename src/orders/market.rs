@@ -1,9 +1,8 @@
 use crate::{Quantity, Side};
 
-use serde::{Deserialize, Serialize};
-
 /// Market order that is executed immediately and does not reside in the order book
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketOrder {
     /// The quantity of the order
     quantity: Quantity,

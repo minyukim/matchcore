@@ -2,10 +2,9 @@ use crate::SequenceNumber;
 
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
-
 /// Represents an order ID
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OrderId(pub u64);
 
 impl From<SequenceNumber> for OrderId {
