@@ -26,9 +26,9 @@ pub fn benches_amend(c: &mut Criterion) {
             )),
         }),
     };
-    group.bench_function("single_order_quantity_decrease", |b| {
+    group.bench_function("single_order_in_single_level_book_quantity_decrease", |b| {
         b.iter_batched(
-            || build_book(n_orders),
+            || build_single_level_book(n_orders),
             |mut book| {
                 let outcome = book.execute(black_box(&command));
                 black_box(outcome);
@@ -51,9 +51,9 @@ pub fn benches_amend(c: &mut Criterion) {
             )),
         }),
     };
-    group.bench_function("single_order_quantity_increase", |b| {
+    group.bench_function("single_order_in_single_level_book_quantity_increase", |b| {
         b.iter_batched(
-            || build_book(n_orders),
+            || build_single_level_book(n_orders),
             |mut book| {
                 let outcome = book.execute(black_box(&command));
                 black_box(outcome);
@@ -72,9 +72,9 @@ pub fn benches_amend(c: &mut Criterion) {
             patch: AmendPatch::Limit(LimitOrderPatch::new().with_price(Price(101))),
         }),
     };
-    group.bench_function("single_order_price_update", |b| {
+    group.bench_function("single_order_in_single_level_book_price_update", |b| {
         b.iter_batched(
-            || build_book(n_orders),
+            || build_single_level_book(n_orders),
             |mut book| {
                 let outcome = book.execute(black_box(&command));
                 black_box(outcome);
@@ -99,9 +99,9 @@ pub fn benches_amend(c: &mut Criterion) {
             }),
         })
         .collect();
-    group.bench_function("10k_orders_quantity_decrease", |b| {
+    group.bench_function("10k_orders_in_single_level_book_quantity_decrease", |b| {
         b.iter_batched(
-            || build_book(n_orders),
+            || build_single_level_book(n_orders),
             |mut book| {
                 for command in &commands {
                     let outcome = book.execute(black_box(command));
@@ -128,9 +128,9 @@ pub fn benches_amend(c: &mut Criterion) {
             }),
         })
         .collect();
-    group.bench_function("10k_orders_quantity_increase", |b| {
+    group.bench_function("10k_orders_in_single_level_book_quantity_increase", |b| {
         b.iter_batched(
-            || build_book(n_orders),
+            || build_single_level_book(n_orders),
             |mut book| {
                 for command in &commands {
                     let outcome = book.execute(black_box(command));
@@ -153,9 +153,9 @@ pub fn benches_amend(c: &mut Criterion) {
             }),
         })
         .collect();
-    group.bench_function("10k_orders_price_update", |b| {
+    group.bench_function("10k_orders_in_single_level_book_price_update", |b| {
         b.iter_batched(
-            || build_book(n_orders),
+            || build_single_level_book(n_orders),
             |mut book| {
                 for command in &commands {
                     let outcome = book.execute(black_box(command));
@@ -169,8 +169,8 @@ pub fn benches_amend(c: &mut Criterion) {
     group.finish();
 }
 
-/// Helper function to build an order book with `n_orders` standard orders
-fn build_book(n_orders: u64) -> OrderBook {
+/// Helper function to build an order book with `n_orders` standard orders in a single level
+fn build_single_level_book(n_orders: u64) -> OrderBook {
     let mut book = OrderBook::new("TEST");
 
     for i in 0..n_orders {
