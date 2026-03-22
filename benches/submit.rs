@@ -1,6 +1,6 @@
 //! Benchmarks for submitting orders to an order book
 //!
-//! Run: cargo bench --bench benches -- submit
+//! Run: cargo bench --bench benches -- submit/
 
 use criterion::Criterion;
 use std::hint::black_box;

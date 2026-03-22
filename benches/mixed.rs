@@ -1,6 +1,6 @@
 //! Benchmarks for a mixed workload of submit/amend/cancel orders in an order book
 //!
-//! Run: cargo bench --bench benches -- mixed
+//! Run: cargo bench --bench benches -- mixed/
 
 use criterion::Criterion;
 use std::hint::black_box;

@@ -1,6 +1,6 @@
 //! Benchmarks for canceling orders in an order book
 //!
-//! Run: cargo bench --bench benches -- cancel
+//! Run: cargo bench --bench benches -- cancel/
 
 use criterion::{BatchSize, Criterion};
 use std::hint::black_box;
