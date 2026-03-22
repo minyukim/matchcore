@@ -43,6 +43,31 @@ pub fn benches_amend(c: &mut Criterion) {
             timestamp: Timestamp(n_orders),
         },
         kind: CommandKind::Amend(AmendCmd {
+            order_id: OrderId(n_orders / 2),
+            patch: AmendPatch::Limit(LimitOrderPatch::new().with_quantity_policy(
+                QuantityPolicy::Standard {
+                    quantity: Quantity(50),
+                },
+            )),
+        }),
+    };
+    group.bench_function("single_order_in_multi_level_book_quantity_decrease", |b| {
+        b.iter_batched(
+            || build_multi_level_book(n_orders),
+            |mut book| {
+                let outcome = book.execute(black_box(&command));
+                black_box(outcome);
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(n_orders),
+            timestamp: Timestamp(n_orders),
+        },
+        kind: CommandKind::Amend(AmendCmd {
             order_id: OrderId(0),
             patch: AmendPatch::Limit(LimitOrderPatch::new().with_quantity_policy(
                 QuantityPolicy::Standard {
@@ -54,6 +79,31 @@ pub fn benches_amend(c: &mut Criterion) {
     group.bench_function("single_order_in_single_level_book_quantity_increase", |b| {
         b.iter_batched(
             || build_single_level_book(n_orders),
+            |mut book| {
+                let outcome = book.execute(black_box(&command));
+                black_box(outcome);
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(n_orders),
+            timestamp: Timestamp(n_orders),
+        },
+        kind: CommandKind::Amend(AmendCmd {
+            order_id: OrderId(n_orders / 2),
+            patch: AmendPatch::Limit(LimitOrderPatch::new().with_quantity_policy(
+                QuantityPolicy::Standard {
+                    quantity: Quantity(200),
+                },
+            )),
+        }),
+    };
+    group.bench_function("single_order_in_multi_level_book_quantity_increase", |b| {
+        b.iter_batched(
+            || build_multi_level_book(n_orders),
             |mut book| {
                 let outcome = book.execute(black_box(&command));
                 black_box(outcome);
@@ -83,6 +133,27 @@ pub fn benches_amend(c: &mut Criterion) {
         )
     });
 
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(n_orders),
+            timestamp: Timestamp(n_orders),
+        },
+        kind: CommandKind::Amend(AmendCmd {
+            order_id: OrderId(n_orders / 2),
+            patch: AmendPatch::Limit(LimitOrderPatch::new().with_price(Price(101))),
+        }),
+    };
+    group.bench_function("single_order_in_multi_level_book_price_update", |b| {
+        b.iter_batched(
+            || build_multi_level_book(n_orders),
+            |mut book| {
+                let outcome = book.execute(black_box(&command));
+                black_box(outcome);
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
     let commands: Vec<Command> = (0..n_orders)
         .map(|i| Command {
             meta: CommandMeta {
@@ -102,6 +173,18 @@ pub fn benches_amend(c: &mut Criterion) {
     group.bench_function("10k_orders_in_single_level_book_quantity_decrease", |b| {
         b.iter_batched(
             || build_single_level_book(n_orders),
+            |mut book| {
+                for command in &commands {
+                    let outcome = book.execute(black_box(command));
+                    black_box(outcome);
+                }
+            },
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("10k_orders_in_multi_level_book_quantity_decrease", |b| {
+        b.iter_batched(
+            || build_multi_level_book(n_orders),
             |mut book| {
                 for command in &commands {
                     let outcome = book.execute(black_box(command));
@@ -140,6 +223,18 @@ pub fn benches_amend(c: &mut Criterion) {
             BatchSize::SmallInput,
         )
     });
+    group.bench_function("10k_orders_in_multi_level_book_quantity_increase", |b| {
+        b.iter_batched(
+            || build_multi_level_book(n_orders),
+            |mut book| {
+                for command in &commands {
+                    let outcome = book.execute(black_box(command));
+                    black_box(outcome);
+                }
+            },
+            BatchSize::SmallInput,
+        )
+    });
 
     let commands: Vec<Command> = (0..n_orders)
         .map(|i| Command {
@@ -156,6 +251,18 @@ pub fn benches_amend(c: &mut Criterion) {
     group.bench_function("10k_orders_in_single_level_book_price_update", |b| {
         b.iter_batched(
             || build_single_level_book(n_orders),
+            |mut book| {
+                for command in &commands {
+                    let outcome = book.execute(black_box(command));
+                    black_box(outcome);
+                }
+            },
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("10k_orders_in_multi_level_book_price_update", |b| {
+        b.iter_batched(
+            || build_multi_level_book(n_orders),
             |mut book| {
                 for command in &commands {
                     let outcome = book.execute(black_box(command));
@@ -182,6 +289,31 @@ fn build_single_level_book(n_orders: u64) -> OrderBook {
             kind: CommandKind::Submit(SubmitCmd {
                 order: NewOrder::Limit(LimitOrder::new(
                     Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(100),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                )),
+            }),
+        });
+    }
+
+    book
+}
+
+/// Helper function to build an order book with `n_orders` standard orders in multiple levels
+fn build_multi_level_book(n_orders: u64) -> OrderBook {
+    let mut book = OrderBook::new("TEST");
+
+    for i in 0..n_orders {
+        book.execute(&Command {
+            meta: CommandMeta {
+                sequence_number: SequenceNumber(i),
+                timestamp: Timestamp(i),
+            },
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Limit(LimitOrder::new(
+                    Price(100 + (i % 10)),
                     QuantityPolicy::Standard {
                         quantity: Quantity(100),
                     },
