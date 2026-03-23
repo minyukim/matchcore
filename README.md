@@ -42,6 +42,25 @@ The architecture follows principles popularized by the [LMAX Architecture](https
 - Designed for integration with event-driven trading systems
 - Clear command → outcome model for reproducible execution
 
+## What’s New in v0.2
+
+This release introduces a redesigned time-priority model, significantly improves amend performance, and adds several developer-focused features.
+
+- **Time-priority model overhaul**  
+  Orders now use an explicit `time_priority` field instead of relying on order IDs, enabling more accurate and flexible priority handling.
+
+- **Fair priority between limit and pegged orders**  
+  Matching priority is now determined by `time_priority` and reprice timing. Pegged orders no longer implicitly rank below limit orders, resulting in more realistic market behavior.
+
+- **Improved amend performance**  
+  Amend operations are significantly faster due to the introduction of slab-backed price levels, reducing lookup overhead.
+
+- **Optional Serde support**  
+  Adds a `serde` feature flag to enable serialization and deserialization without imposing it on all users.
+
+- **Benchmark-driven documentation**  
+  Introduces a `make bench-docs` target to automatically generate documentation from benchmark results.
+
 ## Architecture
 
 The design is heavily inspired by the **LMAX architecture**, a model widely used in low-latency trading systems.
