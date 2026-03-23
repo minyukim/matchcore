@@ -37,10 +37,6 @@ test:								## Run all tests
 .PHONY: check
 check: fmt-check lint test build	## Run pre-push checks
 
-.PHONY: bench
-bench:								## Run all benchmarks
-	cargo bench --bench benches
-
 .PHONY: readme
 readme: check-cargo-reedme			## Generate the README.md file
 	cargo +nightly reedme
@@ -52,3 +48,11 @@ check-cargo-reedme:					## Check if cargo-reedme is installed
 .PHONY: docs
 docs:								## Build docs and open in browser
 	cargo doc --no-deps --document-private-items --open
+
+.PHONY: bench
+bench:								## Run all benchmarks
+	cargo bench --bench benches
+
+.PHONY: bench-docs
+bench-docs: bench					## Run all benchmarks and generate benchmark docs
+	cargo run -p xtask -- gen-bench-docs
