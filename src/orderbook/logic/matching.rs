@@ -5,6 +5,8 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
+use slab::Slab;
+
 impl OrderBook {
     /// Match an order against existing orders in the order book.
     ///
@@ -19,25 +21,32 @@ impl OrderBook {
         limit_price: Option<Price>,
         quantity: Quantity,
     ) -> MatchResult {
-        let (taker_side_best_price, maker_side_price_levels, maker_side_peg_levels) =
-            match taker_side {
-                Side::Buy => (
-                    self.best_bid_price(),
-                    &mut self.limit.ask_levels,
-                    &mut self.pegged.ask_levels,
-                ),
-                Side::Sell => (
-                    self.best_ask_price(),
-                    &mut self.limit.bid_levels,
-                    &mut self.pegged.bid_levels,
-                ),
-            };
+        let (
+            taker_side_best_price,
+            maker_side_price_to_level_id,
+            price_levels,
+            maker_side_peg_levels,
+        ) = match taker_side {
+            Side::Buy => (
+                self.best_bid_price(),
+                &mut self.limit.asks,
+                &mut self.limit.levels,
+                &mut self.pegged.ask_levels,
+            ),
+            Side::Sell => (
+                self.best_ask_price(),
+                &mut self.limit.bids,
+                &mut self.limit.levels,
+                &mut self.pegged.bid_levels,
+            ),
+        };
 
         let result = match_order(
             sequence_number,
             taker_side,
             taker_side_best_price,
-            maker_side_price_levels,
+            maker_side_price_to_level_id,
+            price_levels,
             &mut self.limit.orders,
             maker_side_peg_levels,
             &mut self.pegged.orders,
@@ -74,7 +83,8 @@ impl OrderBook {
         match taker_side {
             Side::Buy => {
                 // Iterate over the limit ask price levels
-                for level in self.limit.ask_levels.values() {
+                for level_id in self.limit.asks.values() {
+                    let level = &self.limit.levels[*level_id];
                     remaining = remaining.saturating_sub(level.total_quantity());
                     if remaining.is_zero() {
                         return requested_quantity;
@@ -98,7 +108,8 @@ impl OrderBook {
             }
             Side::Sell => {
                 // Iterate over the limit bid price levels
-                for level in self.limit.bid_levels.values().rev() {
+                for level_id in self.limit.bids.values().rev() {
+                    let level = &self.limit.levels[*level_id];
                     remaining = remaining.saturating_sub(level.total_quantity());
                     if remaining.is_zero() {
                         return requested_quantity;
@@ -148,10 +159,11 @@ impl OrderBook {
         match taker_side {
             Side::Buy => {
                 // Iterate over the limit ask price levels up to the limit price
-                for (price, level) in self.limit.ask_levels.iter() {
+                for (price, level_id) in self.limit.asks.iter() {
                     if *price > limit_price {
                         break;
                     }
+                    let level = &self.limit.levels[*level_id];
                     remaining = remaining.saturating_sub(level.total_quantity());
                     if remaining.is_zero() {
                         return requested_quantity;
@@ -175,10 +187,11 @@ impl OrderBook {
             }
             Side::Sell => {
                 // Iterate over the limit bid price levels up to the limit price
-                for (price, level) in self.limit.bid_levels.iter().rev() {
+                for (price, level_id) in self.limit.bids.iter().rev() {
                     if *price < limit_price {
                         break;
                     }
+                    let level = &self.limit.levels[*level_id];
                     remaining = remaining.saturating_sub(level.total_quantity());
                     if remaining.is_zero() {
                         return requested_quantity;
@@ -215,7 +228,8 @@ pub(crate) fn match_order(
     sequence_number: SequenceNumber,
     taker_side: Side,
     taker_side_best_price: Option<Price>,
-    maker_side_price_levels: &mut BTreeMap<Price, PriceLevel>,
+    maker_side_price_to_level_id: &mut BTreeMap<Price, LevelId>,
+    price_levels: &mut Slab<PriceLevel>,
     limit_orders: &mut HashMap<OrderId, RestingLimitOrder>,
     maker_side_peg_levels: &mut [PegLevel; PegReference::COUNT],
     pegged_orders: &mut HashMap<OrderId, RestingPeggedOrder>,
@@ -227,22 +241,23 @@ pub(crate) fn match_order(
     let mut needs_reprice = false;
 
     while !remaining_quantity.is_zero() {
-        let best_price_and_level = match taker_side {
+        let best_price_and_level_id = match taker_side {
             // The best price is the lowest price for a buy order (asks)
-            Side::Buy => maker_side_price_levels
-                .iter_mut()
+            Side::Buy => maker_side_price_to_level_id
+                .iter()
                 .next()
-                .map(|(price, level)| (*price, level)),
+                .map(|(price, level_id)| (*price, *level_id)),
             // The best price is the highest price for a sell order (bids)
-            Side::Sell => maker_side_price_levels
-                .iter_mut()
+            Side::Sell => maker_side_price_to_level_id
+                .iter()
                 .next_back()
-                .map(|(price, level)| (*price, level)),
+                .map(|(price, level_id)| (*price, *level_id)),
         };
 
-        let Some((price, price_level)) = best_price_and_level else {
+        let Some((price, level_id)) = best_price_and_level_id else {
             break;
         };
+        let price_level = &mut price_levels[level_id];
 
         if let Some(limit_price) = limit_price {
             match taker_side {
@@ -374,7 +389,8 @@ pub(crate) fn match_order(
         }
 
         if price_level.is_empty() {
-            maker_side_price_levels.remove(&price);
+            price_levels.remove(level_id);
+            maker_side_price_to_level_id.remove(&price);
             needs_reprice = true;
         }
     }

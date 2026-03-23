@@ -12,51 +12,51 @@ use crate::{Notional, PegReference, Price, Quantity, Side};
 impl LimitBook {
     /// Get the best bid price and size, if exists
     pub fn best_bid(&self) -> Option<(Price, Quantity)> {
-        self.bid_levels
+        self.bids
             .iter()
             .next_back()
-            .map(|(price, level)| (*price, level.total_quantity()))
+            .map(|(price, level_id)| (*price, self.levels[*level_id].total_quantity()))
     }
 
     /// Get the best ask price and size, if exists
     pub fn best_ask(&self) -> Option<(Price, Quantity)> {
-        self.ask_levels
+        self.asks
             .iter()
             .next()
-            .map(|(price, level)| (*price, level.total_quantity()))
+            .map(|(price, level_id)| (*price, self.levels[*level_id].total_quantity()))
     }
 
     /// Get the best bid price, if exists
     pub fn best_bid_price(&self) -> Option<Price> {
-        self.bid_levels.keys().next_back().copied()
+        self.bids.keys().next_back().copied()
     }
 
     /// Get the best ask price, if exists
     pub fn best_ask_price(&self) -> Option<Price> {
-        self.ask_levels.keys().next().copied()
+        self.asks.keys().next().copied()
     }
 
     /// Get the best bid size, if exists
     pub fn best_bid_size(&self) -> Option<Quantity> {
-        self.bid_levels
+        self.bids
             .values()
             .next_back()
-            .map(|level| level.total_quantity())
+            .map(|level_id| self.levels[*level_id].total_quantity())
     }
 
     /// Get the best ask size, if exists
     pub fn best_ask_size(&self) -> Option<Quantity> {
-        self.ask_levels
+        self.asks
             .values()
             .next()
-            .map(|level| level.total_quantity())
+            .map(|level_id| self.levels[*level_id].total_quantity())
     }
 
     /// Check if the side is empty
     pub fn is_side_empty(&self, side: Side) -> bool {
         match side {
-            Side::Buy => self.bid_levels.is_empty(),
-            Side::Sell => self.ask_levels.is_empty(),
+            Side::Buy => self.bids.is_empty(),
+            Side::Sell => self.asks.is_empty(),
         }
     }
 
@@ -102,20 +102,20 @@ impl LimitBook {
 
     /// Get the bid size for the first N price levels
     pub fn bid_size(&self, n_levels: usize) -> Quantity {
-        self.bid_levels
+        self.bids
             .values()
             .rev()
             .take(n_levels)
-            .map(|level| level.total_quantity())
+            .map(|level_id| self.levels[*level_id].total_quantity())
             .sum::<Quantity>()
     }
 
     /// Get the ask size for the first N price levels
     pub fn ask_size(&self, n_levels: usize) -> Quantity {
-        self.ask_levels
+        self.asks
             .values()
             .take(n_levels)
-            .map(|level| level.total_quantity())
+            .map(|level_id| self.levels[*level_id].total_quantity())
             .sum::<Quantity>()
     }
 
@@ -271,7 +271,8 @@ impl OrderBook {
                 );
 
                 // Iterate over the limit bid price levels
-                for (price, level) in self.limit.bid_levels.iter().rev() {
+                for (price, level_id) in self.limit.bids.iter().rev() {
+                    let level = &self.limit.levels[*level_id];
                     cumulative = cumulative.saturating_add(level.total_quantity());
                     if cumulative >= depth {
                         return Some(*price);
@@ -292,7 +293,8 @@ impl OrderBook {
                 );
 
                 // Iterate over the limit ask price levels
-                for (price, level) in self.limit.ask_levels.iter() {
+                for (price, level_id) in self.limit.asks.iter() {
+                    let level = &self.limit.levels[*level_id];
                     cumulative = cumulative.saturating_add(level.total_quantity());
                     if cumulative >= depth {
                         return Some(*price);
@@ -345,7 +347,8 @@ impl OrderBook {
                 }
 
                 // Iterate over the limit ask price levels
-                for (price, level) in self.limit.ask_levels.iter() {
+                for (price, level_id) in self.limit.asks.iter() {
+                    let level = &self.limit.levels[*level_id];
                     let available = level.total_quantity();
                     let fill_qty = remaining.min(available);
                     total_cost = total_cost.saturating_add(*price * fill_qty);
@@ -384,7 +387,8 @@ impl OrderBook {
                 }
 
                 // Iterate over the limit bid price levels
-                for (price, level) in self.limit.bid_levels.iter().rev() {
+                for (price, level_id) in self.limit.bids.iter().rev() {
+                    let level = &self.limit.levels[*level_id];
                     let available = level.total_quantity();
                     let fill_qty = remaining.min(available);
                     total_cost = total_cost.saturating_add(*price * fill_qty);
@@ -425,10 +429,14 @@ mod tests_limit_book {
     ) -> LimitBook {
         let mut book = LimitBook::new();
         for &(price, qty) in bids {
-            book.bid_levels.insert(price, make_level(qty));
+            let level = make_level(qty);
+            let level_id = book.levels.insert(level);
+            book.bids.insert(price, level_id);
         }
         for &(price, qty) in asks {
-            book.ask_levels.insert(price, make_level(qty));
+            let level = make_level(qty);
+            let level_id = book.levels.insert(level);
+            book.asks.insert(price, level_id);
         }
         book
     }

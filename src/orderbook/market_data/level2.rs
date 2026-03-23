@@ -16,17 +16,17 @@ impl From<&OrderBook> for Level2 {
     fn from(book: &OrderBook) -> Self {
         Self {
             bid_levels: book
-                .limit()
-                .bid_levels()
+                .limit
+                .bids
                 .iter()
                 .rev()
-                .map(|(price, level)| (*price, level.total_quantity()))
+                .map(|(price, level_id)| (*price, book.limit.levels[*level_id].total_quantity()))
                 .collect(),
             ask_levels: book
                 .limit()
-                .ask_levels()
+                .asks
                 .iter()
-                .map(|(price, level)| (*price, level.total_quantity()))
+                .map(|(price, level_id)| (*price, book.limit.levels[*level_id].total_quantity()))
                 .collect(),
         }
     }

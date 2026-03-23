@@ -17,19 +17,22 @@ impl OrderBook {
 
         let (
             taker_side_best_price,
-            maker_side_price_levels,
+            maker_side_price_to_level_id,
+            price_levels,
             maker_side_peg_levels,
             taker_side_peg_levels,
         ) = match taker_side {
             Side::Buy => (
                 self.best_bid_price(),
-                &mut self.limit.ask_levels,
+                &mut self.limit.asks,
+                &mut self.limit.levels,
                 &mut self.pegged.ask_levels,
                 &mut self.pegged.bid_levels,
             ),
             Side::Sell => (
                 self.best_ask_price(),
-                &mut self.limit.bid_levels,
+                &mut self.limit.bids,
+                &mut self.limit.levels,
                 &mut self.pegged.bid_levels,
                 &mut self.pegged.ask_levels,
             ),
@@ -41,7 +44,7 @@ impl OrderBook {
 
         loop {
             // No more orders in the maker side
-            if maker_side_price_levels.is_empty() {
+            if maker_side_price_to_level_id.is_empty() {
                 break;
             }
 
@@ -79,7 +82,8 @@ impl OrderBook {
                 sequence_number,
                 taker_side,
                 taker_side_best_price,
-                maker_side_price_levels,
+                maker_side_price_to_level_id,
+                price_levels,
                 &mut self.limit.orders,
                 maker_side_peg_levels,
                 pegged_orders,

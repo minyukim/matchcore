@@ -23,31 +23,25 @@ impl OrderBook {
             order.hidden_quantity(),
             order.side(),
         );
-        self.limit
-            .orders
-            .insert(id, RestingLimitOrder::new(sequence_number, order));
 
         let queue_entry = QueueEntry::new(sequence_number, id);
-        let levels = match side {
-            Side::Buy => &mut self.limit.bid_levels,
-            Side::Sell => &mut self.limit.ask_levels,
+        let price_to_level_id = match side {
+            Side::Buy => &mut self.limit.bids,
+            Side::Sell => &mut self.limit.asks,
         };
-        match levels.entry(price) {
-            Entry::Occupied(mut e) => {
-                e.get_mut().on_order_added(queue_entry, visible, hidden);
-            }
+        let level_id = match price_to_level_id.entry(price) {
+            Entry::Occupied(e) => *e.get(),
             Entry::Vacant(e) => {
-                let mut price_level = PriceLevel::new();
-                price_level.on_order_added(queue_entry, visible, hidden);
-                e.insert(price_level);
+                let level_id = self.limit.levels.insert(PriceLevel::new());
+                e.insert(level_id);
 
                 let (best_price, peg_levels) = match side {
                     Side::Buy => (
-                        levels.keys().next_back().copied().unwrap(),
+                        price_to_level_id.keys().next_back().copied().unwrap(),
                         &mut self.pegged.bid_levels,
                     ),
                     Side::Sell => (
-                        levels.keys().next().copied().unwrap(),
+                        price_to_level_id.keys().next().copied().unwrap(),
                         &mut self.pegged.ask_levels,
                     ),
                 };
@@ -61,33 +55,41 @@ impl OrderBook {
                     self.pegged.ask_levels[PegReference::MidPrice.as_index()].repriced_at =
                         sequence_number;
                 }
+
+                level_id
             }
-        }
+        };
+        self.limit
+            .orders
+            .insert(id, RestingLimitOrder::new(sequence_number, level_id, order));
+        self.limit.levels[level_id].on_order_added(queue_entry, visible, hidden);
     }
 
     /// Remove a limit order from the order book
     pub(crate) fn remove_limit_order(
         &mut self,
         sequence_number: SequenceNumber,
-        order_id: OrderId,
+        id: OrderId,
     ) -> Option<LimitOrder> {
-        let order = self.limit.orders.remove(&order_id)?.into_order();
+        let order = self.limit.orders.remove(&id)?;
 
-        let levels = match order.side() {
-            Side::Buy => &mut self.limit.bid_levels,
-            Side::Sell => &mut self.limit.ask_levels,
-        };
-        let level = levels.get_mut(&order.price()).unwrap();
+        let level_id = order.level_id();
+        let level = &mut self.limit.levels[level_id];
 
         level.on_order_removed(order.visible_quantity(), order.hidden_quantity());
         if level.is_empty() {
+            let price_to_level_id = match order.side() {
+                Side::Buy => &mut self.limit.bids,
+                Side::Sell => &mut self.limit.asks,
+            };
+
             let (best_price, peg_levels) = match order.side() {
                 Side::Buy => (
-                    levels.keys().next_back().copied().unwrap(),
+                    price_to_level_id.keys().next_back().copied().unwrap(),
                     &mut self.pegged.bid_levels,
                 ),
                 Side::Sell => (
-                    levels.keys().next().copied().unwrap(),
+                    price_to_level_id.keys().next().copied().unwrap(),
                     &mut self.pegged.ask_levels,
                 ),
             };
@@ -96,10 +98,11 @@ impl OrderBook {
                 peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
             }
 
-            levels.remove(&order.price());
+            self.limit.levels.remove(level_id);
+            price_to_level_id.remove(&order.price());
         }
 
-        Some(order)
+        Some(order.into_order())
     }
 
     /// Add a pegged order to the order book
@@ -168,8 +171,8 @@ mod tests {
     #[test]
     fn test_add_limit_order() {
         let mut book = OrderBook::new("TEST");
-        assert!(book.limit.bid_levels.is_empty());
-        assert!(book.limit.ask_levels.is_empty());
+        assert!(book.limit.bids.is_empty());
+        assert!(book.limit.asks.is_empty());
         assert!(book.limit.orders.is_empty());
 
         let order = LimitOrder::new(
@@ -180,15 +183,11 @@ mod tests {
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
         book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
-        assert_eq!(book.limit.bid_levels.len(), 1);
-        assert!(book.limit.ask_levels.is_empty());
+        assert_eq!(book.limit.bids.len(), 1);
+        assert!(book.limit.asks.is_empty());
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             1
         );
         assert_eq!(book.limit.orders.get(&OrderId(0)).unwrap().order(), &order);
@@ -201,15 +200,11 @@ mod tests {
             OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
         );
         book.add_limit_order(SequenceNumber(1), OrderId(1), order.clone());
-        assert_eq!(book.limit.bid_levels.len(), 1);
-        assert!(book.limit.ask_levels.is_empty());
+        assert_eq!(book.limit.bids.len(), 1);
+        assert!(book.limit.asks.is_empty());
         assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             2
         );
         assert_eq!(book.limit.orders.get(&OrderId(1)).unwrap().order(), &order);
@@ -222,23 +217,15 @@ mod tests {
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         );
         book.add_limit_order(SequenceNumber(2), OrderId(2), order.clone());
-        assert_eq!(book.limit.bid_levels.len(), 1);
-        assert_eq!(book.limit.ask_levels.len(), 1);
+        assert_eq!(book.limit.bids.len(), 1);
+        assert_eq!(book.limit.asks.len(), 1);
         assert_eq!(book.limit.orders.len(), 3);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             2
         );
         assert_eq!(
-            book.limit
-                .ask_levels
-                .get(&Price(110))
-                .unwrap()
-                .order_count(),
+            book.limit.get_ask_level(Price(110)).unwrap().order_count(),
             1
         );
         assert_eq!(book.limit.orders.get(&OrderId(2)).unwrap().order(), &order);
@@ -251,31 +238,19 @@ mod tests {
             OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
         );
         book.add_limit_order(SequenceNumber(3), OrderId(3), order.clone());
-        assert_eq!(book.limit.bid_levels.len(), 1);
-        assert_eq!(book.limit.ask_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 1);
+        assert_eq!(book.limit.asks.len(), 2);
         assert_eq!(book.limit.orders.len(), 4);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             2
         );
         assert_eq!(
-            book.limit
-                .ask_levels
-                .get(&Price(110))
-                .unwrap()
-                .order_count(),
+            book.limit.get_ask_level(Price(110)).unwrap().order_count(),
             1
         );
         assert_eq!(
-            book.limit
-                .ask_levels
-                .get(&Price(105))
-                .unwrap()
-                .order_count(),
+            book.limit.get_ask_level(Price(105)).unwrap().order_count(),
             1
         );
         assert_eq!(book.limit.orders.get(&OrderId(3)).unwrap().order(), &order);
@@ -446,18 +421,14 @@ mod tests {
         book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             1
         );
 
         let removed = book.remove_limit_order(SequenceNumber(1), OrderId(0));
         assert_eq!(removed.as_ref(), Some(&order));
         assert!(book.limit.orders.is_empty());
-        assert!(!book.limit.bid_levels.contains_key(&Price(100)));
+        assert!(!book.limit.bids.contains_key(&Price(100)));
     }
 
     #[test]
@@ -482,11 +453,7 @@ mod tests {
         }
         assert_eq!(book.limit.orders.len(), 3);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             3
         );
 
@@ -494,11 +461,7 @@ mod tests {
         assert!(removed.is_some());
         assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(100))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             2
         );
         assert!(!book.limit.orders.contains_key(&OrderId(1)));
@@ -516,7 +479,7 @@ mod tests {
         );
         book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
         book.remove_limit_order(SequenceNumber(1), OrderId(0));
-        assert!(book.limit.bid_levels.is_empty());
+        assert!(book.limit.bids.is_empty());
         assert!(book.limit.orders.is_empty());
     }
 
@@ -545,17 +508,13 @@ mod tests {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
-        assert_eq!(book.limit.bid_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 2);
 
         book.remove_limit_order(SequenceNumber(2), OrderId(0));
-        assert_eq!(book.limit.bid_levels.len(), 1);
-        assert!(book.limit.bid_levels.contains_key(&Price(200)));
+        assert_eq!(book.limit.bids.len(), 1);
+        assert!(book.limit.bids.contains_key(&Price(200)));
         assert_eq!(
-            book.limit
-                .bid_levels
-                .get(&Price(200))
-                .unwrap()
-                .order_count(),
+            book.limit.get_bid_level(Price(200)).unwrap().order_count(),
             1
         );
     }

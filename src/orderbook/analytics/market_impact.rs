@@ -82,7 +82,8 @@ impl MarketImpact {
                 }
 
                 // Iterate over the limit ask price levels
-                for (price, level) in book.limit.ask_levels.iter() {
+                for (price, level_id) in book.limit.asks.iter() {
+                    let level = &book.limit.levels[*level_id];
                     let available = level.total_quantity();
                     let fill_qty = remaining.min(available);
                     impact.total_cost = impact.total_cost.saturating_add(*price * fill_qty);
@@ -133,7 +134,8 @@ impl MarketImpact {
                 }
 
                 // Iterate over the limit ask price levels
-                for (price, level) in book.limit.bid_levels.iter().rev() {
+                for (price, level_id) in book.limit.bids.iter().rev() {
+                    let level = &book.limit.levels[*level_id];
                     let available = level.total_quantity();
                     let fill_qty = remaining.min(available);
                     impact.total_cost = impact.total_cost.saturating_add(*price * fill_qty);

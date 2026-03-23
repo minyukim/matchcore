@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn test_clean_up_expired_limit_orders() {
         let mut book: OrderBook = OrderBook::new("TEST");
-        assert_eq!(book.limit.bid_levels.len(), 0);
+        assert_eq!(book.limit.bids.len(), 0);
         assert_eq!(book.limit.orders.len(), 0);
         assert_eq!(book.limit.expiration_queue.len(), 0);
 
@@ -254,7 +254,7 @@ mod tests {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
             ),
         );
-        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert_eq!(book.limit.bids.len(), 1);
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(book.limit.expiration_queue.len(), 1);
 
@@ -269,7 +269,7 @@ mod tests {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
             ),
         );
-        assert_eq!(book.limit.bid_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 2);
         assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(book.limit.expiration_queue.len(), 2);
 
@@ -284,7 +284,7 @@ mod tests {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1001))),
             ),
         );
-        assert_eq!(book.limit.bid_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 2);
         assert_eq!(book.limit.orders.len(), 3);
         assert_eq!(book.limit.expiration_queue.len(), 3);
 
@@ -299,25 +299,25 @@ mod tests {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1002))),
             ),
         );
-        assert_eq!(book.limit.bid_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 2);
         assert_eq!(book.limit.orders.len(), 4);
         assert_eq!(book.limit.expiration_queue.len(), 4);
 
         // No orders should be expired
         book.clean_up_expired_limit_orders(SequenceNumber(999), Timestamp(999));
-        assert_eq!(book.limit.bid_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 2);
         assert_eq!(book.limit.orders.len(), 4);
         assert_eq!(book.limit.expiration_queue.len(), 4);
 
         // Two orders at GTD 1000 should be expired
         book.clean_up_expired_limit_orders(SequenceNumber(1000), Timestamp(1000));
-        assert_eq!(book.limit.bid_levels.len(), 2);
+        assert_eq!(book.limit.bids.len(), 2);
         assert_eq!(book.limit.orders.len(), 2);
         assert_eq!(book.limit.expiration_queue.len(), 2);
 
         // Two remaining orders should be expired
         book.clean_up_expired_limit_orders(SequenceNumber(1002), Timestamp(1002));
-        assert_eq!(book.limit.bid_levels.len(), 0);
+        assert_eq!(book.limit.bids.len(), 0);
         assert_eq!(book.limit.orders.len(), 0);
         assert_eq!(book.limit.expiration_queue.len(), 0);
     }
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn test_clean_up_non_expiring_limit_orders() {
         let mut book: OrderBook = OrderBook::new("TEST");
-        assert_eq!(book.limit.bid_levels.len(), 0);
+        assert_eq!(book.limit.bids.len(), 0);
         assert_eq!(book.limit.orders.len(), 0);
         assert_eq!(book.limit.expiration_queue.len(), 0);
 
@@ -340,12 +340,12 @@ mod tests {
                 OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
             ),
         );
-        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert_eq!(book.limit.bids.len(), 1);
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(book.limit.expiration_queue.len(), 0);
 
         book.clean_up_expired_limit_orders(SequenceNumber(1000), Timestamp(1000));
-        assert_eq!(book.limit.bid_levels.len(), 1);
+        assert_eq!(book.limit.bids.len(), 1);
         assert_eq!(book.limit.orders.len(), 1);
         assert_eq!(book.limit.expiration_queue.len(), 0);
     }

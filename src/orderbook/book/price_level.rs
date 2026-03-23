@@ -266,6 +266,7 @@ mod tests {
             OrderId(0),
             RestingLimitOrder::new(
                 SequenceNumber(0),
+                0,
                 LimitOrder::new(
                     Price(100),
                     QuantityPolicy::Standard {
@@ -292,6 +293,7 @@ mod tests {
             OrderId(1),
             RestingLimitOrder::new(
                 SequenceNumber(1),
+                0,
                 LimitOrder::new(
                     Price(100),
                     QuantityPolicy::Standard {
@@ -315,6 +317,7 @@ mod tests {
             OrderId(2),
             RestingLimitOrder::new(
                 SequenceNumber(2),
+                0,
                 LimitOrder::new(
                     Price(100),
                     QuantityPolicy::Standard {

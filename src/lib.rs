@@ -198,24 +198,16 @@
 //!
 //! ## Potential Performance Improvements
 //!
-//! Currently, the order book stores price levels using `BTreeMap<Price, PriceLevel>`. This design provides:
+//! Currently, the order book stores price levels using `BTreeMap<Price, LevelId>` and `Slab<PriceLevel>`. This design provides:
 //!
 //! - **O(log N)** best-price lookup
-//! - **O(log N)** submit / amend / cancel operations to locate the corresponding price level
+//! - **O(log N)** submit operations to locate the corresponding price level
+//! - **O(1)** amend operations (except when amending the order to a different price level)
+//! - **O(1)** cancel operations (except when cancelling the order removes the price level entirely)
 //!
 //! where **N** is the number of price levels.
 //!
-//! Several alternative designs may improve performance.
-//!
-//! ### 1. Slab-backed price levels
-//!
-//! Use `Slab<PriceLevel>` and `BTreeMap<Price, LevelIdx>`, and each order holds its `LevelIdx`, allowing direct lookup of its price level. This would reduce the time complexity of the amend/cancel order operations to **O(1)**, except when cancelling the order removes the price level entirely.
-//!
-//! ### 2. Sorted vector of price levels
-//!
-//! Store price levels in `Vec<PriceLevel>`, sorted by price from **worst → best**.
-//!
-//! Trade-offs:
+//! An alternative design is to store prices in `Vec<(Price, LevelId)>`, sorted by price from **worst → best**, which provides:
 //!
 //! - **O(1)** best-price lookup
 //! - **O(N)** insertion / deletion when creating or removing price levels
