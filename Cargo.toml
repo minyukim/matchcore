@@ -30,6 +30,10 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = "1.0"
 criterion = "0.8"
 
+[workspace]
+members = [".", "xtask"]
+resolver = "2"
+
 [[bench]]
 name = "benches"
 path = "benches/mod.rs"
