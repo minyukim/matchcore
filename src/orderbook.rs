@@ -15,7 +15,7 @@ use crate::{Price, SequenceNumber, Timestamp};
 /// Order book that manages all kinds of orders and levels
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
-pub struct OrderBook {
+pub struct OrderBook<const PRICE_LEVELS_INITIAL_CAPACITY: usize = 2048> {
     /// The symbol for this order book
     symbol: String,
 
@@ -31,7 +31,7 @@ pub struct OrderBook {
     pub(self) last_trade_price: Option<Price>,
 
     /// Limit order book
-    pub(self) limit: LimitBook,
+    pub(self) limit: LimitBook<PRICE_LEVELS_INITIAL_CAPACITY>,
 
     /// Pegged order book
     pub(self) pegged: PeggedBook,

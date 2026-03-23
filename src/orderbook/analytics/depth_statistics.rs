@@ -44,13 +44,15 @@ impl DepthStatistics {
 
         match side {
             Side::Buy => {
-                for (price, level) in book.bid_levels().iter().rev().take(n_levels) {
+                for (price, level_id) in book.bids.iter().rev().take(n_levels) {
+                    let level = &book.levels[*level_id];
                     stats.observe_level(*price, level.total_quantity());
                     sizes.push(level.total_quantity());
                 }
             }
             Side::Sell => {
-                for (price, level) in book.ask_levels().iter().take(n_levels) {
+                for (price, level_id) in book.asks.iter().take(n_levels) {
+                    let level = &book.levels[*level_id];
                     stats.observe_level(*price, level.total_quantity());
                     sizes.push(level.total_quantity());
                 }

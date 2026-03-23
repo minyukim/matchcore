@@ -86,7 +86,7 @@ mod tests {
             other => panic!("expected applied cancel, got: {other:?}"),
         }
         assert!(!book.limit.orders.contains_key(&OrderId(0)));
-        assert!(!book.limit.bid_levels.contains_key(&Price(100)));
+        assert!(!book.limit.bids.contains_key(&Price(100)));
     }
 
     #[test]

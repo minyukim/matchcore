@@ -70,10 +70,8 @@ impl OrderBook {
             && (quantity_policy.visible_quantity() != old_visible_quantity
                 || quantity_policy.hidden_quantity() != old_hidden_quantity)
         {
-            let level = match order.side() {
-                Side::Buy => self.limit.bid_levels.get_mut(&order.price()).unwrap(),
-                Side::Sell => self.limit.ask_levels.get_mut(&order.price()).unwrap(),
-            };
+            let level_id = order.level_id();
+            let level = &mut self.limit.levels[level_id];
             level.visible_quantity =
                 level.visible_quantity + quantity_policy.visible_quantity() - old_visible_quantity;
             level.hidden_quantity =
@@ -282,7 +280,7 @@ mod tests_amend_limit_order {
         assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(10));
         assert_eq!(
-            book.limit.bid_levels.get(&Price(100)).unwrap().queue(),
+            book.limit.get_bid_level(Price(100)).unwrap().queue(),
             &[QueueEntry::new(SequenceNumber(0), OrderId(0))]
         );
 
@@ -305,10 +303,10 @@ mod tests_amend_limit_order {
         assert_eq!(order.price(), Price(101));
         assert_eq!(order.total_quantity(), Quantity(10));
         assert_eq!(
-            book.limit.bid_levels.get(&Price(101)).unwrap().queue(),
+            book.limit.get_bid_level(Price(101)).unwrap().queue(),
             &[QueueEntry::new(SequenceNumber(1), OrderId(0))]
         );
-        assert!(!book.limit.bid_levels.contains_key(&Price(100)));
+        assert!(!book.limit.bids.contains_key(&Price(100)));
     }
 
     #[test]
@@ -373,7 +371,7 @@ mod tests_amend_limit_order {
         assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(10));
 
-        let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
+        let level = book.limit.get_bid_level(Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(30));
         assert_eq!(
             level.queue(),
@@ -399,7 +397,7 @@ mod tests_amend_limit_order {
         assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(5));
 
-        let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
+        let level = book.limit.get_bid_level(Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(25));
         assert_eq!(
             level.queue(),
@@ -440,7 +438,7 @@ mod tests_amend_limit_order {
         assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(10));
 
-        let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
+        let level = book.limit.get_bid_level(Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(30));
         assert_eq!(
             level.queue(),
@@ -466,7 +464,7 @@ mod tests_amend_limit_order {
         assert_eq!(order.price(), Price(100));
         assert_eq!(order.total_quantity(), Quantity(20));
 
-        let level = book.limit.bid_levels.get_mut(&Price(100)).unwrap();
+        let level = book.limit.get_bid_level(Price(100)).unwrap();
         assert_eq!(level.visible_quantity, Quantity(40));
         assert_eq!(
             level.queue(),

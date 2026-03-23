@@ -1,5 +1,7 @@
 use super::PriceLevel;
-use crate::{OrderId, Price, RestingLimitOrder, Timestamp};
+use crate::{LevelId, OrderId, Price, RestingLimitOrder, Timestamp};
+
+use slab::Slab;
 
 use std::{
     cmp::Reverse,
@@ -9,12 +11,15 @@ use std::{
 /// Limit order book that manages limit orders and price levels.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Default)]
-pub struct LimitBook {
+pub struct LimitBook<const LEVELS_INITIAL_CAPACITY: usize = 2048> {
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
-    pub(crate) bid_levels: BTreeMap<Price, PriceLevel>,
+    pub(crate) bids: BTreeMap<Price, LevelId>,
 
     /// Ask side price levels, stored in a ordered map with O(log N) ordering
-    pub(crate) ask_levels: BTreeMap<Price, PriceLevel>,
+    pub(crate) asks: BTreeMap<Price, LevelId>,
+
+    /// Price levels, stored in a slab with O(1) indexing
+    pub(crate) levels: Slab<PriceLevel>,
 
     /// Limit orders indexed by order ID for O(1) lookup
     pub(crate) orders: HashMap<OrderId, RestingLimitOrder>,
@@ -24,20 +29,27 @@ pub struct LimitBook {
     pub(crate) expiration_queue: BinaryHeap<Reverse<(Timestamp, OrderId)>>,
 }
 
-impl LimitBook {
+impl<const LEVELS_INITIAL_CAPACITY: usize> LimitBook<LEVELS_INITIAL_CAPACITY> {
     /// Create a new limit order book
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl LimitBook {
     /// Get the bid side price levels
-    pub fn bid_levels(&self) -> &BTreeMap<Price, PriceLevel> {
-        &self.bid_levels
+    pub fn bids(&self) -> &BTreeMap<Price, LevelId> {
+        &self.bids
     }
 
     /// Get the ask side price levels
-    pub fn ask_levels(&self) -> &BTreeMap<Price, PriceLevel> {
-        &self.ask_levels
+    pub fn asks(&self) -> &BTreeMap<Price, LevelId> {
+        &self.asks
+    }
+
+    /// Get the price levels
+    pub fn levels(&self) -> &Slab<PriceLevel> {
+        &self.levels
     }
 
     /// Get the limit orders indexed by order ID
@@ -48,5 +60,17 @@ impl LimitBook {
     /// Get the queue of limit order IDs to be expired
     pub fn expiration_queue(&self) -> &BinaryHeap<Reverse<(Timestamp, OrderId)>> {
         &self.expiration_queue
+    }
+
+    pub fn get_bid_level(&self, price: Price) -> Option<&PriceLevel> {
+        self.bids
+            .get(&price)
+            .map(|level_id| &self.levels[*level_id])
+    }
+
+    pub fn get_ask_level(&self, price: Price) -> Option<&PriceLevel> {
+        self.asks
+            .get(&price)
+            .map(|level_id| &self.levels[*level_id])
     }
 }

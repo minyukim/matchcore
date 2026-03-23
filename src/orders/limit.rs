@@ -1,5 +1,5 @@
 use super::{OrderFlags, OrderKind};
-use crate::{Price, Quantity, QuantityPolicy, SequenceNumber};
+use crate::{LevelId, Price, Quantity, QuantityPolicy, SequenceNumber};
 
 use std::{
     fmt,
@@ -12,15 +12,18 @@ use std::{
 pub struct RestingLimitOrder {
     /// The time priority of the order
     time_priority: SequenceNumber,
+    /// The ID of the level the order is resting at
+    level_id: LevelId,
     /// The limit order
     order: LimitOrder,
 }
 
 impl RestingLimitOrder {
     /// Create a new resting limit order
-    pub fn new(time_priority: SequenceNumber, order: LimitOrder) -> Self {
+    pub fn new(time_priority: SequenceNumber, level_id: LevelId, order: LimitOrder) -> Self {
         Self {
             time_priority,
+            level_id,
             order,
         }
     }
@@ -33,6 +36,11 @@ impl RestingLimitOrder {
     /// Update the time priority of the order
     pub(crate) fn update_time_priority(&mut self, new_time_priority: SequenceNumber) {
         self.time_priority = new_time_priority;
+    }
+
+    /// Get the ID of the level the order is resting at
+    pub fn level_id(&self) -> LevelId {
+        self.level_id
     }
 
     /// Get the limit order
@@ -246,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_time_priority() {
-        let mut order = RestingLimitOrder::new(SequenceNumber(0), create_standard_order());
+        let mut order = RestingLimitOrder::new(SequenceNumber(0), 0, create_standard_order());
         assert_eq!(order.time_priority(), SequenceNumber(0));
 
         order.update_time_priority(SequenceNumber(1));
