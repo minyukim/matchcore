@@ -48,3 +48,7 @@ readme: check-cargo-reedme			## Generate the README.md file
 .PHONY: check-cargo-reedme
 check-cargo-reedme:					## Check if cargo-reedme is installed
 	@command -v cargo-reedme > /dev/null || (echo "Installing cargo-reedme..."; cargo install cargo-reedme)
+
+.PHONY: docs
+docs:								## Build docs and open in browser
+	cargo doc --no-deps --document-private-items --open
