@@ -5,10 +5,13 @@ on:
     branches: [main]
     types: [opened, synchronize, ready_for_review, reopened]
     paths:
+      - ".github/workflows/rust-ci.yml"
       - "src/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "examples/**"
+      - "docs/**"
+      - "README.md"
 
 concurrency:
   group: rust-ci-${{ github.event.pull_request.number }}
@@ -17,13 +20,14 @@ concurrency:
 jobs:
   rust-ci:
     name: Rust CI
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install Rust
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -42,3 +46,12 @@ jobs:
 
       - name: Build examples
         run: cargo build --examples
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-reedme
+        run: cargo install cargo-reedme --locked
+
+      - name: Check README.md
+        run: cargo +nightly reedme --check
