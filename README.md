@@ -11,6 +11,21 @@
 
 # Matchcore
 
+<!-- cargo-reedme: start -->
+
+<!-- cargo-reedme: info-start
+
+    Do not edit this region by hand
+    ===============================
+
+    This region was generated from Rust documentation comments by `cargo-reedme` using this command:
+
+        cargo +nightly reedme
+
+    for more info: https://github.com/nik-rev/cargo-reedme
+
+cargo-reedme: info-end -->
+
 **Matchcore** is a high-performance order book and price-time matching engine implemented as a **single-threaded, deterministic, in-memory state machine**.
 
 It is designed for building **low-latency trading systems, exchange simulators, and market-microstructure research tools**.
@@ -56,7 +71,7 @@ This does **not** mean the entire application must be single-threaded.
 
 A typical architecture may look like:
 
-```
+```text
 Command Reader/Decoder → Ring Buffer → Matchcore Engine → Ring Buffer → Execution Outcome Encoder/Writer
 ```
 
@@ -64,7 +79,7 @@ Systems can scale horizontally by **sharding instruments across multiple engine 
 
 For example:
 
-```
+```text
 Thread 1 → BTC-USD order book
 Thread 2 → ETH-USD order book
 Thread 3 → SOL-USD order book
@@ -109,7 +124,7 @@ Persistence and replication are expected to be handled **outside the engine**, t
 
 Matchcore processes **commands** and produces **outcomes**.
 
-```
+```text
 Command → Matchcore Engine → Outcome
 ```
 
@@ -196,36 +211,58 @@ To run the benchmarks in your environment, run `make bench`.
 
 ### Submit
 
+#### Single-order submit
+
 | Benchmark | Time |
 | --- | ---: |
-| Single standard order into a fresh book | ~112 ns |
-| Single iceberg order into a fresh book | ~110 ns |
-| Single post-only order into a fresh book | ~110 ns |
-| Single good-till-date order into a fresh book | ~123 ns |
-| Single pegged order into a fresh book | ~74 ns |
-| 10k standard orders into a fresh book | ~351 µs |
-| 10k iceberg orders into a fresh book | ~353 µs |
-| 10k post-only orders into a fresh book | ~351 µs |
-| 10k good-till-date orders into a fresh book | ~367 µs |
-| 10k pegged orders into a fresh book | ~278 µs |
+| Single standard order into a fresh book | ~110 ns |
+| Single iceberg order into a fresh book | ~109 ns |
+| Single post-only order into a fresh book | ~108 ns |
+| Single good-till-date order into a fresh book | ~124 ns |
+| Single pegged order into a fresh book | ~72 ns |
+
+#### 10k orders submit
+
+| Benchmark | Time |
+| --- | ---: |
+| 10k standard orders into a fresh book | ~328.11 µs |
+| 10k iceberg orders into a fresh book | ~327.14 µs |
+| 10k post-only orders into a fresh book | ~325.93 µs |
+| 10k good-till-date orders into a fresh book | ~342.67 µs |
+| 10k pegged orders into a fresh book | ~278.09 µs |
 
 ### Amend
 
+#### Single-order amend
+
 | Benchmark | Time |
 | --- | ---: |
-| Single order quantity decrease | ~883 ns |
-| Single order quantity increase | ~901 ns |
-| Single order price update | ~954 ns |
-| 10k orders quantity decrease | ~208 µs |
-| 10k orders quantity increase | ~227 µs |
-| 10k orders price update | ~594 µs |
+| Single order in single-level book quantity decrease | ~886 ns |
+| Single order in multi-level book quantity decrease | ~661 ns |
+| Single order in single-level book quantity increase | ~879 ns |
+| Single order in multi-level book quantity increase | ~692 ns |
+| Single order in single-level book price update | ~957 ns |
+| Single order in multi-level book price update | ~757 ns |
+
+#### 10k orders amend
+
+| Benchmark | Time |
+| --- | ---: |
+| 10k orders in single-level book quantity decrease | ~193.70 µs |
+| 10k orders in multi-level book quantity decrease | ~223.61 µs |
+| 10k orders in single-level book quantity increase | ~227.66 µs |
+| 10k orders in multi-level book quantity increase | ~240.68 µs |
+| 10k orders in single-level book price update | ~627.40 µs |
+| 10k orders in multi-level book price update | ~579.55 µs |
 
 ### Cancel
 
 | Benchmark | Time |
 | --- | ---: |
-| Single order cancel | ~876 ns |
-| 10k orders cancel | ~261 µs |
+| Single order in single-level book cancel | ~877 ns |
+| Single order in multi-level book cancel | ~685 ns |
+| 10k orders in single-level book cancel | ~223.13 µs |
+| 10k orders in multi-level book cancel | ~241.98 µs |
 
 ### Matching
 
@@ -233,47 +270,47 @@ To run the benchmarks in your environment, run `make bench`.
 
 | Match volume | Time |
 | --- | ---: |
-| 1 | ~484 ns |
-| 10 | ~490 ns |
-| 100 | ~1.08 µs |
-| 1000 | ~4.73 µs |
-| 10000 | ~22.98 µs |
+| 1 | ~471 ns |
+| 10 | ~478 ns |
+| 100 | ~1.04 µs |
+| 1000 | ~4.46 µs |
+| 10000 | ~20.65 µs |
 
 #### Multi-level standard book
 
 | Match volume | Time |
 | --- | ---: |
-| 1 | ~600 ns |
-| 10 | ~609 ns |
-| 100 | ~1.18 µs |
-| 1000 | ~4.87 µs |
-| 10000 | ~22.93 µs |
+| 1 | ~581 ns |
+| 10 | ~595 ns |
+| 100 | ~1.12 µs |
+| 1000 | ~4.04 µs |
+| 10000 | ~20.98 µs |
 
 #### Single-level iceberg book
 
 | Match volume | Time |
 | --- | ---: |
-| 1 | ~480 ns |
-| 10 | ~679 ns |
-| 100 | ~2.38 µs |
-| 1000 | ~10.87 µs |
-| 10000 | ~69.15 µs |
+| 1 | ~470 ns |
+| 10 | ~668 ns |
+| 100 | ~2.15 µs |
+| 1000 | ~8.20 µs |
+| 10000 | ~65.51 µs |
 
 #### Multi-level iceberg book
 
 | Match volume | Time |
 | --- | ---: |
-| 1 | ~600 ns |
-| 10 | ~799 ns |
-| 100 | ~2.44 µs |
-| 1000 | ~8.77 µs |
-| 10000 | ~65.65 µs |
+| 1 | ~578 ns |
+| 10 | ~778 ns |
+| 100 | ~2.13 µs |
+| 1000 | ~7.85 µs |
+| 10000 | ~61.38 µs |
 
 ### Mixed workload
 
 | Benchmark | Time |
 | --- | ---: |
-| Submit + amend + match + cancel | ~13.1 µs |
+| Submit + amend + match + cancel | ~12.21 µs |
 
 ### Notes
 
@@ -313,6 +350,8 @@ Trade-offs:
 - **O(N)** insertion / deletion when creating or removing price levels
 
 However, in real-world trading scenarios, most activity occurs **near the best price**, meaning the effective search distance is often small. This can make a linear scan competitive with tree-based structures for typical workloads.
+
+<!-- cargo-reedme: end -->
 
 ## Makefile
 

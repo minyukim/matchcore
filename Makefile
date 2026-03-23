@@ -1,50 +1,62 @@
 # Makefile for the project
 
 .PHONY: help
-help:								## Show this help message
+help:											## Show this help message
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | \
 	awk 'BEGIN {FS=":.*## "}; {t[NR]=$$1; d[NR]=$$2; if (length($$1)>w) w=length($$1)} \
 	END {for (i=1;i<=NR;i++) printf "%-*s  %s\n", w, t[i], d[i]}'
 
+.PHONY: check
+check: fmt-check lint test build readme-check	## Run pre-push checks
+
 .PHONY: build
-build:								## Build the project examples
+build:											## Build the project examples
 	cargo build --examples
 
 .PHONY: clean
-clean:								## Clean the project
+clean:											## Clean the project
 	cargo clean
 
 .PHONY: fmt
-fmt:								## Format the code
+fmt:											## Format the code
 	cargo fmt --all
 
 .PHONY: fmt-check
-fmt-check:							## Check formatting
+fmt-check:										## Check formatting
 	cargo fmt --all -- --check
 
 .PHONY: lint
-lint:								## Lint the code
+lint:											## Lint the code
 	cargo clippy --all-targets --all-features -- -D warnings
 
 .PHONY: lint-fix
-lint-fix: 							## Fix linting issues
+lint-fix: 										## Fix linting issues
 	cargo clippy --fix --all-targets --all-features --allow-dirty --allow-staged -- -D warnings
 
 .PHONY: test
-test:								## Run all tests
+test:											## Run all tests
 	cargo test --all-features
 
-.PHONY: check
-check: fmt-check lint test build	## Run pre-push checks
+.PHONY: readme
+readme: install-cargo-reedme					## Generate the README.md file
+	cargo +nightly reedme
+
+.PHONY: readme-check
+readme-check: install-cargo-reedme				## Check if the README.md file is up to date
+	cargo +nightly reedme --check
+
+.PHONY: install-cargo-reedme
+install-cargo-reedme:							## Install cargo-reedme if not installed
+	@command -v cargo-reedme > /dev/null || (echo "Installing cargo-reedme..."; cargo install cargo-reedme)
+
+.PHONY: docs
+docs:											## Build docs and open in browser
+	cargo doc --no-deps --document-private-items --open
 
 .PHONY: bench
-bench:								## Run all benchmarks
+bench:											## Run all benchmarks
 	cargo bench --bench benches
 
-.PHONY: readme
-readme: check-cargo-readme			## Generate the README.md file
-	cargo readme > README.md
-
-.PHONY: check-cargo-readme
-check-cargo-readme:					## Check if cargo-readme is installed
-	@command -v cargo-readme > /dev/null || (echo "Installing cargo-readme..."; cargo install cargo-readme)
+.PHONY: bench-docs
+bench-docs: bench								## Run all benchmarks and generate benchmark docs
+	cargo run -p xtask -- gen-bench-docs
