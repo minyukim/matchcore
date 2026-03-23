@@ -145,7 +145,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     out.push_str("## Submit\n\n");
 
     out.push_str("### Single-order submit\n\n");
-    out.push_str("| Benchmark | Time |\n");
+    out.push_str("| Benchmark | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
     push_row(
         &mut out,
@@ -175,7 +175,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     out.push('\n');
 
     out.push_str("### 10k orders submit\n\n");
-    out.push_str("| Benchmark | Time |\n");
+    out.push_str("| Benchmark | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
     push_row(
         &mut out,
@@ -207,7 +207,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     out.push_str("## Amend\n\n");
 
     out.push_str("### Single-order amend\n\n");
-    out.push_str("| Benchmark | Time |\n");
+    out.push_str("| Benchmark | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
     push_row(
         &mut out,
@@ -242,7 +242,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     out.push('\n');
 
     out.push_str("### 10k orders amend\n\n");
-    out.push_str("| Benchmark | Time |\n");
+    out.push_str("| Benchmark | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
     push_row(
         &mut out,
@@ -277,7 +277,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     out.push('\n');
 
     out.push_str("## Cancel\n\n");
-    out.push_str("| Benchmark | Time |\n");
+    out.push_str("| Benchmark | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
     push_row(
         &mut out,
@@ -332,7 +332,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     );
 
     out.push_str("## Mixed workload\n\n");
-    out.push_str("| Benchmark | Time |\n");
+    out.push_str("| Benchmark | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
     push_row(
         &mut out,
@@ -344,7 +344,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
 }
 
 fn push_match_table(out: &mut String, map: &HashMap<&str, f64>, prefix: &str) {
-    out.push_str("| Match volume | Time |\n");
+    out.push_str("| Match volume | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
 
     for volume in ["1", "10", "100", "1000", "10000"] {
