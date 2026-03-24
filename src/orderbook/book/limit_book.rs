@@ -8,21 +8,21 @@ use std::{
     collections::{BTreeMap, BinaryHeap, HashMap},
 };
 
-/// Limit order book that manages limit orders and price levels.
+/// Limit order book that manages limit orders and price levels
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Default)]
 pub struct LimitBook<const LEVELS_INITIAL_CAPACITY: usize = 2048> {
+    /// Limit orders indexed by order ID for O(1) lookup
+    pub(crate) orders: HashMap<OrderId, RestingLimitOrder>,
+
+    /// Price levels, stored in a slab with O(1) indexing
+    pub(crate) levels: Slab<PriceLevel>,
+
     /// Bid side price levels, stored in a ordered map with O(log N) ordering
     pub(crate) bids: BTreeMap<Price, LevelId>,
 
     /// Ask side price levels, stored in a ordered map with O(log N) ordering
     pub(crate) asks: BTreeMap<Price, LevelId>,
-
-    /// Price levels, stored in a slab with O(1) indexing
-    pub(crate) levels: Slab<PriceLevel>,
-
-    /// Limit orders indexed by order ID for O(1) lookup
-    pub(crate) orders: HashMap<OrderId, RestingLimitOrder>,
 
     /// Queue of limit order IDs to be expired, stored in a min heap of tuples of
     /// (expires_at, order_id) with O(log N) push and pop
@@ -37,6 +37,16 @@ impl<const LEVELS_INITIAL_CAPACITY: usize> LimitBook<LEVELS_INITIAL_CAPACITY> {
 }
 
 impl LimitBook {
+    /// Get the limit orders indexed by order ID
+    pub fn orders(&self) -> &HashMap<OrderId, RestingLimitOrder> {
+        &self.orders
+    }
+
+    /// Get the price levels
+    pub fn levels(&self) -> &Slab<PriceLevel> {
+        &self.levels
+    }
+
     /// Get the bid side price levels
     pub fn bids(&self) -> &BTreeMap<Price, LevelId> {
         &self.bids
@@ -45,16 +55,6 @@ impl LimitBook {
     /// Get the ask side price levels
     pub fn asks(&self) -> &BTreeMap<Price, LevelId> {
         &self.asks
-    }
-
-    /// Get the price levels
-    pub fn levels(&self) -> &Slab<PriceLevel> {
-        &self.levels
-    }
-
-    /// Get the limit orders indexed by order ID
-    pub fn orders(&self) -> &HashMap<OrderId, RestingLimitOrder> {
-        &self.orders
     }
 
     /// Get the queue of limit order IDs to be expired
