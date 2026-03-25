@@ -1,6 +1,6 @@
 use crate::{
-    LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, PriceLevel, QueueEntry,
-    RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
+    LevelId, LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, Price,
+    PriceLevel, Quantity, QueueEntry, RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
 };
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
@@ -73,36 +73,55 @@ impl OrderBook {
     ) -> Option<LimitOrder> {
         let order = self.limit.orders.remove(&id)?;
 
-        let level_id = order.level_id();
+        self.apply_limit_order_removal(
+            sequence_number,
+            order.level_id(),
+            order.price(),
+            order.visible_quantity(),
+            order.hidden_quantity(),
+            order.side(),
+        );
+
+        Some(order.into_order())
+    }
+
+    /// Apply the removal of a limit order from the order book
+    pub(crate) fn apply_limit_order_removal(
+        &mut self,
+        sequence_number: SequenceNumber,
+        level_id: LevelId,
+        price: Price,
+        visible_quantity: Quantity,
+        hidden_quantity: Quantity,
+        side: Side,
+    ) {
         let level = &mut self.limit.levels[level_id];
-
-        level.mark_order_removed(order.visible_quantity(), order.hidden_quantity());
+        level.mark_order_removed(visible_quantity, hidden_quantity);
         if level.is_empty() {
-            let price_to_level_id = match order.side() {
-                Side::Buy => &mut self.limit.bids,
-                Side::Sell => &mut self.limit.asks,
-            };
+            let (price_to_level_id, best_price, peg_levels) = match side {
+                Side::Buy => {
+                    let price_to_level_id = &mut self.limit.bids;
+                    let best_price = price_to_level_id.keys().next_back().copied().unwrap();
+                    let peg_levels = &mut self.pegged.bid_levels;
 
-            let (best_price, peg_levels) = match order.side() {
-                Side::Buy => (
-                    price_to_level_id.keys().next_back().copied().unwrap(),
-                    &mut self.pegged.bid_levels,
-                ),
-                Side::Sell => (
-                    price_to_level_id.keys().next().copied().unwrap(),
-                    &mut self.pegged.ask_levels,
-                ),
+                    (price_to_level_id, best_price, peg_levels)
+                }
+                Side::Sell => {
+                    let price_to_level_id = &mut self.limit.asks;
+                    let best_price = price_to_level_id.keys().next().copied().unwrap();
+                    let peg_levels = &mut self.pegged.ask_levels;
+
+                    (price_to_level_id, best_price, peg_levels)
+                }
             };
-            if order.price() == best_price {
+            if price == best_price {
                 // Only the same side primary peg reprice matters on the best price level removal
                 peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
             }
 
             self.limit.levels.remove(level_id);
-            price_to_level_id.remove(&order.price());
+            price_to_level_id.remove(&price);
         }
-
-        Some(order.into_order())
     }
 
     /// Add a pegged order to the order book
