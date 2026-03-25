@@ -1,6 +1,6 @@
 use crate::{
-    LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, PriceLevel, QueueEntry,
-    RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
+    LevelId, LimitOrder, OrderBook, OrderId, PegReference, PeggedBook, PeggedOrder, Price,
+    PriceLevel, Quantity, QueueEntry, RestingLimitOrder, RestingPeggedOrder, SequenceNumber, Side,
 };
 
 use std::{cmp::Reverse, collections::btree_map::Entry};
@@ -17,13 +17,29 @@ impl OrderBook {
             self.limit.expiration_queue.push(Reverse((expires_at, id)));
         }
 
-        let (price, visible, hidden, side) = (
+        let level_id = self.apply_limit_order_addition(
+            sequence_number,
+            id,
             order.price(),
             order.visible_quantity(),
             order.hidden_quantity(),
             order.side(),
         );
+        self.limit
+            .orders
+            .insert(id, RestingLimitOrder::new(sequence_number, level_id, order));
+    }
 
+    /// Apply the addition of a limit order to the order book
+    pub(crate) fn apply_limit_order_addition(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        price: Price,
+        visible_quantity: Quantity,
+        hidden_quantity: Quantity,
+        side: Side,
+    ) -> LevelId {
         let queue_entry = QueueEntry::new(sequence_number, id);
         let price_to_level_id = match side {
             Side::Buy => &mut self.limit.bids,
@@ -59,10 +75,9 @@ impl OrderBook {
                 level_id
             }
         };
-        self.limit
-            .orders
-            .insert(id, RestingLimitOrder::new(sequence_number, level_id, order));
-        self.limit.levels[level_id].on_order_added(queue_entry, visible, hidden);
+        self.limit.levels[level_id].add_order_entry(queue_entry, visible_quantity, hidden_quantity);
+
+        level_id
     }
 
     /// Remove a limit order from the order book
@@ -73,36 +88,55 @@ impl OrderBook {
     ) -> Option<LimitOrder> {
         let order = self.limit.orders.remove(&id)?;
 
-        let level_id = order.level_id();
+        self.apply_limit_order_removal(
+            sequence_number,
+            order.level_id(),
+            order.price(),
+            order.visible_quantity(),
+            order.hidden_quantity(),
+            order.side(),
+        );
+
+        Some(order.into_order())
+    }
+
+    /// Apply the removal of a limit order from the order book
+    pub(crate) fn apply_limit_order_removal(
+        &mut self,
+        sequence_number: SequenceNumber,
+        level_id: LevelId,
+        price: Price,
+        visible_quantity: Quantity,
+        hidden_quantity: Quantity,
+        side: Side,
+    ) {
         let level = &mut self.limit.levels[level_id];
-
-        level.on_order_removed(order.visible_quantity(), order.hidden_quantity());
+        level.mark_order_removed(visible_quantity, hidden_quantity);
         if level.is_empty() {
-            let price_to_level_id = match order.side() {
-                Side::Buy => &mut self.limit.bids,
-                Side::Sell => &mut self.limit.asks,
-            };
+            let (price_to_level_id, best_price, peg_levels) = match side {
+                Side::Buy => {
+                    let price_to_level_id = &mut self.limit.bids;
+                    let best_price = price_to_level_id.keys().next_back().copied().unwrap();
+                    let peg_levels = &mut self.pegged.bid_levels;
 
-            let (best_price, peg_levels) = match order.side() {
-                Side::Buy => (
-                    price_to_level_id.keys().next_back().copied().unwrap(),
-                    &mut self.pegged.bid_levels,
-                ),
-                Side::Sell => (
-                    price_to_level_id.keys().next().copied().unwrap(),
-                    &mut self.pegged.ask_levels,
-                ),
+                    (price_to_level_id, best_price, peg_levels)
+                }
+                Side::Sell => {
+                    let price_to_level_id = &mut self.limit.asks;
+                    let best_price = price_to_level_id.keys().next().copied().unwrap();
+                    let peg_levels = &mut self.pegged.ask_levels;
+
+                    (price_to_level_id, best_price, peg_levels)
+                }
             };
-            if order.price() == best_price {
+            if price == best_price {
                 // Only the same side primary peg reprice matters on the best price level removal
                 peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
             }
 
             self.limit.levels.remove(level_id);
-            price_to_level_id.remove(&order.price());
+            price_to_level_id.remove(&price);
         }
-
-        Some(order.into_order())
     }
 
     /// Add a pegged order to the order book
@@ -133,30 +167,55 @@ impl PeggedBook {
             self.expiration_queue.push(Reverse((expires_at, id)));
         }
 
-        let (peg_reference, quantity, side) =
-            (order.peg_reference(), order.quantity(), order.side());
+        self.apply_order_addition(
+            sequence_number,
+            id,
+            order.peg_reference(),
+            order.quantity(),
+            order.side(),
+        );
         self.orders
             .insert(id, RestingPeggedOrder::new(sequence_number, order));
+    }
 
+    /// Apply the addition of a pegged order to the order book
+    pub(crate) fn apply_order_addition(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        peg_reference: PegReference,
+        quantity: Quantity,
+        side: Side,
+    ) {
         let levels = match side {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
         };
         levels[peg_reference.as_index()]
-            .on_order_added(QueueEntry::new(sequence_number, id), quantity);
+            .add_order_entry(QueueEntry::new(sequence_number, id), quantity);
     }
 
     /// Remove a pegged order from the order book
-    pub(crate) fn remove_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
-        let order = self.orders.remove(&order_id)?.into_order();
+    pub(crate) fn remove_order(&mut self, id: OrderId) -> Option<PeggedOrder> {
+        let order = self.orders.remove(&id)?.into_order();
 
-        let levels = match order.side() {
+        self.apply_order_removal(order.peg_reference(), order.quantity(), order.side());
+
+        Some(order)
+    }
+
+    /// Apply the removal of a pegged order from the order book
+    pub(crate) fn apply_order_removal(
+        &mut self,
+        peg_reference: PegReference,
+        quantity: Quantity,
+        side: Side,
+    ) {
+        let levels = match side {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
         };
-        levels[order.peg_reference().as_index()].on_order_removed(order.quantity());
-
-        Some(order)
+        levels[peg_reference.as_index()].mark_order_removed(quantity);
     }
 }
 

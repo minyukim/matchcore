@@ -92,8 +92,8 @@ impl PriceLevel {
         self.queue.pop_front()
     }
 
-    /// Update the level when an order is added
-    pub(crate) fn on_order_added(
+    /// Add an order entry to the price level
+    pub(crate) fn add_order_entry(
         &mut self,
         queue_entry: QueueEntry,
         visible: Quantity,
@@ -106,10 +106,10 @@ impl PriceLevel {
         self.increment_order_count();
     }
 
-    /// Update the level when an order is removed
+    /// Mark an order as removed from the price level
     /// Note that it does not remove the queue entry from the queue.
     /// The stale queue entry will be cleaned up when the order is peeked from the queue.
-    pub(crate) fn on_order_removed(&mut self, visible: Quantity, hidden: Quantity) {
+    pub(crate) fn mark_order_removed(&mut self, visible: Quantity, hidden: Quantity) {
         self.visible_quantity -= visible;
         self.hidden_quantity -= hidden;
         self.decrement_order_count();
@@ -178,13 +178,13 @@ mod tests {
     }
 
     #[test]
-    fn test_on_order_added_and_removed() {
+    fn test_add_order_entry_and_mark_order_removed() {
         let mut price_level = PriceLevel::new();
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
 
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(0), OrderId(0)),
             Quantity(10),
             Quantity(0),
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 1);
 
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(1), OrderId(1)),
             Quantity(20),
             Quantity(0),
@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 2);
 
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(2), OrderId(2)),
             Quantity(30),
             Quantity(0),
@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 3);
 
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(3), OrderId(3)),
             Quantity(40),
             Quantity(0),
@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 4);
 
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(4), OrderId(4)),
             Quantity(50),
             Quantity(50),
@@ -229,27 +229,27 @@ mod tests {
         assert_eq!(price_level.hidden_quantity, Quantity(50));
         assert_eq!(price_level.order_count(), 5);
 
-        price_level.on_order_removed(Quantity(10), Quantity(0));
+        price_level.mark_order_removed(Quantity(10), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(140));
         assert_eq!(price_level.hidden_quantity, Quantity(50));
         assert_eq!(price_level.order_count(), 4);
 
-        price_level.on_order_removed(Quantity(20), Quantity(0));
+        price_level.mark_order_removed(Quantity(20), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(120));
         assert_eq!(price_level.hidden_quantity, Quantity(50));
         assert_eq!(price_level.order_count(), 3);
 
-        price_level.on_order_removed(Quantity(30), Quantity(0));
+        price_level.mark_order_removed(Quantity(30), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(90));
         assert_eq!(price_level.hidden_quantity, Quantity(50));
         assert_eq!(price_level.order_count(), 2);
 
-        price_level.on_order_removed(Quantity(40), Quantity(0));
+        price_level.mark_order_removed(Quantity(40), Quantity(0));
         assert_eq!(price_level.visible_quantity, Quantity(50));
         assert_eq!(price_level.hidden_quantity, Quantity(50));
         assert_eq!(price_level.order_count(), 1);
 
-        price_level.on_order_removed(Quantity(50), Quantity(50));
+        price_level.mark_order_removed(Quantity(50), Quantity(50));
         assert_eq!(price_level.visible_quantity, Quantity(0));
         assert_eq!(price_level.hidden_quantity, Quantity(0));
         assert_eq!(price_level.order_count(), 0);
@@ -276,7 +276,7 @@ mod tests {
                 ),
             ),
         );
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(0), OrderId(0)),
             Quantity(10),
             Quantity(0),
@@ -303,7 +303,7 @@ mod tests {
                 ),
             ),
         );
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(1), OrderId(1)),
             Quantity(20),
             Quantity(0),
@@ -327,7 +327,7 @@ mod tests {
                 ),
             ),
         );
-        price_level.on_order_added(
+        price_level.add_order_entry(
             QueueEntry::new(SequenceNumber(2), OrderId(2)),
             Quantity(30),
             Quantity(0),

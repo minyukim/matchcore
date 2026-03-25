@@ -64,7 +64,7 @@ impl QuantityPolicy {
     }
 
     /// Update the visible quantity of the order
-    pub fn update_visible_quantity(&mut self, new_visible_quantity: Quantity) {
+    pub(crate) fn update_visible_quantity(&mut self, new_visible_quantity: Quantity) {
         match self {
             QuantityPolicy::Standard { quantity } => *quantity = new_visible_quantity,
             QuantityPolicy::Iceberg {
@@ -75,7 +75,7 @@ impl QuantityPolicy {
 
     /// Replenish the hidden quantity of the order
     /// Returns the quantity replenished
-    pub fn replenish(&mut self) -> Quantity {
+    pub(crate) fn replenish(&mut self) -> Quantity {
         match self {
             QuantityPolicy::Iceberg {
                 visible_quantity,
@@ -91,6 +91,31 @@ impl QuantityPolicy {
                 replenished
             }
             _ => Quantity(0),
+        }
+    }
+
+    /// Rebuild the quantity policy with a remaining total quantity
+    ///
+    /// Precondition: The remaining quantity must not be zero
+    pub(crate) fn with_remaining_quantity(self, remaining_quantity: Quantity) -> Self {
+        debug_assert!(!remaining_quantity.is_zero());
+
+        match self {
+            QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
+                quantity: remaining_quantity,
+            },
+            QuantityPolicy::Iceberg {
+                replenish_quantity, ..
+            } => {
+                let visible_quantity =
+                    Quantity(((remaining_quantity.0 - 1) % replenish_quantity.0) + 1);
+
+                QuantityPolicy::Iceberg {
+                    visible_quantity,
+                    hidden_quantity: remaining_quantity - visible_quantity,
+                    replenish_quantity,
+                }
+            }
         }
     }
 }
@@ -290,6 +315,71 @@ mod tests {
             assert_eq!(iceberg_quantity.hidden_quantity(), Quantity(0));
             assert_eq!(iceberg_quantity.replenish_quantity(), Quantity(10));
         }
+    }
+
+    #[test]
+    fn test_with_remaining_quantity() {
+        assert_eq!(
+            QuantityPolicy::Standard {
+                quantity: Quantity(100)
+            }
+            .with_remaining_quantity(Quantity(50)),
+            QuantityPolicy::Standard {
+                quantity: Quantity(50)
+            }
+        );
+        assert_eq!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(10),
+                hidden_quantity: Quantity(50),
+                replenish_quantity: Quantity(10)
+            }
+            .with_remaining_quantity(Quantity(49)),
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(9),
+                hidden_quantity: Quantity(40),
+                replenish_quantity: Quantity(10)
+            }
+        );
+        assert_eq!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(10),
+                hidden_quantity: Quantity(50),
+                replenish_quantity: Quantity(10)
+            }
+            .with_remaining_quantity(Quantity(50)),
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(10),
+                hidden_quantity: Quantity(40),
+                replenish_quantity: Quantity(10)
+            }
+        );
+        assert_eq!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(10),
+                hidden_quantity: Quantity(50),
+                replenish_quantity: Quantity(10)
+            }
+            .with_remaining_quantity(Quantity(51)),
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(1),
+                hidden_quantity: Quantity(50),
+                replenish_quantity: Quantity(10)
+            }
+        );
+        assert_eq!(
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(10),
+                hidden_quantity: Quantity(50),
+                replenish_quantity: Quantity(10)
+            }
+            .with_remaining_quantity(Quantity(1)),
+            QuantityPolicy::Iceberg {
+                visible_quantity: Quantity(1),
+                hidden_quantity: Quantity(0),
+                replenish_quantity: Quantity(10)
+            }
+        );
     }
 
     #[test]

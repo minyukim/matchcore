@@ -94,7 +94,7 @@ pub(super) fn validate_pegged_order_invariants(
         if post_only {
             return Err(CommandError::PeggedAlwaysTakerPostOnly);
         }
-    } else if !peg_reference.can_be_taker() && time_in_force.is_immediate() {
+    } else if peg_reference.is_always_maker() && time_in_force.is_immediate() {
         return Err(CommandError::PeggedNonTakerImmediateTif);
     }
 

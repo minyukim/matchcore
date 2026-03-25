@@ -33,10 +33,10 @@ impl PegReference {
         matches!(self, PegReference::Market)
     }
 
-    /// Whether the peg reference can be a taker
+    /// Whether the peg reference is always a maker
     #[inline]
-    pub const fn can_be_taker(self) -> bool {
-        matches!(self, PegReference::Market)
+    pub const fn is_always_maker(self) -> bool {
+        matches!(self, PegReference::Primary | PegReference::MidPrice)
     }
 }
 
@@ -62,10 +62,10 @@ mod tests {
     }
 
     #[test]
-    fn test_can_be_taker() {
-        assert!(!PegReference::Primary.can_be_taker());
-        assert!(PegReference::Market.can_be_taker());
-        assert!(!PegReference::MidPrice.can_be_taker());
+    fn test_is_always_maker() {
+        assert!(PegReference::Primary.is_always_maker());
+        assert!(!PegReference::Market.is_always_maker());
+        assert!(PegReference::MidPrice.is_always_maker());
     }
 
     #[test]
