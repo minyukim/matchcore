@@ -17,13 +17,29 @@ impl OrderBook {
             self.limit.expiration_queue.push(Reverse((expires_at, id)));
         }
 
-        let (price, visible, hidden, side) = (
+        let level_id = self.apply_limit_order_addition(
+            sequence_number,
+            id,
             order.price(),
             order.visible_quantity(),
             order.hidden_quantity(),
             order.side(),
         );
+        self.limit
+            .orders
+            .insert(id, RestingLimitOrder::new(sequence_number, level_id, order));
+    }
 
+    /// Apply the addition of a limit order to the order book
+    pub(crate) fn apply_limit_order_addition(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        price: Price,
+        visible_quantity: Quantity,
+        hidden_quantity: Quantity,
+        side: Side,
+    ) -> LevelId {
         let queue_entry = QueueEntry::new(sequence_number, id);
         let price_to_level_id = match side {
             Side::Buy => &mut self.limit.bids,
@@ -59,10 +75,9 @@ impl OrderBook {
                 level_id
             }
         };
-        self.limit
-            .orders
-            .insert(id, RestingLimitOrder::new(sequence_number, level_id, order));
-        self.limit.levels[level_id].add_order_entry(queue_entry, visible, hidden);
+        self.limit.levels[level_id].add_order_entry(queue_entry, visible_quantity, hidden_quantity);
+
+        level_id
     }
 
     /// Remove a limit order from the order book
