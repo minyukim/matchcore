@@ -1,5 +1,7 @@
 use super::OrderBook;
-use crate::{OrderId, QueueEntry, Side, TimeInForce, command::*, outcome::*};
+use crate::{
+    OrderId, Quantity, QuantityPolicy, QueueEntry, Side, TimeInForce, command::*, outcome::*,
+};
 
 use std::cmp::Reverse;
 
@@ -45,18 +47,6 @@ impl OrderBook {
             order.time_in_force().expires_at(),
         );
 
-        // Price change: move the order to the new price level
-        if let Some(price) = patch.price
-            && price != old_price
-        {
-            let mut order = self.remove_limit_order(meta.sequence_number, id).unwrap();
-            patch
-                .apply(&mut order)
-                .map_err(CommandFailure::InvalidCommand)?;
-
-            return Ok(self.submit_validated_limit_order(meta.sequence_number, id, &order));
-        }
-
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
         // New expires at
@@ -64,6 +54,140 @@ impl OrderBook {
             && old_expires_at.is_none_or(|old| old != expires_at)
         {
             self.limit.expiration_queue.push(Reverse((expires_at, id)));
+        }
+
+        let sequence_number = meta.sequence_number;
+
+        // Price change: move the order to the new price level
+        if let Some(price) = patch.price
+            && price != old_price
+        {
+            order.update_time_priority(sequence_number);
+
+            let level_id = order.level_id();
+            let order = order.clone().into_order();
+
+            self.apply_limit_order_removal(
+                sequence_number,
+                level_id,
+                old_price,
+                old_visible_quantity,
+                old_hidden_quantity,
+                order.side(),
+            );
+
+            let mut outcome = OrderOutcome::new(id);
+
+            if !self.has_crossable_order(order.side(), order.price()) {
+                if order.is_immediate() {
+                    self.limit.orders.remove(&id);
+
+                    outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested: order.total_quantity(),
+                        available: Quantity(0),
+                    });
+                    return Ok(CommandEffects::new(outcome));
+                }
+
+                self.apply_limit_order_addition(
+                    sequence_number,
+                    id,
+                    order.price(),
+                    order.visible_quantity(),
+                    order.hidden_quantity(),
+                    order.side(),
+                );
+
+                let triggered_orders =
+                    self.trigger_opposite_side_takers(sequence_number, order.side().opposite());
+
+                return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
+            }
+
+            if order.post_only() {
+                self.limit.orders.remove(&id);
+
+                outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            if order.time_in_force() == TimeInForce::Fok {
+                let executable_quantity = self.max_executable_quantity_with_limit_price_unchecked(
+                    order.side(),
+                    order.price(),
+                    order.total_quantity(),
+                );
+                if executable_quantity < order.total_quantity() {
+                    self.limit.orders.remove(&id);
+
+                    outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested: order.total_quantity(),
+                        available: executable_quantity,
+                    });
+                    return Ok(CommandEffects::new(outcome));
+                }
+            }
+
+            let result =
+                self.match_order(sequence_number, order.side(), None, order.total_quantity());
+            let executed_quantity = result.executed_quantity();
+            outcome.set_match_result(result);
+
+            let remaining_quantity = order.total_quantity() - executed_quantity;
+            if remaining_quantity.is_zero() {
+                self.limit.orders.remove(&id);
+
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            if order.time_in_force() == TimeInForce::Ioc {
+                self.limit.orders.remove(&id);
+
+                outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                    requested: order.total_quantity(),
+                    available: executed_quantity,
+                });
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            let quantity_policy = match order.quantity_policy() {
+                QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
+                    quantity: remaining_quantity,
+                },
+                QuantityPolicy::Iceberg {
+                    replenish_quantity, ..
+                } => {
+                    let visible_quantity =
+                        Quantity(((remaining_quantity.0 - 1) % replenish_quantity.0) + 1);
+
+                    QuantityPolicy::Iceberg {
+                        visible_quantity,
+                        hidden_quantity: remaining_quantity - visible_quantity,
+                        replenish_quantity,
+                    }
+                }
+            };
+
+            // Update the order in the order book with the new quantity policy
+            self.limit
+                .orders
+                .get_mut(&id)
+                .unwrap()
+                .update_quantity_policy(quantity_policy);
+
+            self.apply_limit_order_addition(
+                sequence_number,
+                id,
+                order.price(),
+                quantity_policy.visible_quantity(),
+                quantity_policy.hidden_quantity(),
+                order.side(),
+            );
+
+            let triggered_orders =
+                self.trigger_opposite_side_takers(sequence_number, order.side().opposite());
+
+            return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
         }
 
         if let Some(quantity_policy) = patch.quantity_policy
@@ -79,8 +203,8 @@ impl OrderBook {
 
             // Lose time priority due to quantity increase
             if quantity_policy.visible_quantity() > old_visible_quantity {
-                order.update_time_priority(meta.sequence_number);
-                level.push(QueueEntry::new(meta.sequence_number, id));
+                order.update_time_priority(sequence_number);
+                level.push(QueueEntry::new(sequence_number, id));
             }
         }
 
@@ -307,6 +431,64 @@ mod tests_amend_limit_order {
             &[QueueEntry::new(SequenceNumber(1), OrderId(0))]
         );
         assert!(!book.limit.bids.contains_key(&Price(100)));
+    }
+
+    #[test]
+    fn price_change_matches_order() {
+        let mut book = OrderBook::new("TEST");
+        book.add_limit_order(
+            SequenceNumber(0),
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_limit_order(
+            SequenceNumber(1),
+            OrderId(1),
+            LimitOrder::new(
+                Price(101),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(15),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let effects = unwrap_amend_effects(amend(
+            &mut book,
+            2,
+            0,
+            OrderId(1),
+            LimitOrderPatch::new().with_price(Price(100)),
+        ));
+        assert_eq!(effects.target_order().order_id(), OrderId(1));
+
+        let match_result = effects.target_order().match_result().unwrap();
+        assert_eq!(match_result.executed_quantity(), Quantity(10));
+        assert_eq!(
+            match_result.trades(),
+            &[Trade::new(OrderId(0), Price(100), Quantity(10))]
+        );
+
+        assert!(!book.limit.orders.contains_key(&OrderId(0)));
+        assert!(book.limit.orders.contains_key(&OrderId(1)));
+
+        let order = book.limit.orders.get(&OrderId(1)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(2));
+        assert_eq!(order.price(), Price(100));
+        assert_eq!(order.total_quantity(), Quantity(5));
+
+        assert!(!book.limit.bids.contains_key(&Price(100)));
+        assert!(!book.limit.asks.contains_key(&Price(101)));
+        assert_eq!(
+            book.limit.get_ask_level(Price(100)).unwrap().queue(),
+            &[QueueEntry::new(SequenceNumber(2), OrderId(1))]
+        );
     }
 
     #[test]
