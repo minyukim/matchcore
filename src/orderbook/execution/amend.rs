@@ -222,18 +222,6 @@ impl OrderBook {
             order.time_in_force().expires_at(),
         );
 
-        // Peg reference change: move the order to the new peg level
-        if let Some(peg_reference) = patch.peg_reference
-            && peg_reference != old_peg_reference
-        {
-            let mut order = self.remove_pegged_order(id).unwrap();
-            patch
-                .apply(&mut order)
-                .map_err(CommandFailure::InvalidCommand)?;
-
-            return Ok(self.submit_validated_pegged_order(meta.sequence_number, id, &order));
-        }
-
         patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
 
         // New expires at
@@ -241,6 +229,99 @@ impl OrderBook {
             && old_expires_at.is_none_or(|old| old != expires_at)
         {
             self.pegged.expiration_queue.push(Reverse((expires_at, id)));
+        }
+
+        let sequence_number = meta.sequence_number;
+
+        // Peg reference change: move the order to the new peg level
+        if let Some(peg_reference) = patch.peg_reference
+            && peg_reference != old_peg_reference
+        {
+            order.update_time_priority(sequence_number);
+
+            let order = order.clone().into_order();
+
+            self.pegged
+                .apply_order_removal(old_peg_reference, old_quantity, order.side());
+
+            let mut outcome = OrderOutcome::new(id);
+
+            if peg_reference.is_always_maker() {
+                self.pegged.apply_order_addition(
+                    sequence_number,
+                    id,
+                    order.peg_reference(),
+                    order.quantity(),
+                    order.side(),
+                );
+
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            if self.is_side_empty(order.side().opposite()) {
+                if order.is_immediate() {
+                    outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested: order.quantity(),
+                        available: Quantity(0),
+                    });
+                    return Ok(CommandEffects::new(outcome));
+                }
+
+                self.pegged.apply_order_addition(
+                    sequence_number,
+                    id,
+                    order.peg_reference(),
+                    order.quantity(),
+                    order.side(),
+                );
+
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            if order.time_in_force() == TimeInForce::Fok {
+                let executable_quantity =
+                    self.max_executable_quantity_unchecked(order.side(), order.quantity());
+                if executable_quantity < order.quantity() {
+                    outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                        requested: order.quantity(),
+                        available: executable_quantity,
+                    });
+                    return Ok(CommandEffects::new(outcome));
+                }
+            }
+
+            let result = self.match_order(sequence_number, order.side(), None, order.quantity());
+            let executed_quantity = result.executed_quantity();
+            outcome.set_match_result(result);
+
+            let remaining_quantity = order.quantity() - executed_quantity;
+            if remaining_quantity.is_zero() {
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            if order.time_in_force() == TimeInForce::Ioc {
+                outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
+                    requested: order.quantity(),
+                    available: executed_quantity,
+                });
+                return Ok(CommandEffects::new(outcome));
+            }
+
+            self.pegged
+                .orders
+                .get_mut(&id)
+                .unwrap()
+                .update_quantity(remaining_quantity);
+
+            self.pegged.apply_order_addition(
+                sequence_number,
+                id,
+                order.peg_reference(),
+                remaining_quantity,
+                order.side(),
+            );
+
+            return Ok(CommandEffects::new(outcome));
         }
 
         if let Some(quantity) = patch.quantity
@@ -254,8 +335,8 @@ impl OrderBook {
 
             // Lose time priority due to quantity increase
             if quantity > old_quantity {
-                order.update_time_priority(meta.sequence_number);
-                level.push(QueueEntry::new(meta.sequence_number, id));
+                order.update_time_priority(sequence_number);
+                level.push(QueueEntry::new(sequence_number, id));
             }
         }
 
@@ -647,8 +728,9 @@ mod tests_amend_limit_order {
 mod tests_amend_pegged_order {
     use super::*;
     use crate::{
-        AmendCmd, AmendPatch, CommandMeta, CommandOutcome, OrderFlags, OrderId, PegReference,
-        PeggedOrder, PeggedOrderPatch, Quantity, SequenceNumber, Side, TimeInForce, Timestamp,
+        AmendCmd, AmendPatch, CommandMeta, CommandOutcome, LimitOrder, OrderFlags, OrderId,
+        PegReference, PeggedOrder, PeggedOrderPatch, Price, Quantity, QuantityPolicy,
+        SequenceNumber, Side, TimeInForce, Timestamp, Trade,
     };
 
     fn amend(
@@ -784,6 +866,59 @@ mod tests_amend_pegged_order {
         assert_eq!(
             book.pegged.bid_levels[PegReference::Market.as_index()].queue(),
             &[QueueEntry::new(SequenceNumber(1), OrderId(0))]
+        );
+    }
+
+    #[test]
+    fn peg_reference_change_to_market_matches_order() {
+        let mut book = OrderBook::new("TEST");
+        book.add_limit_order(
+            SequenceNumber(0),
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_pegged_order(
+            SequenceNumber(1),
+            OrderId(1),
+            PeggedOrder::new(
+                PegReference::Primary,
+                Quantity(15),
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let effects = unwrap_amend_effects(amend(
+            &mut book,
+            2,
+            0,
+            OrderId(1),
+            PeggedOrderPatch::new().with_peg_reference(PegReference::Market),
+        ));
+        assert_eq!(effects.target_order().order_id(), OrderId(1));
+
+        let match_result = effects.target_order().match_result().unwrap();
+        assert_eq!(match_result.executed_quantity(), Quantity(10));
+        assert_eq!(
+            match_result.trades(),
+            &[Trade::new(OrderId(0), Price(100), Quantity(10))]
+        );
+
+        assert!(!book.limit.orders.contains_key(&OrderId(0)));
+        assert!(book.pegged.orders.contains_key(&OrderId(1)));
+
+        let order = book.pegged.orders.get(&OrderId(1)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(2));
+        assert_eq!(order.peg_reference(), PegReference::Market);
+        assert_eq!(order.quantity(), Quantity(5));
+        assert_eq!(
+            book.pegged.ask_levels[PegReference::Market.as_index()].queue(),
+            &[QueueEntry::new(SequenceNumber(2), OrderId(1))]
         );
     }
 
