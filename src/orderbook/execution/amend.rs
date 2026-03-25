@@ -1,7 +1,5 @@
 use super::OrderBook;
-use crate::{
-    OrderId, Quantity, QuantityPolicy, QueueEntry, Side, TimeInForce, command::*, outcome::*,
-};
+use crate::{OrderId, Quantity, QueueEntry, Side, TimeInForce, command::*, outcome::*};
 
 use std::cmp::Reverse;
 
@@ -150,23 +148,9 @@ impl OrderBook {
                 return Ok(CommandEffects::new(outcome));
             }
 
-            let quantity_policy = match order.quantity_policy() {
-                QuantityPolicy::Standard { .. } => QuantityPolicy::Standard {
-                    quantity: remaining_quantity,
-                },
-                QuantityPolicy::Iceberg {
-                    replenish_quantity, ..
-                } => {
-                    let visible_quantity =
-                        Quantity(((remaining_quantity.0 - 1) % replenish_quantity.0) + 1);
-
-                    QuantityPolicy::Iceberg {
-                        visible_quantity,
-                        hidden_quantity: remaining_quantity - visible_quantity,
-                        replenish_quantity,
-                    }
-                }
-            };
+            let quantity_policy = order
+                .quantity_policy()
+                .with_remaining_quantity(remaining_quantity);
 
             // Update the order in the order book with the new quantity policy
             self.limit
