@@ -167,11 +167,26 @@ impl PeggedBook {
             self.expiration_queue.push(Reverse((expires_at, id)));
         }
 
-        let (peg_reference, quantity, side) =
-            (order.peg_reference(), order.quantity(), order.side());
+        self.apply_order_addition(
+            sequence_number,
+            id,
+            order.peg_reference(),
+            order.quantity(),
+            order.side(),
+        );
         self.orders
             .insert(id, RestingPeggedOrder::new(sequence_number, order));
+    }
 
+    /// Apply the addition of a pegged order to the order book
+    pub(crate) fn apply_order_addition(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        peg_reference: PegReference,
+        quantity: Quantity,
+        side: Side,
+    ) {
         let levels = match side {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
@@ -181,16 +196,26 @@ impl PeggedBook {
     }
 
     /// Remove a pegged order from the order book
-    pub(crate) fn remove_order(&mut self, order_id: OrderId) -> Option<PeggedOrder> {
-        let order = self.orders.remove(&order_id)?.into_order();
+    pub(crate) fn remove_order(&mut self, id: OrderId) -> Option<PeggedOrder> {
+        let order = self.orders.remove(&id)?.into_order();
 
-        let levels = match order.side() {
+        self.apply_order_removal(order.peg_reference(), order.quantity(), order.side());
+
+        Some(order)
+    }
+
+    /// Apply the removal of a pegged order from the order book
+    pub(crate) fn apply_order_removal(
+        &mut self,
+        peg_reference: PegReference,
+        quantity: Quantity,
+        side: Side,
+    ) {
+        let levels = match side {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
         };
-        levels[order.peg_reference().as_index()].mark_order_removed(order.quantity());
-
-        Some(order)
+        levels[peg_reference.as_index()].mark_order_removed(quantity);
     }
 }
 
