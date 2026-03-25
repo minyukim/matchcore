@@ -53,7 +53,7 @@ This release introduces a redesigned time-priority model, significantly improves
   Matching priority is now determined by `time_priority` and reprice timing. Pegged orders no longer implicitly rank below limit orders, resulting in more realistic market behavior.
 
 - **Improved amend performance**  
-  Amend operations are significantly faster due to the introduction of slab-backed price levels, reducing lookup overhead.
+  Amend operations are significantly faster **(~10-25%)** due to the introduction of slab-backed price levels, reducing lookup overhead.
 
 - **Optional Serde support**  
   Adds a `serde` feature flag to enable serialization and deserialization without imposing it on all users.
