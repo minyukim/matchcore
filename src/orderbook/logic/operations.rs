@@ -62,7 +62,7 @@ impl OrderBook {
         self.limit
             .orders
             .insert(id, RestingLimitOrder::new(sequence_number, level_id, order));
-        self.limit.levels[level_id].on_order_added(queue_entry, visible, hidden);
+        self.limit.levels[level_id].add_order_entry(queue_entry, visible, hidden);
     }
 
     /// Remove a limit order from the order book
@@ -76,7 +76,7 @@ impl OrderBook {
         let level_id = order.level_id();
         let level = &mut self.limit.levels[level_id];
 
-        level.on_order_removed(order.visible_quantity(), order.hidden_quantity());
+        level.mark_order_removed(order.visible_quantity(), order.hidden_quantity());
         if level.is_empty() {
             let price_to_level_id = match order.side() {
                 Side::Buy => &mut self.limit.bids,
@@ -143,7 +143,7 @@ impl PeggedBook {
             Side::Sell => &mut self.ask_levels,
         };
         levels[peg_reference.as_index()]
-            .on_order_added(QueueEntry::new(sequence_number, id), quantity);
+            .add_order_entry(QueueEntry::new(sequence_number, id), quantity);
     }
 
     /// Remove a pegged order from the order book
@@ -154,7 +154,7 @@ impl PeggedBook {
             Side::Buy => &mut self.bid_levels,
             Side::Sell => &mut self.ask_levels,
         };
-        levels[order.peg_reference().as_index()].on_order_removed(order.quantity());
+        levels[order.peg_reference().as_index()].mark_order_removed(order.quantity());
 
         Some(order)
     }

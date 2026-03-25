@@ -88,18 +88,18 @@ impl PegLevel {
         self.queue.pop_front()
     }
 
-    /// Update the level when an order is added
-    pub(crate) fn on_order_added(&mut self, queue_entry: QueueEntry, quantity: Quantity) {
+    /// Add an order entry to the peg level
+    pub(crate) fn add_order_entry(&mut self, queue_entry: QueueEntry, quantity: Quantity) {
         self.quantity += quantity;
 
         self.push(queue_entry);
         self.increment_order_count();
     }
 
-    /// Update the level when an order is removed
+    /// Mark an order as removed from the peg level
     /// Note that it does not remove the queue entry from the queue.
     /// The stale queue entry will be cleaned up when the order is peeked from the queue.
-    pub(crate) fn on_order_removed(&mut self, quantity: Quantity) {
+    pub(crate) fn mark_order_removed(&mut self, quantity: Quantity) {
         self.quantity -= quantity;
         self.decrement_order_count();
     }
@@ -139,48 +139,48 @@ mod tests {
     }
 
     #[test]
-    fn test_on_order_added_and_removed() {
+    fn test_add_order_entry_and_mark_order_removed() {
         let mut peg_level = PegLevel::new();
         assert_eq!(peg_level.quantity(), Quantity(0));
         assert_eq!(peg_level.order_count(), 0);
 
-        peg_level.on_order_added(QueueEntry::new(SequenceNumber(0), OrderId(0)), Quantity(10));
+        peg_level.add_order_entry(QueueEntry::new(SequenceNumber(0), OrderId(0)), Quantity(10));
         assert_eq!(peg_level.quantity(), Quantity(10));
         assert_eq!(peg_level.order_count(), 1);
 
-        peg_level.on_order_added(QueueEntry::new(SequenceNumber(1), OrderId(1)), Quantity(20));
+        peg_level.add_order_entry(QueueEntry::new(SequenceNumber(1), OrderId(1)), Quantity(20));
         assert_eq!(peg_level.quantity(), Quantity(30));
         assert_eq!(peg_level.order_count(), 2);
 
-        peg_level.on_order_added(QueueEntry::new(SequenceNumber(2), OrderId(2)), Quantity(30));
+        peg_level.add_order_entry(QueueEntry::new(SequenceNumber(2), OrderId(2)), Quantity(30));
         assert_eq!(peg_level.quantity(), Quantity(60));
         assert_eq!(peg_level.order_count(), 3);
 
-        peg_level.on_order_added(QueueEntry::new(SequenceNumber(3), OrderId(3)), Quantity(40));
+        peg_level.add_order_entry(QueueEntry::new(SequenceNumber(3), OrderId(3)), Quantity(40));
         assert_eq!(peg_level.quantity(), Quantity(100));
         assert_eq!(peg_level.order_count(), 4);
 
-        peg_level.on_order_added(QueueEntry::new(SequenceNumber(4), OrderId(4)), Quantity(50));
+        peg_level.add_order_entry(QueueEntry::new(SequenceNumber(4), OrderId(4)), Quantity(50));
         assert_eq!(peg_level.quantity(), Quantity(150));
         assert_eq!(peg_level.order_count(), 5);
 
-        peg_level.on_order_removed(Quantity(10));
+        peg_level.mark_order_removed(Quantity(10));
         assert_eq!(peg_level.quantity(), Quantity(140));
         assert_eq!(peg_level.order_count(), 4);
 
-        peg_level.on_order_removed(Quantity(20));
+        peg_level.mark_order_removed(Quantity(20));
         assert_eq!(peg_level.quantity(), Quantity(120));
         assert_eq!(peg_level.order_count(), 3);
 
-        peg_level.on_order_removed(Quantity(30));
+        peg_level.mark_order_removed(Quantity(30));
         assert_eq!(peg_level.quantity(), Quantity(90));
         assert_eq!(peg_level.order_count(), 2);
 
-        peg_level.on_order_removed(Quantity(40));
+        peg_level.mark_order_removed(Quantity(40));
         assert_eq!(peg_level.quantity(), Quantity(50));
         assert_eq!(peg_level.order_count(), 1);
 
-        peg_level.on_order_removed(Quantity(50));
+        peg_level.mark_order_removed(Quantity(50));
         assert_eq!(peg_level.quantity(), Quantity(0));
         assert_eq!(peg_level.order_count(), 0);
     }
@@ -203,7 +203,7 @@ mod tests {
                 ),
             ),
         );
-        peg_level.on_order_added(
+        peg_level.add_order_entry(
             QueueEntry::new(SequenceNumber(0), OrderId(0)),
             Quantity(100),
         );
@@ -226,7 +226,7 @@ mod tests {
                 ),
             ),
         );
-        peg_level.on_order_added(
+        peg_level.add_order_entry(
             QueueEntry::new(SequenceNumber(1), OrderId(1)),
             Quantity(100),
         );
@@ -246,7 +246,7 @@ mod tests {
                 ),
             ),
         );
-        peg_level.on_order_added(
+        peg_level.add_order_entry(
             QueueEntry::new(SequenceNumber(2), OrderId(2)),
             Quantity(100),
         );
