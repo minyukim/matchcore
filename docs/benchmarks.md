@@ -4,21 +4,21 @@
 
 | Benchmark | Time (median) |
 | --- | ---: |
-| Single standard order into a fresh book | ~101 ns |
-| Single iceberg order into a fresh book | ~103 ns |
-| Single post-only order into a fresh book | ~102 ns |
-| Single good-till-date order into a fresh book | ~115 ns |
-| Single pegged order into a fresh book | ~59 ns |
+| Single standard order into a fresh book | ~99 ns |
+| Single iceberg order into a fresh book | ~100 ns |
+| Single post-only order into a fresh book | ~100 ns |
+| Single good-till-date order into a fresh book | ~114 ns |
+| Single pegged order into a fresh book | ~55 ns |
 
 ### 10k orders submit
 
 | Benchmark | Time (median) |
 | --- | ---: |
-| 10k standard orders into a fresh book | ~362.20 µs |
-| 10k iceberg orders into a fresh book | ~361.04 µs |
-| 10k post-only orders into a fresh book | ~361.17 µs |
-| 10k good-till-date orders into a fresh book | ~378.40 µs |
-| 10k pegged orders into a fresh book | ~271.37 µs |
+| 10k standard orders into a fresh book | ~306.48 µs |
+| 10k iceberg orders into a fresh book | ~307.58 µs |
+| 10k post-only orders into a fresh book | ~307.48 µs |
+| 10k good-till-date orders into a fresh book | ~322.02 µs |
+| 10k pegged orders into a fresh book | ~218.41 µs |
 
 ## Amend
 
@@ -26,32 +26,32 @@
 
 | Benchmark | Time (median) |
 | --- | ---: |
-| Single order in single-level book quantity decrease | ~825 ns |
-| Single order in multi-level book quantity decrease | ~701 ns |
-| Single order in single-level book quantity increase | ~844 ns |
-| Single order in multi-level book quantity increase | ~751 ns |
-| Single order in single-level book price update | ~879 ns |
-| Single order in multi-level book price update | ~769 ns |
+| Single order in single-level book quantity decrease | ~770 ns |
+| Single order in multi-level book quantity decrease | ~609 ns |
+| Single order in single-level book quantity increase | ~792 ns |
+| Single order in multi-level book quantity increase | ~666 ns |
+| Single order in single-level book price update | ~816 ns |
+| Single order in multi-level book price update | ~671 ns |
 
 ### 10k orders amend
 
 | Benchmark | Time (median) |
 | --- | ---: |
-| 10k orders in single-level book quantity decrease | ~191.24 µs |
-| 10k orders in multi-level book quantity decrease | ~180.87 µs |
-| 10k orders in single-level book quantity increase | ~205.52 µs |
-| 10k orders in multi-level book quantity increase | ~219.19 µs |
-| 10k orders in single-level book price update | ~315.16 µs |
-| 10k orders in multi-level book price update | ~320.16 µs |
+| 10k orders in single-level book quantity decrease | ~153.35 µs |
+| 10k orders in multi-level book quantity decrease | ~130.82 µs |
+| 10k orders in single-level book quantity increase | ~165.50 µs |
+| 10k orders in multi-level book quantity increase | ~165.83 µs |
+| 10k orders in single-level book price update | ~288.02 µs |
+| 10k orders in multi-level book price update | ~276.97 µs |
 
 ## Cancel
 
 | Benchmark | Time (median) |
 | --- | ---: |
-| Single order in single-level book cancel | ~819 ns |
-| Single order in multi-level book cancel | ~686 ns |
-| 10k orders in single-level book cancel | ~211.22 µs |
-| 10k orders in multi-level book cancel | ~216.68 µs |
+| Single order in single-level book cancel | ~792 ns |
+| Single order in multi-level book cancel | ~658 ns |
+| 10k orders in single-level book cancel | ~127.33 µs |
+| 10k orders in multi-level book cancel | ~104.71 µs |
 
 ## Matching
 
@@ -59,44 +59,44 @@
 
 | Match volume | Time (median) |
 | --- | ---: |
-| 1 | ~467 ns |
-| 10 | ~476 ns |
-| 100 | ~965 ns |
-| 1000 | ~3.95 µs |
-| 10000 | ~21.13 µs |
+| 1 | ~431 ns |
+| 10 | ~441 ns |
+| 100 | ~635 ns |
+| 1000 | ~1.62 µs |
+| 10000 | ~9.98 µs |
 
 ### Multi-level standard book
 
 | Match volume | Time (median) |
 | --- | ---: |
-| 1 | ~580 ns |
-| 10 | ~585 ns |
-| 100 | ~1.12 µs |
-| 1000 | ~4.02 µs |
-| 10000 | ~21.72 µs |
+| 1 | ~545 ns |
+| 10 | ~555 ns |
+| 100 | ~731 ns |
+| 1000 | ~1.77 µs |
+| 10000 | ~10.76 µs |
 
 ### Single-level iceberg book
 
 | Match volume | Time (median) |
 | --- | ---: |
-| 1 | ~469 ns |
-| 10 | ~639 ns |
-| 100 | ~1.95 µs |
-| 1000 | ~7.98 µs |
-| 10000 | ~66.72 µs |
+| 1 | ~436 ns |
+| 10 | ~524 ns |
+| 100 | ~1.10 µs |
+| 1000 | ~5.26 µs |
+| 10000 | ~38.93 µs |
 
 ### Multi-level iceberg book
 
 | Match volume | Time (median) |
 | --- | ---: |
-| 1 | ~575 ns |
-| 10 | ~760 ns |
-| 100 | ~1.89 µs |
-| 1000 | ~7.69 µs |
-| 10000 | ~62.70 µs |
+| 1 | ~543 ns |
+| 10 | ~641 ns |
+| 100 | ~1.19 µs |
+| 1000 | ~4.32 µs |
+| 10000 | ~35.51 µs |
 
 ## Mixed workload
 
 | Benchmark | Time (median) |
 | --- | ---: |
-| Submit + amend + match + cancel | ~12.69 µs |
+| Submit + amend + match + cancel | ~9.68 µs |
