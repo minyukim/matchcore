@@ -180,7 +180,7 @@ let outcome = book.execute(&Command {
             QuantityPolicy::Standard {
                 quantity: Quantity(10),
             },
-            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            OrderFlags::new(Side::Buy, false /* post_only */, TimeInForce::Gtc),
         )),
     }),
 });
