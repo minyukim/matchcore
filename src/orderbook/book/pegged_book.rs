@@ -1,5 +1,4 @@
-use super::PegLevel;
-use crate::{OrderId, PegReference, RestingPeggedOrder, Timestamp};
+use crate::{OrderId, PegLevel, PegReference, RestingPeggedOrder, Timestamp};
 
 use std::{cmp::Reverse, collections::BinaryHeap};
 
