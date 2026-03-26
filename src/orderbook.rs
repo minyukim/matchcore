@@ -3,11 +3,13 @@
 mod analytics;
 mod book;
 mod execution;
+mod level;
 mod logic;
 mod market_data;
 
 pub use analytics::*;
 pub use book::*;
+pub use level::*;
 pub use market_data::*;
 
 use crate::{Price, SequenceNumber, Timestamp};

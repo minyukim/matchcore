@@ -1,5 +1,4 @@
-use super::PriceLevel;
-use crate::{LevelId, OrderId, Price, RestingLimitOrder, Timestamp};
+use crate::{LevelId, OrderId, Price, PriceLevel, RestingLimitOrder, Timestamp};
 
 use std::{
     cmp::Reverse,
