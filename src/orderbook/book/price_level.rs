@@ -1,7 +1,9 @@
 use super::QueueEntry;
 use crate::{OrderId, Quantity, RestingLimitOrder, SequenceNumber};
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
+
+use rustc_hash::FxHashMap;
 
 /// Price level that manages the status of the orders with the same price.
 /// It does not store the orders themselves, but only the time priority information of the orders.
@@ -120,7 +122,7 @@ impl PriceLevel {
     /// Note that it does not update the quantity of the price level
     pub(crate) fn remove_head_order(
         &mut self,
-        limit_orders: &mut HashMap<OrderId, RestingLimitOrder>,
+        limit_orders: &mut FxHashMap<OrderId, RestingLimitOrder>,
     ) {
         let Some(queue_entry) = self.pop() else {
             return;
@@ -150,7 +152,7 @@ mod tests {
     use crate::*;
     use crate::{LimitOrder, OrderFlags, Price, Quantity, QuantityPolicy, Side, TimeInForce};
 
-    use std::collections::HashMap;
+    use rustc_hash::FxHashMap;
 
     #[test]
     fn test_total_quantity() {
@@ -257,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_remove_head_order() {
-        let mut limit_orders = HashMap::new();
+        let mut limit_orders = FxHashMap::default();
 
         let mut price_level = PriceLevel::new();
         assert!(price_level.peek().is_none());

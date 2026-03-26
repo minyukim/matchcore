@@ -1,19 +1,20 @@
 use super::PriceLevel;
 use crate::{LevelId, OrderId, Price, RestingLimitOrder, Timestamp};
 
-use slab::Slab;
-
 use std::{
     cmp::Reverse,
-    collections::{BTreeMap, BinaryHeap, HashMap},
+    collections::{BTreeMap, BinaryHeap},
 };
+
+use rustc_hash::FxHashMap;
+use slab::Slab;
 
 /// Limit order book that manages limit orders and price levels
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Default)]
 pub struct LimitBook<const LEVELS_INITIAL_CAPACITY: usize = 2048> {
     /// Limit orders indexed by order ID for O(1) lookup
-    pub(crate) orders: HashMap<OrderId, RestingLimitOrder>,
+    pub(crate) orders: FxHashMap<OrderId, RestingLimitOrder>,
 
     /// Price levels, stored in a slab with O(1) indexing
     pub(crate) levels: Slab<PriceLevel>,
@@ -38,7 +39,7 @@ impl<const LEVELS_INITIAL_CAPACITY: usize> LimitBook<LEVELS_INITIAL_CAPACITY> {
 
 impl LimitBook {
     /// Get the limit orders indexed by order ID
-    pub fn orders(&self) -> &HashMap<OrderId, RestingLimitOrder> {
+    pub fn orders(&self) -> &FxHashMap<OrderId, RestingLimitOrder> {
         &self.orders
     }
 

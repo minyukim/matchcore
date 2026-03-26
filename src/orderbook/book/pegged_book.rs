@@ -1,17 +1,16 @@
 use super::PegLevel;
 use crate::{OrderId, PegReference, RestingPeggedOrder, Timestamp};
 
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
-};
+use std::{cmp::Reverse, collections::BinaryHeap};
+
+use rustc_hash::FxHashMap;
 
 /// Pegged order book that manages pegged orders and peg levels
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Default)]
 pub struct PeggedBook {
     /// Pegged orders indexed by order ID for O(1) lookup
-    pub(crate) orders: HashMap<OrderId, RestingPeggedOrder>,
+    pub(crate) orders: FxHashMap<OrderId, RestingPeggedOrder>,
 
     /// Pegged bid side levels, one for each reference price type
     pub(crate) bid_levels: [PegLevel; PegReference::COUNT],
@@ -31,7 +30,7 @@ impl PeggedBook {
     }
 
     /// Get the pegged orders indexed by order ID
-    pub fn orders(&self) -> &HashMap<OrderId, RestingPeggedOrder> {
+    pub fn orders(&self) -> &FxHashMap<OrderId, RestingPeggedOrder> {
         &self.orders
     }
 

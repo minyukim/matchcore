@@ -1,7 +1,9 @@
 use super::QueueEntry;
 use crate::{OrderId, PegReference, Quantity, RestingPeggedOrder, SequenceNumber};
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
+
+use rustc_hash::FxHashMap;
 
 /// Maker side array for the primary peg reference
 pub(crate) static MAKER_ARRAY_PRIMARY: [PegReference; 1] = [PegReference::Primary];
@@ -109,7 +111,7 @@ impl PegLevel {
     /// Note that it does not update the quantity of the peg level
     pub(crate) fn remove_head_order(
         &mut self,
-        pegged_orders: &mut HashMap<OrderId, RestingPeggedOrder>,
+        pegged_orders: &mut FxHashMap<OrderId, RestingPeggedOrder>,
     ) {
         let Some(queue_entry) = self.pop() else {
             return;
@@ -124,7 +126,7 @@ mod tests {
     use crate::*;
     use crate::{OrderFlags, PegReference, PeggedOrder, Quantity, Side, TimeInForce};
 
-    use std::collections::HashMap;
+    use rustc_hash::FxHashMap;
 
     #[test]
     fn test_order_count() {
@@ -187,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_remove_head_order() {
-        let mut pegged_orders = HashMap::new();
+        let mut pegged_orders = FxHashMap::default();
 
         let mut peg_level = PegLevel::new();
         assert!(peg_level.peek().is_none());
