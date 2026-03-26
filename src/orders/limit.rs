@@ -49,7 +49,7 @@ impl RestingLimitOrder {
     }
 
     /// Convert the resting limit order into a limit order
-    pub(crate) fn into_order(self) -> LimitOrder {
+    pub fn into_order(self) -> LimitOrder {
         self.order
     }
 }

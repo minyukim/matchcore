@@ -41,7 +41,7 @@ impl RestingPeggedOrder {
     }
 
     /// Convert the resting pegged order into a pegged order
-    pub(crate) fn into_order(self) -> PeggedOrder {
+    pub fn into_order(self) -> PeggedOrder {
         self.order
     }
 }
