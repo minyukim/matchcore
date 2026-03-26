@@ -1,9 +1,11 @@
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
+
 use anyhow::{Context, Result, bail};
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 fn main() -> Result<()> {
@@ -138,7 +140,7 @@ fn load_benchmark_results(criterion_root: &Path) -> Result<Vec<BenchResult>> {
 }
 
 fn render_markdown(results: &[BenchResult]) -> String {
-    let map: HashMap<&str, f64> = results.iter().map(|r| (r.id.as_str(), r.ns)).collect();
+    let map: FxHashMap<&str, f64> = results.iter().map(|r| (r.id.as_str(), r.ns)).collect();
 
     let mut out = String::new();
 
@@ -343,7 +345,7 @@ fn render_markdown(results: &[BenchResult]) -> String {
     out
 }
 
-fn push_match_table(out: &mut String, map: &HashMap<&str, f64>, prefix: &str) {
+fn push_match_table(out: &mut String, map: &FxHashMap<&str, f64>, prefix: &str) {
     out.push_str("| Match volume | Time (median) |\n");
     out.push_str("| --- | ---: |\n");
 

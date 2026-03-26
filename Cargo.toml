@@ -26,6 +26,7 @@ all-features = true
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true }
 slab = "0.4"
+rustc-hash = "2.1"
 
 [dev-dependencies]
 serde_json = "1.0"

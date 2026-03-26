@@ -1,10 +1,8 @@
 use crate::{orderbook::*, orders::*, outcome::*, types::*};
 
-use std::{
-    cmp::max,
-    collections::{BTreeMap, HashMap},
-};
+use std::{cmp::max, collections::BTreeMap};
 
+use rustc_hash::FxHashMap;
 use slab::Slab;
 
 impl OrderBook {
@@ -230,9 +228,9 @@ pub(crate) fn match_order(
     taker_side_best_price: Option<Price>,
     maker_side_price_to_level_id: &mut BTreeMap<Price, LevelId>,
     price_levels: &mut Slab<PriceLevel>,
-    limit_orders: &mut HashMap<OrderId, RestingLimitOrder>,
+    limit_orders: &mut FxHashMap<OrderId, RestingLimitOrder>,
     maker_side_peg_levels: &mut [PegLevel; PegReference::COUNT],
-    pegged_orders: &mut HashMap<OrderId, RestingPeggedOrder>,
+    pegged_orders: &mut FxHashMap<OrderId, RestingPeggedOrder>,
     limit_price: Option<Price>,
     quantity: Quantity,
 ) -> MatchResult {
