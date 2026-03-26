@@ -14,24 +14,22 @@
 //! - Designed for integration with event-driven trading systems
 //! - Clear command → outcome model for reproducible execution
 //!
-//! # What’s New in v0.2
+//! # What’s New in v0.3
 //!
-//! This release introduces a redesigned time-priority model, significantly improves amend performance, and adds several developer-focused features.
+//! This release focuses on performance optimizations.
 //!
-//! - **Time-priority model overhaul**  
-//!   Orders now use an explicit `time_priority` field instead of relying on order IDs, enabling more accurate and flexible priority handling.
+//! - **In-place level updates** [#132](https://github.com/minyukim/matchcore/pull/132)
 //!
-//! - **Fair priority between limit and pegged orders**  
-//!   Matching priority is now determined by `time_priority` and reprice timing. Pegged orders no longer implicitly rank below limit orders, resulting in more realistic market behavior.
+//!   Orders are now updated in place instead of being removed and reinserted into the HashMap.
+//!   This reduces overhead and improves price amendment performance by **~40%**.
 //!
-//! - **Improved amend performance**  
-//!   Amend operations are significantly faster **(~10-25%)** due to the introduction of slab-backed price levels, reducing lookup overhead.
+//! - **Switch to FxHashMap** [#135](https://github.com/minyukim/matchcore/pull/135)
 //!
-//! - **Optional Serde support**  
-//!   Adds a `serde` feature flag to enable serialization and deserialization without imposing it on all users.
+//!   Replaces the standard HashMap (SipHash) with [FxHashMap](https://docs.rs/rustc-hash/latest/rustc_hash/type.FxHashMap.html), a fast non-cryptographic hasher optimized for integer-heavy workloads.
+//!   This significantly improves overall performance, especially:
 //!
-//! - **Benchmark-driven documentation**  
-//!   Introduces a `make bench-docs` target to automatically generate documentation from benchmark results.
+//!   - Cancellation throughput: **~40-52% faster**
+//!   - Large-volume matching: **~35-60% faster**
 //!
 //! # Architecture
 //!
