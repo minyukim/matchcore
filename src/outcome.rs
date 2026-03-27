@@ -23,7 +23,7 @@ use std::fmt;
 
 /// Represents the outcome of a command execution
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandOutcome {
     Applied(CommandReport),
     Rejected(CommandFailure),

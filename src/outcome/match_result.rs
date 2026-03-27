@@ -5,7 +5,7 @@ use std::fmt;
 
 /// Result of a match operation
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MatchResult {
     /// The side of the taker order
     taker_side: Side,
