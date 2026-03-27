@@ -1,7 +1,7 @@
-use super::QueueEntry;
+use super::{LevelEntries, QueueEntry};
 use crate::{OrderId, Quantity, RestingLimitOrder, SequenceNumber};
 
-use std::collections::VecDeque;
+use std::ops::{Deref, DerefMut};
 
 use rustc_hash::FxHashMap;
 
@@ -14,10 +14,8 @@ pub struct PriceLevel {
     pub(crate) visible_quantity: Quantity,
     /// Total hidden quantity at this price level
     pub(crate) hidden_quantity: Quantity,
-    /// Number of orders at this price level
-    order_count: u64,
-    /// The time priority queue of this price level
-    queue: VecDeque<QueueEntry>,
+    /// The level entries for this price level
+    level_entries: LevelEntries,
 }
 
 impl Default for PriceLevel {
@@ -32,8 +30,7 @@ impl PriceLevel {
         Self {
             visible_quantity: Quantity(0),
             hidden_quantity: Quantity(0),
-            order_count: 0,
-            queue: VecDeque::new(),
+            level_entries: LevelEntries::new(),
         }
     }
 
@@ -50,48 +47,6 @@ impl PriceLevel {
     /// Get the total quantity at this price level (visible + hidden)
     pub fn total_quantity(&self) -> Quantity {
         self.visible_quantity + self.hidden_quantity
-    }
-
-    /// Get the number of orders at this price level
-    pub fn order_count(&self) -> u64 {
-        self.order_count
-    }
-
-    /// Get the time priority queue of this price level
-    pub fn queue(&self) -> &VecDeque<QueueEntry> {
-        &self.queue
-    }
-
-    /// Increment the number of orders at this price level
-    pub(crate) fn increment_order_count(&mut self) {
-        self.order_count += 1;
-    }
-
-    /// Decrement the number of orders at this price level
-    pub(crate) fn decrement_order_count(&mut self) {
-        self.order_count -= 1;
-    }
-
-    /// Check if the price level is empty
-    pub(crate) fn is_empty(&self) -> bool {
-        self.order_count == 0
-    }
-}
-
-impl PriceLevel {
-    /// Push a queue entry to the queue
-    pub(crate) fn push(&mut self, queue_entry: QueueEntry) {
-        self.queue.push_back(queue_entry);
-    }
-
-    /// Attempt to peek the first queue entry in the queue without removing it
-    pub(crate) fn peek(&self) -> Option<QueueEntry> {
-        self.queue.front().copied()
-    }
-
-    /// Attempt to pop the first queue entry in the queue
-    pub(crate) fn pop(&mut self) -> Option<QueueEntry> {
-        self.queue.pop_front()
     }
 
     /// Add an order entry to the price level
@@ -144,6 +99,19 @@ impl PriceLevel {
     pub(crate) fn reprioritize_front(&mut self, time_priority: SequenceNumber) {
         let queue_entry = self.pop().unwrap();
         self.push(queue_entry.reprioritize(time_priority));
+    }
+}
+
+impl Deref for PriceLevel {
+    type Target = LevelEntries;
+
+    fn deref(&self) -> &Self::Target {
+        &self.level_entries
+    }
+}
+impl DerefMut for PriceLevel {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.level_entries
     }
 }
 
