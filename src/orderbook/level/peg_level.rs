@@ -97,7 +97,6 @@ impl DerefMut for PegLevel {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use crate::{OrderFlags, PegReference, PeggedOrder, Quantity, Side, TimeInForce};
 
     use rustc_hash::FxHashMap;
 
