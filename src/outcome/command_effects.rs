@@ -5,7 +5,7 @@ use std::fmt;
 
 /// Effects from the execution of a command
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandEffects {
     /// Outcome of the order that was explicitly targeted by the command
     target_order: OrderOutcome,

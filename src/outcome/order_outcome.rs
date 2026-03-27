@@ -5,7 +5,7 @@ use std::fmt;
 
 /// Outcome of the order execution
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrderOutcome {
     /// The ID of the order
     order_id: OrderId,

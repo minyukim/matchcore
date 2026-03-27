@@ -4,7 +4,7 @@ use std::fmt;
 
 /// Report from the execution of a command
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandReport {
     /// The effects of the submission of a new order
     Submit(CommandEffects),
