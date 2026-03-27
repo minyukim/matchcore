@@ -1,7 +1,7 @@
-use super::QueueEntry;
+use super::{LevelEntries, QueueEntry};
 use crate::{OrderId, PegReference, Quantity, RestingPeggedOrder, SequenceNumber};
 
-use std::collections::VecDeque;
+use std::ops::{Deref, DerefMut};
 
 use rustc_hash::FxHashMap;
 
@@ -20,10 +20,8 @@ pub struct PegLevel {
     pub(crate) repriced_at: SequenceNumber,
     /// Total quantity at this peg level
     pub(crate) quantity: Quantity,
-    /// Number of orders at this peg level
-    order_count: u64,
-    /// The time priority queue of this peg level
-    queue: VecDeque<QueueEntry>,
+    /// The level entries for this peg level
+    level_entries: LevelEntries,
 }
 
 impl Default for PegLevel {
@@ -38,8 +36,7 @@ impl PegLevel {
         Self {
             repriced_at: SequenceNumber(0),
             quantity: Quantity(0),
-            order_count: 0,
-            queue: VecDeque::new(),
+            level_entries: LevelEntries::new(),
         }
     }
 
@@ -51,43 +48,6 @@ impl PegLevel {
     /// Get the quantity at this peg level
     pub fn quantity(&self) -> Quantity {
         self.quantity
-    }
-
-    /// Get the number of orders at this peg level
-    pub fn order_count(&self) -> u64 {
-        self.order_count
-    }
-
-    /// Get the time priority queue of this peg level
-    pub fn queue(&self) -> &VecDeque<QueueEntry> {
-        &self.queue
-    }
-
-    /// Increment the number of orders at this peg level
-    pub(crate) fn increment_order_count(&mut self) {
-        self.order_count += 1;
-    }
-
-    /// Decrement the number of orders at this peg level
-    pub(crate) fn decrement_order_count(&mut self) {
-        self.order_count -= 1;
-    }
-}
-
-impl PegLevel {
-    /// Push an order ID and time priority to the queue
-    pub(crate) fn push(&mut self, queue_entry: QueueEntry) {
-        self.queue.push_back(queue_entry);
-    }
-
-    /// Attempt to peek the first queue entry in the queue without removing it
-    pub(crate) fn peek(&self) -> Option<QueueEntry> {
-        self.queue.front().copied()
-    }
-
-    /// Attempt to pop the first queue entry in the queue
-    pub(crate) fn pop(&mut self) -> Option<QueueEntry> {
-        self.queue.pop_front()
     }
 
     /// Add an order entry to the peg level
@@ -118,6 +78,19 @@ impl PegLevel {
         };
         pegged_orders.remove(&queue_entry.order_id());
         self.decrement_order_count();
+    }
+}
+
+impl Deref for PegLevel {
+    type Target = LevelEntries;
+
+    fn deref(&self) -> &Self::Target {
+        &self.level_entries
+    }
+}
+impl DerefMut for PegLevel {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.level_entries
     }
 }
 
