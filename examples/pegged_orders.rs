@@ -45,8 +45,6 @@ fn main() {
     });
     println!("{}", outcome);
 
-    let new_target_order_id = helpers::target_order_id(&outcome).unwrap();
-
     // Submit a standard sell order
     // The submission command will trigger the market pegged order to be matched with the new sell order
     let outcome = book.execute(&Command {
@@ -73,7 +71,7 @@ fn main() {
             timestamp: helpers::now(),
         },
         kind: CommandKind::Cancel(CancelCmd {
-            order_id: new_target_order_id,
+            order_id: target_order_id,
             order_kind: OrderKind::Pegged,
         }),
     });
