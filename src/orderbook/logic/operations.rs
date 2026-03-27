@@ -219,10 +219,8 @@ impl PeggedBook {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use crate::{
-        OrderBook, OrderFlags, OrderId, PegReference, PeggedOrder, Price, Quantity, QuantityPolicy,
-        TimeInForce,
-    };
+
+    // ==================== limit book ====================
 
     #[test]
     fn test_add_limit_order() {
@@ -311,6 +309,119 @@ mod tests {
         );
         assert_eq!(book.limit.orders.get(&OrderId(3)).unwrap().order(), &order);
     }
+
+    #[test]
+    fn test_remove_limit_order_returns_order_when_present() {
+        let mut book = OrderBook::new("TEST");
+        let order = LimitOrder::new(
+            Price(100),
+            QuantityPolicy::Standard {
+                quantity: Quantity(10),
+            },
+            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+        );
+        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
+        assert_eq!(book.limit.orders.len(), 1);
+        assert_eq!(
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
+            1
+        );
+
+        let removed = book.remove_limit_order(SequenceNumber(1), OrderId(0));
+        assert_eq!(removed.as_ref(), Some(&order));
+        assert!(book.limit.orders.is_empty());
+        assert!(!book.limit.bids.contains_key(&Price(100)));
+    }
+
+    #[test]
+    fn test_remove_limit_order_returns_none_when_absent() {
+        let mut book = OrderBook::new("TEST");
+        let removed = book.remove_limit_order(SequenceNumber(1000), OrderId(999));
+        assert_eq!(removed, None);
+    }
+
+    #[test]
+    fn test_remove_limit_order_one_of_many_at_same_price() {
+        let mut book = OrderBook::new("TEST");
+        for i in 0..3 {
+            let order = LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            );
+            book.add_limit_order(SequenceNumber(i), OrderId(i), order);
+        }
+        assert_eq!(book.limit.orders.len(), 3);
+        assert_eq!(
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
+            3
+        );
+
+        let removed = book.remove_limit_order(SequenceNumber(4), OrderId(1));
+        assert!(removed.is_some());
+        assert_eq!(book.limit.orders.len(), 2);
+        assert_eq!(
+            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
+            2
+        );
+        assert!(!book.limit.orders.contains_key(&OrderId(1)));
+    }
+
+    #[test]
+    fn test_remove_limit_order_cleans_up_empty_price_level() {
+        let mut book = OrderBook::new("TEST");
+        let order = LimitOrder::new(
+            Price(100),
+            QuantityPolicy::Standard {
+                quantity: Quantity(10),
+            },
+            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+        );
+        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
+        book.remove_limit_order(SequenceNumber(1), OrderId(0));
+        assert!(book.limit.bids.is_empty());
+        assert!(book.limit.orders.is_empty());
+    }
+
+    #[test]
+    fn test_remove_limit_order_leave_other_prices_unchanged() {
+        let mut book = OrderBook::new("TEST");
+        book.add_limit_order(
+            SequenceNumber(0),
+            OrderId(0),
+            LimitOrder::new(
+                Price(100),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        book.add_limit_order(
+            SequenceNumber(1),
+            OrderId(1),
+            LimitOrder::new(
+                Price(200),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(5),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        );
+        assert_eq!(book.limit.bids.len(), 2);
+
+        book.remove_limit_order(SequenceNumber(2), OrderId(0));
+        assert_eq!(book.limit.bids.len(), 1);
+        assert!(book.limit.bids.contains_key(&Price(200)));
+        assert_eq!(
+            book.limit.get_bid_level(Price(200)).unwrap().order_count(),
+            1
+        );
+    }
+
+    // ==================== pegged book ====================
 
     #[test]
     fn test_add_pegged_order() {
@@ -462,117 +573,6 @@ mod tests {
         }
         assert_eq!(book.pegged.orders.len(), 6);
         assert_eq!(book.pegged.orders.get(&OrderId(5)).unwrap().order(), &order);
-    }
-
-    #[test]
-    fn test_remove_limit_order_returns_order_when_present() {
-        let mut book = OrderBook::new("TEST");
-        let order = LimitOrder::new(
-            Price(100),
-            QuantityPolicy::Standard {
-                quantity: Quantity(10),
-            },
-            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-        );
-        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
-        assert_eq!(book.limit.orders.len(), 1);
-        assert_eq!(
-            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
-            1
-        );
-
-        let removed = book.remove_limit_order(SequenceNumber(1), OrderId(0));
-        assert_eq!(removed.as_ref(), Some(&order));
-        assert!(book.limit.orders.is_empty());
-        assert!(!book.limit.bids.contains_key(&Price(100)));
-    }
-
-    #[test]
-    fn test_remove_limit_order_returns_none_when_absent() {
-        let mut book = OrderBook::new("TEST");
-        let removed = book.remove_limit_order(SequenceNumber(1000), OrderId(999));
-        assert_eq!(removed, None);
-    }
-
-    #[test]
-    fn test_remove_limit_order_one_of_many_at_same_price() {
-        let mut book = OrderBook::new("TEST");
-        for i in 0..3 {
-            let order = LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            );
-            book.add_limit_order(SequenceNumber(i), OrderId(i), order);
-        }
-        assert_eq!(book.limit.orders.len(), 3);
-        assert_eq!(
-            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
-            3
-        );
-
-        let removed = book.remove_limit_order(SequenceNumber(4), OrderId(1));
-        assert!(removed.is_some());
-        assert_eq!(book.limit.orders.len(), 2);
-        assert_eq!(
-            book.limit.get_bid_level(Price(100)).unwrap().order_count(),
-            2
-        );
-        assert!(!book.limit.orders.contains_key(&OrderId(1)));
-    }
-
-    #[test]
-    fn test_remove_limit_order_cleans_up_empty_price_level() {
-        let mut book = OrderBook::new("TEST");
-        let order = LimitOrder::new(
-            Price(100),
-            QuantityPolicy::Standard {
-                quantity: Quantity(10),
-            },
-            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-        );
-        book.add_limit_order(SequenceNumber(0), OrderId(0), order.clone());
-        book.remove_limit_order(SequenceNumber(1), OrderId(0));
-        assert!(book.limit.bids.is_empty());
-        assert!(book.limit.orders.is_empty());
-    }
-
-    #[test]
-    fn test_remove_limit_order_leave_other_prices_unchanged() {
-        let mut book = OrderBook::new("TEST");
-        book.add_limit_order(
-            SequenceNumber(0),
-            OrderId(0),
-            LimitOrder::new(
-                Price(100),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(10),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-        book.add_limit_order(
-            SequenceNumber(1),
-            OrderId(1),
-            LimitOrder::new(
-                Price(200),
-                QuantityPolicy::Standard {
-                    quantity: Quantity(5),
-                },
-                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-            ),
-        );
-        assert_eq!(book.limit.bids.len(), 2);
-
-        book.remove_limit_order(SequenceNumber(2), OrderId(0));
-        assert_eq!(book.limit.bids.len(), 1);
-        assert!(book.limit.bids.contains_key(&Price(200)));
-        assert_eq!(
-            book.limit.get_bid_level(Price(200)).unwrap().order_count(),
-            1
-        );
     }
 
     #[test]
