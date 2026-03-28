@@ -118,7 +118,6 @@ impl DerefMut for PriceLevel {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use crate::{LimitOrder, OrderFlags, Price, Quantity, QuantityPolicy, Side, TimeInForce};
 
     use rustc_hash::FxHashMap;
 

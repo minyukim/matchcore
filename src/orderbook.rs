@@ -37,6 +37,9 @@ pub struct OrderBook<const PRICE_LEVELS_INITIAL_CAPACITY: usize = 2048> {
 
     /// Pegged order book
     pub(self) pegged: PeggedBook,
+
+    /// Price-conditional order book
+    pub(self) price_conditional: PriceConditionalBook,
 }
 
 impl OrderBook {
@@ -49,6 +52,7 @@ impl OrderBook {
             last_trade_price: None,
             limit: LimitBook::new(),
             pegged: PeggedBook::new(),
+            price_conditional: PriceConditionalBook::new(),
         }
     }
 
@@ -80,5 +84,10 @@ impl OrderBook {
     /// Get the pegged order book
     pub fn pegged(&self) -> &PeggedBook {
         &self.pegged
+    }
+
+    /// Get the price-conditional order book
+    pub fn price_conditional(&self) -> &PriceConditionalBook {
+        &self.price_conditional
     }
 }
