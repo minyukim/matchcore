@@ -138,6 +138,7 @@ mod tests {
             OrderId(0),
             RestingPriceConditionalOrder::new(
                 SequenceNumber(0),
+                0,
                 PriceConditionalOrder::new(
                     Price(100),
                     TriggerDirection::AtOrAbove,
@@ -158,6 +159,7 @@ mod tests {
             OrderId(1),
             RestingPriceConditionalOrder::new(
                 SequenceNumber(1),
+                0,
                 PriceConditionalOrder::new(
                     Price(100),
                     TriggerDirection::AtOrAbove,
@@ -175,6 +177,7 @@ mod tests {
             OrderId(2),
             RestingPriceConditionalOrder::new(
                 SequenceNumber(2),
+                0,
                 PriceConditionalOrder::new(
                     Price(100),
                     TriggerDirection::AtOrAbove,

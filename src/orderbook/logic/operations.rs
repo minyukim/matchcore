@@ -37,7 +37,6 @@ impl OrderBook {
         hidden_quantity: Quantity,
         side: Side,
     ) -> LevelId {
-        let queue_entry = QueueEntry::new(sequence_number, id);
         let price_to_level_id = match side {
             Side::Buy => &mut self.limit.bids,
             Side::Sell => &mut self.limit.asks,
@@ -72,7 +71,11 @@ impl OrderBook {
                 level_id
             }
         };
-        self.limit.levels[level_id].add_order_entry(queue_entry, visible_quantity, hidden_quantity);
+        self.limit.levels[level_id].add_order_entry(
+            QueueEntry::new(sequence_number, id),
+            visible_quantity,
+            hidden_quantity,
+        );
 
         level_id
     }
@@ -244,27 +247,36 @@ impl PriceConditionalBook {
         id: OrderId,
         order: PriceConditionalOrder,
     ) {
-        self.levels
-            .entry(order.trigger_price())
-            .or_default()
-            .add_order_entry(QueueEntry::new(sequence_number, id));
+        let level_id = match self.trigger_prices.entry(order.trigger_price()) {
+            Entry::Occupied(e) => *e.get(),
+            Entry::Vacant(e) => {
+                let level_id = self.levels.insert(TriggerPriceLevel::new());
+                e.insert(level_id);
+
+                level_id
+            }
+        };
+        self.levels[level_id].add_order_entry(QueueEntry::new(sequence_number, id));
+
         self.orders.insert(
             id,
-            RestingPriceConditionalOrder::new(sequence_number, order),
+            RestingPriceConditionalOrder::new(sequence_number, level_id, order),
         );
     }
 
     /// Remove a price-conditional order from the order book
     pub(crate) fn remove_order(&mut self, id: OrderId) -> Option<PriceConditionalOrder> {
-        let order = self.orders.remove(&id)?.into_order();
+        let order = self.orders.remove(&id)?;
 
-        let level = self.levels.get_mut(&order.trigger_price()).unwrap();
+        let level_id = order.level_id();
+        let level = &mut self.levels[level_id];
         level.mark_order_removed();
         if level.is_empty() {
-            self.levels.remove(&order.trigger_price());
+            self.levels.remove(level_id);
+            self.trigger_prices.remove(&order.trigger_price());
         }
 
-        Some(order)
+        Some(order.into_order())
     }
 }
 
@@ -749,8 +761,7 @@ mod tests {
         assert_eq!(book.price_conditional.orders.len(), 1);
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(100))
+                .get_level(Price(100))
                 .unwrap()
                 .order_count(),
             1
@@ -770,8 +781,7 @@ mod tests {
         assert_eq!(book.price_conditional.orders.len(), 2);
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(100))
+                .get_level(Price(100))
                 .unwrap()
                 .order_count(),
             2
@@ -791,16 +801,14 @@ mod tests {
         assert_eq!(book.price_conditional.orders.len(), 3);
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(100))
+                .get_level(Price(100))
                 .unwrap()
                 .order_count(),
             2
         );
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(200))
+                .get_level(Price(200))
                 .unwrap()
                 .order_count(),
             1
@@ -823,8 +831,7 @@ mod tests {
         assert_eq!(book.price_conditional.orders.len(), 1);
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(100))
+                .get_level(Price(100))
                 .unwrap()
                 .order_count(),
             1
@@ -833,7 +840,7 @@ mod tests {
         let removed = book.remove_price_conditional_order(OrderId(0));
         assert_eq!(removed.as_ref(), Some(&order));
         assert!(book.price_conditional.orders.is_empty());
-        assert!(!book.price_conditional.levels.contains_key(&Price(100)));
+        assert!(book.price_conditional.get_level(Price(100)).is_none());
     }
 
     #[test]
@@ -853,8 +860,7 @@ mod tests {
         assert_eq!(book.price_conditional.orders.len(), 3);
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(100))
+                .get_level(Price(100))
                 .unwrap()
                 .order_count(),
             3
@@ -865,8 +871,7 @@ mod tests {
         assert_eq!(book.price_conditional.orders.len(), 2);
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(100))
+                .get_level(Price(100))
                 .unwrap()
                 .order_count(),
             2
@@ -901,11 +906,9 @@ mod tests {
 
         book.remove_price_conditional_order(OrderId(0));
         assert_eq!(book.price_conditional.levels.len(), 1);
-        assert!(book.price_conditional.levels.contains_key(&Price(200)));
         assert_eq!(
             book.price_conditional
-                .levels
-                .get(&Price(200))
+                .get_level(Price(200))
                 .unwrap()
                 .order_count(),
             1
