@@ -1,5 +1,5 @@
 use super::{LimitOrder, MarketOrder};
-use crate::{Price, SequenceNumber};
+use crate::{LevelId, Price, SequenceNumber};
 
 use std::ops::{Deref, DerefMut};
 
@@ -9,15 +9,22 @@ use std::ops::{Deref, DerefMut};
 pub struct RestingPriceConditionalOrder {
     /// The time priority of the order
     time_priority: SequenceNumber,
+    /// The ID of the level the order is resting at
+    level_id: LevelId,
     /// The price-conditional order
     order: PriceConditionalOrder,
 }
 
 impl RestingPriceConditionalOrder {
     /// Create a new resting price-conditional order
-    pub fn new(time_priority: SequenceNumber, order: PriceConditionalOrder) -> Self {
+    pub fn new(
+        time_priority: SequenceNumber,
+        level_id: LevelId,
+        order: PriceConditionalOrder,
+    ) -> Self {
         Self {
             time_priority,
+            level_id,
             order,
         }
     }
@@ -25,6 +32,11 @@ impl RestingPriceConditionalOrder {
     /// Get the time priority of the order
     pub fn time_priority(&self) -> SequenceNumber {
         self.time_priority
+    }
+
+    /// Get the ID of the level the order is resting at
+    pub fn level_id(&self) -> LevelId {
+        self.level_id
     }
 
     /// Get the price-conditional order

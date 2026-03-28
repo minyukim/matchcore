@@ -62,12 +62,14 @@ impl LimitBook {
         &self.expiration_queue
     }
 
+    /// Get the bid side price level for a given price
     pub fn get_bid_level(&self, price: Price) -> Option<&PriceLevel> {
         self.bids
             .get(&price)
             .map(|level_id| &self.levels[*level_id])
     }
 
+    /// Get the ask side price level for a given price
     pub fn get_ask_level(&self, price: Price) -> Option<&PriceLevel> {
         self.asks
             .get(&price)
