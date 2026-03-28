@@ -1,13 +1,13 @@
 use crate::{CancelReason, OrderBook, OrderOutcome, SequenceNumber, types::*};
 
 impl OrderBook {
-    /// Trigger the opposite side of the conditional orders to become active takers.
+    /// Trigger the market pegged orders as takers.
     ///
-    /// It iterates over the active peg levels of the taker side, and matches the orders against
+    /// It iterates over the market pegged level of the taker side, and matches the orders against
     /// the orders at the maker side. It stops when any one side is exhausted.
     ///
     /// Returns a vector of `OrderOutcome` structs containing the outcomes of the order execution.
-    pub(crate) fn trigger_opposite_side_takers(
+    pub(crate) fn trigger_market_pegged_orders_as_takers(
         &mut self,
         sequence_number: SequenceNumber,
         taker_side: Side,

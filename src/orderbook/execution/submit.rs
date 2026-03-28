@@ -63,8 +63,8 @@ impl OrderBook {
                 ),
             );
 
-            let triggered_orders =
-                self.trigger_opposite_side_takers(sequence_number, order.side().opposite());
+            let triggered_orders = self
+                .trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
 
             return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
         }
@@ -167,7 +167,7 @@ impl OrderBook {
         );
 
         let triggered_orders =
-            self.trigger_opposite_side_takers(sequence_number, order.side().opposite());
+            self.trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
 
         CommandEffects::new(outcome).with_triggered_orders(triggered_orders)
     }
@@ -192,7 +192,7 @@ impl OrderBook {
         self.add_limit_order(sequence_number, id, order.clone());
 
         let triggered_orders =
-            self.trigger_opposite_side_takers(sequence_number, order.side().opposite());
+            self.trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
 
         CommandEffects::new(outcome).with_triggered_orders(triggered_orders)
     }
