@@ -17,6 +17,9 @@ pub struct PriceConditionalBook {
 
     /// Trigger prices, stored in a ordered map with O(log N) ordering
     pub(crate) trigger_prices: BTreeMap<Price, LevelId>,
+
+    /// The entries added before the first trade occurs
+    pub(crate) pre_trade_level: TriggerPriceLevel,
 }
 
 impl PriceConditionalBook {
@@ -38,6 +41,11 @@ impl PriceConditionalBook {
     /// Get the trigger prices
     pub fn trigger_prices(&self) -> &BTreeMap<Price, LevelId> {
         &self.trigger_prices
+    }
+
+    /// Get the entries added before the first trade occurs
+    pub fn pre_trade_level(&self) -> &TriggerPriceLevel {
+        &self.pre_trade_level
     }
 
     /// Get the trigger price level for a given price
