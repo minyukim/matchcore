@@ -50,6 +50,11 @@ impl PegLevel {
         self.quantity
     }
 
+    /// Get the level entries for this peg level
+    pub fn level_entries(&self) -> &LevelEntries {
+        &self.level_entries
+    }
+
     /// Add an order entry to the peg level
     pub(crate) fn add_order_entry(&mut self, queue_entry: QueueEntry, quantity: Quantity) {
         self.quantity += quantity;

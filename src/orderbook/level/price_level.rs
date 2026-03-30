@@ -49,6 +49,11 @@ impl PriceLevel {
         self.visible_quantity + self.hidden_quantity
     }
 
+    /// Get the level entries for this price level
+    pub fn level_entries(&self) -> &LevelEntries {
+        &self.level_entries
+    }
+
     /// Add an order entry to the price level
     pub(crate) fn add_order_entry(
         &mut self,

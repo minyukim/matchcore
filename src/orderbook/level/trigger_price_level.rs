@@ -20,6 +20,11 @@ impl TriggerPriceLevel {
         Self::default()
     }
 
+    /// Get the level entries for this trigger price level
+    pub fn level_entries(&self) -> &LevelEntries {
+        &self.level_entries
+    }
+
     /// Add an order entry to the trigger price level
     pub(crate) fn add_order_entry(&mut self, queue_entry: QueueEntry) {
         self.push(queue_entry);
