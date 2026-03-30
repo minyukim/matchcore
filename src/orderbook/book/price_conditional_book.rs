@@ -101,6 +101,12 @@ impl PriceConditionalBook {
 
         orders
     }
+
+    /// Drains all orders from the pre-trade level
+    #[allow(dead_code)]
+    pub(crate) fn drain_pre_trade_level(&mut self) -> Vec<RestingPriceConditionalOrder> {
+        self.pre_trade_level.drain_orders(&mut self.orders)
+    }
 }
 
 #[cfg(test)]
