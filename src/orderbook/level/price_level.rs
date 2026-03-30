@@ -75,14 +75,11 @@ impl PriceLevel {
     /// Pop the first queue entry from the price level and remove the order from the order book
     /// If the price level is empty, do nothing
     /// Note that it does not update the quantity of the price level
-    pub(crate) fn remove_head_order(
-        &mut self,
-        limit_orders: &mut FxHashMap<OrderId, RestingLimitOrder>,
-    ) {
+    pub(crate) fn remove_head_order(&mut self, orders: &mut FxHashMap<OrderId, RestingLimitOrder>) {
         let Some(queue_entry) = self.pop() else {
             return;
         };
-        limit_orders.remove(&queue_entry.order_id());
+        orders.remove(&queue_entry.order_id());
         self.decrement_order_count();
     }
 

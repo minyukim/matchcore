@@ -71,12 +71,12 @@ impl PegLevel {
     /// Note that it does not update the quantity of the peg level
     pub(crate) fn remove_head_order(
         &mut self,
-        pegged_orders: &mut FxHashMap<OrderId, RestingPeggedOrder>,
+        orders: &mut FxHashMap<OrderId, RestingPeggedOrder>,
     ) {
         let Some(queue_entry) = self.pop() else {
             return;
         };
-        pegged_orders.remove(&queue_entry.order_id());
+        orders.remove(&queue_entry.order_id());
         self.decrement_order_count();
     }
 }
