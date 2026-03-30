@@ -15,7 +15,7 @@ impl OrderBook {
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         };
         let mut effects = match result {
-            Ok(effects) => effects,
+            Ok(outcome) => CommandEffects::new(outcome),
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
@@ -41,14 +41,14 @@ impl OrderBook {
         &mut self,
         sequence_number: SequenceNumber,
         order: &MarketOrder,
-    ) -> Result<CommandEffects, CommandFailure> {
+    ) -> Result<OrderOutcome, CommandFailure> {
         order.validate().map_err(CommandFailure::InvalidCommand)?;
 
-        Ok(CommandEffects::new(self.submit_validated_market_order(
+        Ok(self.submit_validated_market_order(
             sequence_number,
             OrderId::from(sequence_number),
             order,
-        )))
+        ))
     }
 
     /// Submit a validated market order
@@ -111,7 +111,7 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &LimitOrder,
-    ) -> Result<CommandEffects, CommandFailure> {
+    ) -> Result<OrderOutcome, CommandFailure> {
         order.validate().map_err(CommandFailure::InvalidCommand)?;
 
         if order.is_expired(meta.timestamp) {
@@ -131,7 +131,7 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &LimitOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         if self.has_crossable_order(order.side(), order.price()) {
             self.submit_crossable_order(sequence_number, id, order)
         } else {
@@ -145,12 +145,12 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &LimitOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         let mut outcome = OrderOutcome::new(id);
 
         if order.post_only() {
             outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         if order.time_in_force() == TimeInForce::Fok {
@@ -164,7 +164,7 @@ impl OrderBook {
                     requested: order.total_quantity(),
                     available: executable_quantity,
                 });
-                return CommandEffects::new(outcome);
+                return outcome;
             }
         }
 
@@ -174,7 +174,7 @@ impl OrderBook {
 
         let remaining_quantity = order.total_quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         if order.time_in_force() == TimeInForce::Ioc {
@@ -182,7 +182,7 @@ impl OrderBook {
                 requested: order.total_quantity(),
                 available: executed_quantity,
             });
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         let quantity_policy = order
@@ -195,7 +195,7 @@ impl OrderBook {
             LimitOrder::new(order.price(), quantity_policy, order.flags().clone()),
         );
 
-        CommandEffects::new(outcome)
+        outcome
     }
 
     /// Submit a non-crossable order
@@ -204,7 +204,7 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &LimitOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         let mut outcome = OrderOutcome::new(id);
 
         if order.is_immediate() {
@@ -212,12 +212,12 @@ impl OrderBook {
                 requested: order.total_quantity(),
                 available: Quantity(0),
             });
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         self.add_limit_order(sequence_number, id, order.clone());
 
-        CommandEffects::new(outcome)
+        outcome
     }
 
     /// Submit a pegged order
@@ -225,7 +225,7 @@ impl OrderBook {
         &mut self,
         meta: CommandMeta,
         order: &PeggedOrder,
-    ) -> Result<CommandEffects, CommandFailure> {
+    ) -> Result<OrderOutcome, CommandFailure> {
         order.validate().map_err(CommandFailure::InvalidCommand)?;
 
         if order.is_expired(meta.timestamp) {
@@ -245,7 +245,7 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         match order.peg_reference() {
             PegReference::Primary => self.submit_primary_pegged_order(sequence_number, id, order),
             PegReference::Market => self.submit_market_pegged_order(sequence_number, id, order),
@@ -261,7 +261,7 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         self.submit_unmarketable_pegged_order(sequence_number, id, order)
     }
 
@@ -271,7 +271,7 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         let mut outcome = OrderOutcome::new(id);
 
         if self.is_side_empty(order.side().opposite()) {
@@ -280,12 +280,12 @@ impl OrderBook {
                     requested: order.quantity(),
                     available: Quantity(0),
                 });
-                return CommandEffects::new(outcome);
+                return outcome;
             }
 
             self.add_pegged_order(sequence_number, id, order.clone());
 
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         if order.time_in_force() == TimeInForce::Fok {
@@ -296,7 +296,7 @@ impl OrderBook {
                     requested: order.quantity(),
                     available: executable_quantity,
                 });
-                return CommandEffects::new(outcome);
+                return outcome;
             }
         }
 
@@ -306,7 +306,7 @@ impl OrderBook {
 
         let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         if order.time_in_force() == TimeInForce::Ioc {
@@ -314,7 +314,7 @@ impl OrderBook {
                 requested: order.quantity(),
                 available: executed_quantity,
             });
-            return CommandEffects::new(outcome);
+            return outcome;
         }
 
         self.add_pegged_order(
@@ -327,7 +327,7 @@ impl OrderBook {
             ),
         );
 
-        CommandEffects::new(outcome)
+        outcome
     }
 
     /// Submit a mid price pegged order
@@ -336,7 +336,7 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         self.submit_unmarketable_pegged_order(sequence_number, id, order)
     }
 
@@ -346,10 +346,10 @@ impl OrderBook {
         sequence_number: SequenceNumber,
         id: OrderId,
         order: &PeggedOrder,
-    ) -> CommandEffects {
+    ) -> OrderOutcome {
         self.add_pegged_order(sequence_number, id, order.clone());
 
-        CommandEffects::new(OrderOutcome::new(id))
+        OrderOutcome::new(id)
     }
 }
 
