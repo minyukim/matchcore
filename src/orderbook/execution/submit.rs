@@ -44,16 +44,28 @@ impl OrderBook {
     ) -> Result<CommandEffects, CommandFailure> {
         order.validate().map_err(CommandFailure::InvalidCommand)?;
 
-        let order_id = OrderId::from(sequence_number);
+        Ok(CommandEffects::new(self.submit_validated_market_order(
+            sequence_number,
+            OrderId::from(sequence_number),
+            order,
+        )))
+    }
 
-        let mut outcome = OrderOutcome::new(order_id);
+    /// Submit a validated market order
+    pub(super) fn submit_validated_market_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        order: &MarketOrder,
+    ) -> OrderOutcome {
+        let mut outcome = OrderOutcome::new(id);
 
         if self.is_side_empty(order.side().opposite()) {
             outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
                 requested: order.quantity(),
                 available: Quantity(0),
             });
-            return Ok(CommandEffects::new(outcome));
+            return outcome;
         }
 
         let result = self.match_order(sequence_number, order.side(), None, order.quantity());
@@ -62,7 +74,7 @@ impl OrderBook {
 
         let remaining_quantity = order.quantity() - executed_quantity;
         if remaining_quantity.is_zero() {
-            return Ok(CommandEffects::new(outcome));
+            return outcome;
         }
 
         // If the order is a market to limit order and there is a remaining quantity,
@@ -73,7 +85,7 @@ impl OrderBook {
 
             self.add_limit_order(
                 sequence_number,
-                order_id,
+                id,
                 LimitOrder::new(
                     price,
                     QuantityPolicy::Standard {
@@ -83,7 +95,7 @@ impl OrderBook {
                 ),
             );
 
-            return Ok(CommandEffects::new(outcome));
+            return outcome;
         }
 
         outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
@@ -91,7 +103,7 @@ impl OrderBook {
             available: executed_quantity,
         });
 
-        Ok(CommandEffects::new(outcome))
+        outcome
     }
 
     /// Submit a limit order
