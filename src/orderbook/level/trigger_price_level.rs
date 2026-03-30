@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use super::{LevelEntries, QueueEntry};
 use crate::{OrderId, RestingPriceConditionalOrder};
 
@@ -10,24 +8,16 @@ use rustc_hash::FxHashMap;
 /// Trigger price level that manages the status of the orders with the same trigger price.
 /// It does not store the orders themselves, but only the time priority information of the orders.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TriggerPriceLevel {
     /// The level entries for this trigger price level
     level_entries: LevelEntries,
 }
 
-impl Default for TriggerPriceLevel {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl TriggerPriceLevel {
     /// Create a new trigger price level
     pub fn new() -> Self {
-        Self {
-            level_entries: LevelEntries::new(),
-        }
+        Self::default()
     }
 
     /// Add an order entry to the trigger price level
