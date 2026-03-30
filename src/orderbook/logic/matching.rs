@@ -206,6 +206,47 @@ impl<'a> MatchingContext<'a> {
         *self.last_trade_price = match_result.last_trade_price();
         match_result
     }
+
+    pub(crate) fn match_taker_market_pegged_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        order_id: OrderId,
+        quantity: Quantity,
+        post_only: bool,
+    ) -> OrderOutcome {
+        let mut outcome = OrderOutcome::new(order_id);
+
+        // The post-only order cannot be a taker. Cancel the order.
+        if post_only {
+            self.taker_peg_levels[PegReference::Market.as_index()].quantity -= quantity;
+            self.taker_peg_levels[PegReference::Market.as_index()]
+                .remove_head_order(self.pegged_orders);
+
+            outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
+            return outcome;
+        }
+
+        let result = self.match_order(sequence_number, None, quantity);
+        let executed_quantity = result.executed_quantity();
+        outcome.set_match_result(result);
+
+        let remaining = quantity - executed_quantity;
+        self.taker_peg_levels[PegReference::Market.as_index()].quantity -= executed_quantity;
+
+        if remaining.is_zero() {
+            // The order is fully matched, remove it from the peg level
+            self.taker_peg_levels[PegReference::Market.as_index()]
+                .remove_head_order(self.pegged_orders);
+        } else {
+            // The order is partially matched, update the quantity of the order
+            self.pegged_orders
+                .get_mut(&order_id)
+                .unwrap()
+                .update_quantity(remaining);
+        }
+
+        outcome
+    }
 }
 
 /// Get the best (highest priority) pegged order information from the active peg references

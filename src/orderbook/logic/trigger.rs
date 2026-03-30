@@ -1,4 +1,4 @@
-use crate::{CancelReason, OrderBook, OrderOutcome, SequenceNumber, types::*};
+use crate::{OrderBook, OrderOutcome, PegReference, SequenceNumber, Side};
 
 impl OrderBook {
     /// Trigger the market pegged orders as takers.
@@ -41,37 +41,8 @@ impl OrderBook {
             }
             let (quantity, post_only) = (order.quantity(), order.post_only());
 
-            let mut outcome = OrderOutcome::new(order_id);
-
-            // The post-only order cannot be a taker. Cancel the order.
-            if post_only {
-                cx.taker_peg_levels[PegReference::Market.as_index()].quantity -= quantity;
-                cx.taker_peg_levels[PegReference::Market.as_index()]
-                    .remove_head_order(cx.pegged_orders);
-
-                outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
-                outcomes.push(outcome);
-                continue;
-            }
-
-            let result = cx.match_order(sequence_number, None, quantity);
-            let executed_quantity = result.executed_quantity();
-            outcome.set_match_result(result);
-
-            let remaining = quantity - executed_quantity;
-            cx.taker_peg_levels[PegReference::Market.as_index()].quantity -= executed_quantity;
-
-            if remaining.is_zero() {
-                // The order is fully matched, remove it from the peg level
-                cx.taker_peg_levels[PegReference::Market.as_index()]
-                    .remove_head_order(cx.pegged_orders);
-            } else {
-                // The order is partially matched, update the quantity of the order
-                cx.pegged_orders
-                    .get_mut(&order_id)
-                    .unwrap()
-                    .update_quantity(remaining);
-            }
+            let outcome =
+                cx.match_taker_market_pegged_order(sequence_number, order_id, quantity, post_only);
 
             outcomes.push(outcome);
         }
