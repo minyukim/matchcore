@@ -16,7 +16,7 @@ impl OrderBook {
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
         };
         let mut effects = match result {
-            Ok(effects) => effects,
+            Ok(outcome) => CommandEffects::new(outcome),
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
@@ -43,7 +43,7 @@ impl OrderBook {
         meta: CommandMeta,
         id: OrderId,
         patch: &LimitOrderPatch,
-    ) -> Result<CommandEffects, CommandFailure> {
+    ) -> Result<OrderOutcome, CommandFailure> {
         if patch.is_empty() {
             return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
         }
@@ -104,7 +104,7 @@ impl OrderBook {
                         requested: order.total_quantity(),
                         available: Quantity(0),
                     });
-                    return Ok(CommandEffects::new(outcome));
+                    return Ok(outcome);
                 }
 
                 self.apply_limit_order_addition(
@@ -116,14 +116,14 @@ impl OrderBook {
                     order.side(),
                 );
 
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             if order.post_only() {
                 self.limit.orders.remove(&id);
 
                 outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             if order.time_in_force() == TimeInForce::Fok {
@@ -139,7 +139,7 @@ impl OrderBook {
                         requested: order.total_quantity(),
                         available: executable_quantity,
                     });
-                    return Ok(CommandEffects::new(outcome));
+                    return Ok(outcome);
                 }
             }
 
@@ -152,7 +152,7 @@ impl OrderBook {
             if remaining_quantity.is_zero() {
                 self.limit.orders.remove(&id);
 
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             if order.time_in_force() == TimeInForce::Ioc {
@@ -162,7 +162,7 @@ impl OrderBook {
                     requested: order.total_quantity(),
                     available: executed_quantity,
                 });
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             let quantity_policy = order
@@ -185,7 +185,7 @@ impl OrderBook {
                 order.side(),
             );
 
-            return Ok(CommandEffects::new(outcome));
+            return Ok(outcome);
         }
 
         if let Some(quantity_policy) = patch.quantity_policy
@@ -206,7 +206,7 @@ impl OrderBook {
             }
         }
 
-        Ok(CommandEffects::new(OrderOutcome::new(id)))
+        Ok(OrderOutcome::new(id))
     }
 
     /// Amend a pegged order
@@ -215,7 +215,7 @@ impl OrderBook {
         meta: CommandMeta,
         id: OrderId,
         patch: &PeggedOrderPatch,
-    ) -> Result<CommandEffects, CommandFailure> {
+    ) -> Result<OrderOutcome, CommandFailure> {
         if patch.is_empty() {
             return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
         }
@@ -269,7 +269,7 @@ impl OrderBook {
                     order.side(),
                 );
 
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             if self.is_side_empty(order.side().opposite()) {
@@ -278,7 +278,7 @@ impl OrderBook {
                         requested: order.quantity(),
                         available: Quantity(0),
                     });
-                    return Ok(CommandEffects::new(outcome));
+                    return Ok(outcome);
                 }
 
                 self.pegged.apply_order_addition(
@@ -289,7 +289,7 @@ impl OrderBook {
                     order.side(),
                 );
 
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             if order.time_in_force() == TimeInForce::Fok {
@@ -300,7 +300,7 @@ impl OrderBook {
                         requested: order.quantity(),
                         available: executable_quantity,
                     });
-                    return Ok(CommandEffects::new(outcome));
+                    return Ok(outcome);
                 }
             }
 
@@ -310,7 +310,7 @@ impl OrderBook {
 
             let remaining_quantity = order.quantity() - executed_quantity;
             if remaining_quantity.is_zero() {
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             if order.time_in_force() == TimeInForce::Ioc {
@@ -318,7 +318,7 @@ impl OrderBook {
                     requested: order.quantity(),
                     available: executed_quantity,
                 });
-                return Ok(CommandEffects::new(outcome));
+                return Ok(outcome);
             }
 
             self.pegged
@@ -335,7 +335,7 @@ impl OrderBook {
                 order.side(),
             );
 
-            return Ok(CommandEffects::new(outcome));
+            return Ok(outcome);
         }
 
         if let Some(quantity) = patch.quantity
@@ -354,7 +354,7 @@ impl OrderBook {
             }
         }
 
-        Ok(CommandEffects::new(OrderOutcome::new(id)))
+        Ok(OrderOutcome::new(id))
     }
 }
 
