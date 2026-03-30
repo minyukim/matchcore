@@ -206,6 +206,47 @@ impl<'a> MatchingContext<'a> {
         *self.last_trade_price = match_result.last_trade_price();
         match_result
     }
+
+    pub(crate) fn match_taker_market_pegged_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        order_id: OrderId,
+        quantity: Quantity,
+        post_only: bool,
+    ) -> OrderOutcome {
+        let mut outcome = OrderOutcome::new(order_id);
+
+        // The post-only order cannot be a taker. Cancel the order.
+        if post_only {
+            self.taker_peg_levels[PegReference::Market.as_index()].quantity -= quantity;
+            self.taker_peg_levels[PegReference::Market.as_index()]
+                .remove_head_order(self.pegged_orders);
+
+            outcome.set_cancel_reason(CancelReason::PostOnlyWouldTake);
+            return outcome;
+        }
+
+        let result = self.match_order(sequence_number, None, quantity);
+        let executed_quantity = result.executed_quantity();
+        outcome.set_match_result(result);
+
+        let remaining = quantity - executed_quantity;
+        self.taker_peg_levels[PegReference::Market.as_index()].quantity -= executed_quantity;
+
+        if remaining.is_zero() {
+            // The order is fully matched, remove it from the peg level
+            self.taker_peg_levels[PegReference::Market.as_index()]
+                .remove_head_order(self.pegged_orders);
+        } else {
+            // The order is partially matched, update the quantity of the order
+            self.pegged_orders
+                .get_mut(&order_id)
+                .unwrap()
+                .update_quantity(remaining);
+        }
+
+        outcome
+    }
 }
 
 /// Get the best (highest priority) pegged order information from the active peg references
@@ -450,6 +491,130 @@ impl OrderBook {
         }
 
         requested_quantity - remaining
+    }
+
+    /// Match a market pegged order against the order book when the maker side becomes non-empty
+    pub(crate) fn match_market_pegged_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        bid_became_non_empty: bool,
+        ask_became_non_empty: bool,
+    ) -> Option<OrderOutcome> {
+        let (mut cx, order_id, quantity, post_only) =
+            match (bid_became_non_empty, ask_became_non_empty) {
+                (true, true) => {
+                    loop {
+                        let (taker_side, queue_entry, peg_level) = match (
+                            self.pegged.bid_levels[PegReference::Market.as_index()].peek(),
+                            self.pegged.ask_levels[PegReference::Market.as_index()].peek(),
+                        ) {
+                            (Some(bid_entry), Some(ask_entry)) => {
+                                if bid_entry < ask_entry {
+                                    (
+                                        Side::Buy,
+                                        bid_entry,
+                                        &mut self.pegged.bid_levels
+                                            [PegReference::Market.as_index()],
+                                    )
+                                } else {
+                                    (
+                                        Side::Sell,
+                                        ask_entry,
+                                        &mut self.pegged.ask_levels
+                                            [PegReference::Market.as_index()],
+                                    )
+                                }
+                            }
+                            (Some(bid_entry), None) => (
+                                Side::Buy,
+                                bid_entry,
+                                &mut self.pegged.bid_levels[PegReference::Market.as_index()],
+                            ),
+                            (None, Some(ask_entry)) => (
+                                Side::Sell,
+                                ask_entry,
+                                &mut self.pegged.ask_levels[PegReference::Market.as_index()],
+                            ),
+                            (None, None) => return None,
+                        };
+
+                        let order_id = queue_entry.order_id();
+                        let Some(order) = self.pegged.orders.get(&order_id) else {
+                            // Stale queue entry in the peg level, remove it
+                            peg_level.pop();
+                            continue;
+                        };
+                        if queue_entry.time_priority() != order.time_priority() {
+                            // Stale queue entry in the peg level, remove it
+                            peg_level.pop();
+                            continue;
+                        }
+
+                        let (quantity, post_only) = (order.quantity(), order.post_only());
+                        break (
+                            self.matching_context(taker_side),
+                            order_id,
+                            quantity,
+                            post_only,
+                        );
+                    }
+                }
+                (false, true) => {
+                    loop {
+                        let entry =
+                            self.pegged.bid_levels[PegReference::Market.as_index()].peek()?;
+
+                        let order_id = entry.order_id();
+                        let Some(order) = self.pegged.orders.get(&order_id) else {
+                            // Stale queue entry in the peg level, remove it
+                            self.pegged.bid_levels[PegReference::Market.as_index()].pop();
+                            continue;
+                        };
+                        if entry.time_priority() != order.time_priority() {
+                            // Stale queue entry in the peg level, remove it
+                            self.pegged.bid_levels[PegReference::Market.as_index()].pop();
+                            continue;
+                        };
+
+                        let (quantity, post_only) = (order.quantity(), order.post_only());
+                        break (
+                            self.matching_context(Side::Buy),
+                            order_id,
+                            quantity,
+                            post_only,
+                        );
+                    }
+                }
+                (true, false) => {
+                    loop {
+                        let entry =
+                            self.pegged.ask_levels[PegReference::Market.as_index()].peek()?;
+
+                        let order_id = entry.order_id();
+                        let Some(order) = self.pegged.orders.get(&order_id) else {
+                            // Stale queue entry in the peg level, remove it
+                            self.pegged.ask_levels[PegReference::Market.as_index()].pop();
+                            continue;
+                        };
+                        if entry.time_priority() != order.time_priority() {
+                            // Stale queue entry in the peg level, remove it
+                            self.pegged.ask_levels[PegReference::Market.as_index()].pop();
+                            continue;
+                        };
+
+                        let (quantity, post_only) = (order.quantity(), order.post_only());
+                        break (
+                            self.matching_context(Side::Sell),
+                            order_id,
+                            quantity,
+                            post_only,
+                        );
+                    }
+                }
+                (false, false) => return None,
+            };
+
+        Some(cx.match_taker_market_pegged_order(sequence_number, order_id, quantity, post_only))
     }
 }
 
