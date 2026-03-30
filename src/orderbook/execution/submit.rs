@@ -4,16 +4,36 @@ use crate::{command::*, orders::*, outcome::*, types::*};
 impl OrderBook {
     /// Execute a submit command against the order book and return the execution outcome
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
+        let (was_bid_empty, was_ask_empty) = (
+            self.is_side_empty(Side::Buy),
+            self.is_side_empty(Side::Sell),
+        );
+
         let result = match &cmd.order {
             NewOrder::Market(order) => self.submit_market_order(meta.sequence_number, order),
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         };
+        let mut effects = match result {
+            Ok(effects) => effects,
+            Err(failure) => return CommandOutcome::Rejected(failure),
+        };
 
-        match result {
-            Ok(effects) => CommandOutcome::Applied(CommandReport::Submit(effects)),
-            Err(failure) => CommandOutcome::Rejected(failure),
+        loop {
+            let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
+            let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
+
+            let Some(order_outcome) = self.match_market_pegged_order(
+                meta.sequence_number,
+                bid_became_non_empty,
+                ask_became_non_empty,
+            ) else {
+                break;
+            };
+            effects.add_triggered_order(order_outcome);
         }
+
+        CommandOutcome::Applied(CommandReport::Submit(effects))
     }
 
     /// Submit a market order
@@ -63,10 +83,7 @@ impl OrderBook {
                 ),
             );
 
-            let triggered_orders = self
-                .trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
-
-            return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
+            return Ok(CommandEffects::new(outcome));
         }
 
         outcome.set_cancel_reason(CancelReason::InsufficientLiquidity {
@@ -166,10 +183,7 @@ impl OrderBook {
             LimitOrder::new(order.price(), quantity_policy, order.flags().clone()),
         );
 
-        let triggered_orders =
-            self.trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
-
-        CommandEffects::new(outcome).with_triggered_orders(triggered_orders)
+        CommandEffects::new(outcome)
     }
 
     /// Submit a non-crossable order
@@ -191,10 +205,7 @@ impl OrderBook {
 
         self.add_limit_order(sequence_number, id, order.clone());
 
-        let triggered_orders =
-            self.trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
-
-        CommandEffects::new(outcome).with_triggered_orders(triggered_orders)
+        CommandEffects::new(outcome)
     }
 
     /// Submit a pegged order

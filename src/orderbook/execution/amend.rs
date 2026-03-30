@@ -6,15 +6,35 @@ use std::cmp::Reverse;
 impl OrderBook {
     /// Execute an amend command against the order book and return the execution outcome
     pub(super) fn execute_amend(&mut self, meta: CommandMeta, cmd: &AmendCmd) -> CommandOutcome {
+        let (was_bid_empty, was_ask_empty) = (
+            self.is_side_empty(Side::Buy),
+            self.is_side_empty(Side::Sell),
+        );
+
         let result = match &cmd.patch {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
         };
+        let mut effects = match result {
+            Ok(effects) => effects,
+            Err(failure) => return CommandOutcome::Rejected(failure),
+        };
 
-        match result {
-            Ok(effects) => CommandOutcome::Applied(CommandReport::Amend(effects)),
-            Err(failure) => CommandOutcome::Rejected(failure),
+        loop {
+            let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
+            let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
+
+            let Some(order_outcome) = self.match_market_pegged_order(
+                meta.sequence_number,
+                bid_became_non_empty,
+                ask_became_non_empty,
+            ) else {
+                break;
+            };
+            effects.add_triggered_order(order_outcome);
         }
+
+        CommandOutcome::Applied(CommandReport::Amend(effects))
     }
 
     /// Amend a limit order
@@ -96,12 +116,7 @@ impl OrderBook {
                     order.side(),
                 );
 
-                let triggered_orders = self.trigger_market_pegged_orders_as_takers(
-                    sequence_number,
-                    order.side().opposite(),
-                );
-
-                return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
+                return Ok(CommandEffects::new(outcome));
             }
 
             if order.post_only() {
@@ -170,10 +185,7 @@ impl OrderBook {
                 order.side(),
             );
 
-            let triggered_orders = self
-                .trigger_market_pegged_orders_as_takers(sequence_number, order.side().opposite());
-
-            return Ok(CommandEffects::new(outcome).with_triggered_orders(triggered_orders));
+            return Ok(CommandEffects::new(outcome));
         }
 
         if let Some(quantity_policy) = patch.quantity_policy

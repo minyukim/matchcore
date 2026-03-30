@@ -1326,10 +1326,9 @@ mod tests {
         let mut expected_triggered_order_outcome = OrderOutcome::new(target_order_id);
         expected_triggered_order_outcome.set_match_result(expected_triggered_match_result);
 
-        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-            CommandEffects::new(OrderOutcome::new(submitted_order_id))
-                .with_triggered_orders(vec![expected_triggered_order_outcome]),
-        ));
+        let mut command_effects = CommandEffects::new(OrderOutcome::new(submitted_order_id));
+        command_effects.add_triggered_order(expected_triggered_order_outcome);
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(command_effects));
         assert_eq!(outcome, expected_outcome);
 
         // Cancel the remaining the market pegged buy order

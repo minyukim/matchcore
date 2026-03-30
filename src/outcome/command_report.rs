@@ -56,10 +56,11 @@ mod tests {
         order_outcome2.set_match_result(MatchResult::new(Side::Buy));
         let mut order_outcome3 = OrderOutcome::new(OrderId(3));
         order_outcome3.set_cancel_reason(CancelReason::PostOnlyWouldTake);
-        let report = CommandReport::Submit(
-            CommandEffects::new(order_outcome1)
-                .with_triggered_orders(vec![order_outcome2, order_outcome3]),
-        );
+
+        let mut command_effects = CommandEffects::new(order_outcome1);
+        command_effects.add_triggered_order(order_outcome2);
+        command_effects.add_triggered_order(order_outcome3);
+        let report = CommandReport::Submit(command_effects);
         println!("{}", report);
         assert_eq!(
             report.to_string(),

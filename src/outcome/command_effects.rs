@@ -24,10 +24,9 @@ impl CommandEffects {
         }
     }
 
-    /// Return this command effects with the triggered orders set
-    pub(crate) fn with_triggered_orders(mut self, triggered_orders: Vec<OrderOutcome>) -> Self {
-        self.triggered_orders = triggered_orders;
-        self
+    /// Add a triggered order to the command effects
+    pub(crate) fn add_triggered_order(&mut self, triggered_order: OrderOutcome) {
+        self.triggered_orders.push(triggered_order);
     }
 
     /// Get the outcome of the order that was explicitly targeted by the command
@@ -63,25 +62,21 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let command_effects = CommandEffects::new(OrderOutcome::new(OrderId(1)));
+        let mut command_effects = CommandEffects::new(OrderOutcome::new(OrderId(1)));
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    not matched\n    not cancelled\n"
         );
 
-        let command_effects =
-            command_effects.with_triggered_orders(vec![OrderOutcome::new(OrderId(2))]);
+        command_effects.add_triggered_order(OrderOutcome::new(OrderId(2)));
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    not matched\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n"
         );
 
-        let command_effects = command_effects.with_triggered_orders(vec![
-            OrderOutcome::new(OrderId(2)),
-            OrderOutcome::new(OrderId(3)),
-        ]);
+        command_effects.add_triggered_order(OrderOutcome::new(OrderId(3)));
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
@@ -90,22 +85,27 @@ mod tests {
 
         let mut order_outcome = OrderOutcome::new(OrderId(1));
         order_outcome.set_match_result(MatchResult::new(Side::Buy));
-        let command_effects = CommandEffects::new(order_outcome).with_triggered_orders(vec![
-            OrderOutcome::new(OrderId(2)),
-            OrderOutcome::new(OrderId(3)),
-        ]);
+
+        let mut command_effects = CommandEffects::new(order_outcome);
+        command_effects.add_triggered_order(OrderOutcome::new(OrderId(2)));
+        command_effects.add_triggered_order(OrderOutcome::new(OrderId(3)));
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n  triggered order(3):\n    not matched\n    not cancelled\n"
         );
 
+        let mut order_outcome = OrderOutcome::new(OrderId(1));
+        order_outcome.set_match_result(MatchResult::new(Side::Buy));
+
         let mut order_outcome2 = OrderOutcome::new(OrderId(2));
         order_outcome2.set_match_result(MatchResult::new(Side::Buy));
         let mut order_outcome3 = OrderOutcome::new(OrderId(3));
         order_outcome3.set_cancel_reason(CancelReason::PostOnlyWouldTake);
-        let command_effects =
-            command_effects.with_triggered_orders(vec![order_outcome2, order_outcome3]);
+
+        let mut command_effects = CommandEffects::new(order_outcome);
+        command_effects.add_triggered_order(order_outcome2);
+        command_effects.add_triggered_order(order_outcome3);
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
