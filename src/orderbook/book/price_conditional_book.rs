@@ -104,10 +104,15 @@ impl PriceConditionalBook {
         orders
     }
 
-    /// Drains all orders from the pre-trade level
+    /// Drains all triggered orders at the given price from the pre-trade level
     #[allow(dead_code)]
-    pub(crate) fn drain_pre_trade_level(&mut self) -> Vec<(OrderId, PriceConditionalOrder)> {
-        let orders = self.pre_trade_level.drain_orders(&mut self.orders);
+    pub(crate) fn drain_pre_trade_level_at_price(
+        &mut self,
+        price: Price,
+    ) -> Vec<(OrderId, PriceConditionalOrder)> {
+        let orders = self
+            .pre_trade_level
+            .drain_triggered_orders_at_price(&mut self.orders, price);
         self.pre_trade_level = TriggerPriceLevel::new(); // Deallocate the level
         orders
     }
