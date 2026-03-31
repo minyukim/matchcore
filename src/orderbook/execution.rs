@@ -580,6 +580,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -601,6 +602,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(
             OrderOutcome::new(OrderId(0)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -626,6 +628,7 @@ mod tests {
 
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             expected_order_outcome,
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -655,9 +658,11 @@ mod tests {
                     )),
                 }),
             });
-            let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(OrderOutcome::new(OrderId::from(meta.sequence_number))),
-            ));
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
             assert_eq!(outcome, expected_outcome);
         }
 
@@ -676,9 +681,11 @@ mod tests {
                     )),
                 }),
             });
-            let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(OrderOutcome::new(OrderId::from(meta.sequence_number))),
-            ));
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
             assert_eq!(outcome, expected_outcome);
         }
 
@@ -729,7 +736,7 @@ mod tests {
             expected_order_outcome.set_match_result(expected_match_result);
 
             let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(expected_order_outcome),
+                CommandEffects::new(expected_order_outcome, Vec::new()),
             ));
             assert_eq!(outcome, expected_outcome);
         }
@@ -781,7 +788,7 @@ mod tests {
             expected_order_outcome.set_match_result(expected_match_result);
 
             let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(expected_order_outcome),
+                CommandEffects::new(expected_order_outcome, Vec::new()),
             ));
             assert_eq!(outcome, expected_outcome);
         }
@@ -810,6 +817,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
         let target_order_id = target_order_id(&outcome).unwrap();
@@ -832,6 +840,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(
             OrderOutcome::new(target_order_id),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -861,6 +870,7 @@ mod tests {
 
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             expected_order_outcome,
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -892,9 +902,11 @@ mod tests {
                     )),
                 }),
             });
-            let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(OrderOutcome::new(OrderId::from(meta.sequence_number))),
-            ));
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
             assert_eq!(outcome, expected_outcome);
         }
 
@@ -915,9 +927,11 @@ mod tests {
                     )),
                 }),
             });
-            let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(OrderOutcome::new(OrderId::from(meta.sequence_number))),
-            ));
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
             assert_eq!(outcome, expected_outcome);
         }
 
@@ -970,7 +984,7 @@ mod tests {
             expected_order_outcome.set_match_result(expected_match_result);
 
             let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(expected_order_outcome),
+                CommandEffects::new(expected_order_outcome, Vec::new()),
             ));
             assert_eq!(outcome, expected_outcome);
         }
@@ -1024,7 +1038,7 @@ mod tests {
             expected_order_outcome.set_match_result(expected_match_result);
 
             let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(expected_order_outcome),
+                CommandEffects::new(expected_order_outcome, Vec::new()),
             ));
             assert_eq!(outcome, expected_outcome);
         }
@@ -1051,6 +1065,7 @@ mod tests {
 
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             expected_order_outcome,
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1070,6 +1085,7 @@ mod tests {
 
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             expected_order_outcome,
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1088,9 +1104,11 @@ mod tests {
                     )),
                 }),
             });
-            let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(OrderOutcome::new(OrderId::from(meta.sequence_number))),
-            ));
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
             assert_eq!(outcome, expected_outcome);
         }
 
@@ -1109,9 +1127,11 @@ mod tests {
                     )),
                 }),
             });
-            let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(OrderOutcome::new(OrderId::from(meta.sequence_number))),
-            ));
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
             assert_eq!(outcome, expected_outcome);
         }
 
@@ -1181,7 +1201,7 @@ mod tests {
             }
 
             let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(expected_order_outcome),
+                CommandEffects::new(expected_order_outcome, Vec::new()),
             ));
             assert_eq!(outcome, expected_outcome);
         }
@@ -1252,7 +1272,7 @@ mod tests {
             }
 
             let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(
-                CommandEffects::new(expected_order_outcome),
+                CommandEffects::new(expected_order_outcome, Vec::new()),
             ));
             assert_eq!(outcome, expected_outcome);
         }
@@ -1277,6 +1297,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1297,6 +1318,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(
             OrderOutcome::new(target_order_id),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1327,9 +1349,10 @@ mod tests {
         let mut expected_triggered_order_outcome = OrderOutcome::new(target_order_id);
         expected_triggered_order_outcome.set_match_result(expected_triggered_match_result);
 
-        let mut command_effects = CommandEffects::new(OrderOutcome::new(submitted_order_id));
-        command_effects.add_triggered_order(expected_triggered_order_outcome);
-        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(command_effects));
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            OrderOutcome::new(submitted_order_id),
+            vec![expected_triggered_order_outcome],
+        )));
         assert_eq!(outcome, expected_outcome);
 
         // Cancel the remaining the market pegged buy order
@@ -1357,6 +1380,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1374,6 +1398,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1393,6 +1418,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1412,6 +1438,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1436,6 +1463,7 @@ mod tests {
 
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             expected_order_outcome,
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1455,6 +1483,7 @@ mod tests {
         });
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
 
@@ -1480,6 +1509,7 @@ mod tests {
 
         let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             expected_order_outcome,
+            Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
     }

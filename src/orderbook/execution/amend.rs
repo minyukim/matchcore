@@ -16,20 +16,15 @@ impl OrderBook {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
         };
-        let outcome = match result {
+        let target = match result {
             Ok(outcome) => outcome,
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        let effects = self.process_triggered_orders(
-            meta,
-            prev_trade_price,
-            was_bid_empty,
-            was_ask_empty,
-            outcome,
-        );
+        let triggered =
+            self.process_triggered_orders(meta, prev_trade_price, was_bid_empty, was_ask_empty);
 
-        CommandOutcome::Applied(CommandReport::Amend(effects))
+        CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(target, triggered)))
     }
 
     /// Amend a limit order

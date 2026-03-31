@@ -15,20 +15,17 @@ impl OrderBook {
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         };
-        let outcome = match result {
+        let target = match result {
             Ok(outcome) => outcome,
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        let effects = self.process_triggered_orders(
-            meta,
-            prev_trade_price,
-            was_bid_empty,
-            was_ask_empty,
-            outcome,
-        );
+        let triggered =
+            self.process_triggered_orders(meta, prev_trade_price, was_bid_empty, was_ask_empty);
 
-        CommandOutcome::Applied(CommandReport::Submit(effects))
+        CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            target, triggered,
+        )))
     }
 
     /// Submit a market order

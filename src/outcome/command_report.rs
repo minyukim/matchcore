@@ -32,14 +32,20 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let report = CommandReport::Submit(CommandEffects::new(OrderOutcome::new(OrderId(1))));
+        let report = CommandReport::Submit(CommandEffects::new(
+            OrderOutcome::new(OrderId(1)),
+            Vec::new(),
+        ));
         println!("{}", report);
         assert_eq!(
             report.to_string(),
             "order submitted: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
         );
 
-        let report = CommandReport::Amend(CommandEffects::new(OrderOutcome::new(OrderId(1))));
+        let report = CommandReport::Amend(CommandEffects::new(
+            OrderOutcome::new(OrderId(1)),
+            Vec::new(),
+        ));
         println!("{}", report);
         assert_eq!(
             report.to_string(),
@@ -57,9 +63,8 @@ mod tests {
         let mut order_outcome3 = OrderOutcome::new(OrderId(3));
         order_outcome3.set_cancel_reason(CancelReason::PostOnlyWouldTake);
 
-        let mut command_effects = CommandEffects::new(order_outcome1);
-        command_effects.add_triggered_order(order_outcome2);
-        command_effects.add_triggered_order(order_outcome3);
+        let command_effects =
+            CommandEffects::new(order_outcome1, vec![order_outcome2, order_outcome3]);
         let report = CommandReport::Submit(command_effects);
         println!("{}", report);
         assert_eq!(

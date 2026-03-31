@@ -50,6 +50,7 @@ mod tests {
     fn test_display() {
         let outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             OrderOutcome::new(OrderId(1)),
+            Vec::new(),
         )));
         println!("{}", outcome);
         assert_eq!(
@@ -59,6 +60,7 @@ mod tests {
 
         let outcome = CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(
             OrderOutcome::new(OrderId(1)),
+            Vec::new(),
         )));
         println!("{}", outcome);
         assert_eq!(
@@ -85,9 +87,8 @@ mod tests {
         let mut order_outcome3 = OrderOutcome::new(OrderId(3));
         order_outcome3.set_cancel_reason(CancelReason::PostOnlyWouldTake);
 
-        let mut command_effects = CommandEffects::new(order_outcome1);
-        command_effects.add_triggered_order(order_outcome2);
-        command_effects.add_triggered_order(order_outcome3);
+        let command_effects =
+            CommandEffects::new(order_outcome1, vec![order_outcome2, order_outcome3]);
         let outcome = CommandOutcome::Applied(CommandReport::Submit(command_effects));
         println!("{}", outcome);
         assert_eq!(
