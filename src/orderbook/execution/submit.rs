@@ -4,7 +4,7 @@ use crate::{command::*, orders::*, outcome::*, types::*};
 impl OrderBook {
     /// Execute a submit command against the order book and return the execution outcome
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
-        let (prev_trade_price, was_bid_empty, was_ask_empty) = (
+        let (mut prev_trade_price, was_bid_empty, was_ask_empty) = (
             self.last_trade_price,
             self.is_side_empty(Side::Buy),
             self.is_side_empty(Side::Sell),
@@ -28,10 +28,12 @@ impl OrderBook {
                     self.apply_activated_price_conditional_orders(meta, orders, &mut effects);
                 }
                 (None, Some(curr)) => {
-                    todo!()
+                    let orders = self.price_conditional.drain_pre_trade_level_at_price(curr);
+                    self.apply_activated_price_conditional_orders(meta, orders, &mut effects);
                 }
                 _ => {}
             }
+            prev_trade_price = curr_trade_price;
 
             let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
             let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
