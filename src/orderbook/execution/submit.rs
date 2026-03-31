@@ -4,7 +4,8 @@ use crate::{command::*, orders::*, outcome::*, types::*};
 impl OrderBook {
     /// Execute a submit command against the order book and return the execution outcome
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
-        let (was_bid_empty, was_ask_empty) = (
+        let (prev_trade_price, was_bid_empty, was_ask_empty) = (
+            self.last_trade_price,
             self.is_side_empty(Side::Buy),
             self.is_side_empty(Side::Sell),
         );
@@ -20,6 +21,30 @@ impl OrderBook {
         };
 
         loop {
+            let curr_trade_price = self.last_trade_price;
+            match (prev_trade_price, curr_trade_price) {
+                (Some(prev), Some(curr)) => {
+                    for (id, order) in self.price_conditional.drain_levels(prev, curr) {
+                        let order_outcome = match order.target_order() {
+                            TriggerOrder::Market(order) => {
+                                self.submit_validated_market_order(meta.sequence_number, id, order)
+                            }
+                            TriggerOrder::Limit(order) => {
+                                if order.is_expired(meta.timestamp) {
+                                    continue;
+                                }
+                                self.submit_validated_limit_order(meta.sequence_number, id, order)
+                            }
+                        };
+                        effects.add_triggered_order(order_outcome);
+                    }
+                }
+                (None, Some(curr)) => {
+                    todo!()
+                }
+                _ => {}
+            }
+
             let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
             let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
 
