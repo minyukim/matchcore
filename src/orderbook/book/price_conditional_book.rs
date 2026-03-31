@@ -64,7 +64,7 @@ impl PriceConditionalBook {
         &mut self,
         start_exclusive: Price,
         end_inclusive: Price,
-    ) -> Vec<PriceConditionalOrder> {
+    ) -> Vec<(OrderId, PriceConditionalOrder)> {
         if start_exclusive == end_inclusive {
             return Vec::new();
         }
@@ -106,7 +106,7 @@ impl PriceConditionalBook {
 
     /// Drains all orders from the pre-trade level
     #[allow(dead_code)]
-    pub(crate) fn drain_pre_trade_level(&mut self) -> Vec<PriceConditionalOrder> {
+    pub(crate) fn drain_pre_trade_level(&mut self) -> Vec<(OrderId, PriceConditionalOrder)> {
         self.pre_trade_level.drain_orders(&mut self.orders)
     }
 }
@@ -163,7 +163,10 @@ mod tests {
         let mut book = create_book(&prices);
 
         let drained = book.drain_levels(Price(100), Price(105));
-        let drained_prices: Vec<_> = drained.into_iter().map(|o| o.trigger_price()).collect();
+        let drained_prices: Vec<_> = drained
+            .into_iter()
+            .map(|(_, order)| order.trigger_price())
+            .collect();
         assert_eq!(
             drained_prices,
             vec![Price(101), Price(102), Price(103), Price(104), Price(105)]
@@ -185,7 +188,10 @@ mod tests {
         let mut book = create_book(&prices);
 
         let drained = book.drain_levels(Price(105), Price(100));
-        let drained_prices: Vec<_> = drained.into_iter().map(|o| o.trigger_price()).collect();
+        let drained_prices: Vec<_> = drained
+            .into_iter()
+            .map(|(_, order)| order.trigger_price())
+            .collect();
         assert_eq!(
             drained_prices,
             vec![Price(104), Price(103), Price(102), Price(101), Price(100)]
