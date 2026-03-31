@@ -4,8 +4,7 @@ use crate::{command::*, orders::*, outcome::*, types::*};
 impl OrderBook {
     /// Execute a submit command against the order book and return the execution outcome
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
-        let (prev_trade_price, was_bid_empty, was_ask_empty) = (
-            self.last_trade_price,
+        let (was_bid_empty, was_ask_empty) = (
             self.is_side_empty(Side::Buy),
             self.is_side_empty(Side::Sell),
         );
@@ -20,8 +19,7 @@ impl OrderBook {
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        let triggered =
-            self.process_triggered_orders(meta, prev_trade_price, was_bid_empty, was_ask_empty);
+        let triggered = self.process_order_cascade(meta, was_bid_empty, was_ask_empty);
 
         CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
             target, triggered,

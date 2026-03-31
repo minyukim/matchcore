@@ -2,7 +2,7 @@ use crate::{
     LevelId, OrderId, Price, PriceConditionalOrder, RestingPriceConditionalOrder, TriggerPriceLevel,
 };
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use rustc_hash::FxHashMap;
 use slab::Slab;
@@ -22,6 +22,9 @@ pub struct PriceConditionalBook {
 
     /// The entries added before the first trade occurs
     pub(crate) pre_trade_level: TriggerPriceLevel,
+
+    /// The orders that are ready to be executed
+    pub(crate) ready_orders: VecDeque<(OrderId, PriceConditionalOrder)>,
 }
 
 impl PriceConditionalBook {

@@ -48,6 +48,11 @@ impl MatchResult {
         &self.trades
     }
 
+    /// Get the price of the first trade made during the match
+    pub fn first_trade_price(&self) -> Option<Price> {
+        self.trades.first().map(|trade| trade.price())
+    }
+
     /// Get the price of the last trade made during the match
     pub fn last_trade_price(&self) -> Option<Price> {
         self.trades.last().map(|trade| trade.price())
@@ -118,6 +123,7 @@ mod tests_match_result {
             Trade::new(OrderId(3), Price(100), Quantity(30)),
             Trade::new(OrderId(4), Price(101), Quantity(20)),
         ];
+
         let expected_executed_quantities = [Quantity(20), Quantity(50), Quantity(70)];
         let expected_executed_values = [Notional(1980), Notional(4980), Notional(7000)];
 
@@ -130,6 +136,8 @@ mod tests_match_result {
             assert_eq!(match_result.executed_value(), expected_executed_values[i]);
         }
         assert_eq!(match_result.trades(), &trades);
+        assert_eq!(match_result.first_trade_price(), Some(Price(99)));
+        assert_eq!(match_result.last_trade_price(), Some(Price(101)));
     }
 
     #[test]

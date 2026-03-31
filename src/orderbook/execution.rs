@@ -2,8 +2,8 @@
 
 mod amend;
 mod cancel;
+mod cascade;
 mod submit;
-mod trigger;
 
 use super::OrderBook;
 use crate::{SequenceNumber, Timestamp, command::*, outcome::*};
