@@ -24,20 +24,8 @@ impl OrderBook {
             let curr_trade_price = self.last_trade_price;
             match (prev_trade_price, curr_trade_price) {
                 (Some(prev), Some(curr)) => {
-                    for (id, order) in self.price_conditional.drain_levels(prev, curr) {
-                        let order_outcome = match order.target_order() {
-                            TriggerOrder::Market(order) => {
-                                self.submit_validated_market_order(meta.sequence_number, id, order)
-                            }
-                            TriggerOrder::Limit(order) => {
-                                if order.is_expired(meta.timestamp) {
-                                    continue;
-                                }
-                                self.submit_validated_limit_order(meta.sequence_number, id, order)
-                            }
-                        };
-                        effects.add_triggered_order(order_outcome);
-                    }
+                    let orders = self.price_conditional.drain_levels(prev, curr);
+                    self.apply_activated_price_conditional_orders(meta, orders, &mut effects);
                 }
                 (None, Some(curr)) => {
                     todo!()
