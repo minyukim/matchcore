@@ -59,7 +59,6 @@ impl PriceConditionalBook {
 
     /// Removes and returns all the orders in the levels strictly after `start_exclusive`
     /// and up to and including `end_inclusive` from the order book.
-    #[allow(dead_code)]
     pub(crate) fn drain_levels(
         &mut self,
         start_exclusive: Price,
@@ -105,7 +104,6 @@ impl PriceConditionalBook {
     }
 
     /// Drains all triggered orders at the given price from the pre-trade level
-    #[allow(dead_code)]
     pub(crate) fn drain_pre_trade_level_at_price(
         &mut self,
         price: Price,
