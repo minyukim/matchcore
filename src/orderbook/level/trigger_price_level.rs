@@ -1,5 +1,5 @@
 use super::{LevelEntries, QueueEntry};
-use crate::{OrderId, RestingPriceConditionalOrder};
+use crate::{OrderId, PriceConditionalOrder, RestingPriceConditionalOrder};
 
 use std::ops::{Deref, DerefMut};
 
@@ -42,7 +42,7 @@ impl TriggerPriceLevel {
     pub(crate) fn drain_orders(
         &mut self,
         orders: &mut FxHashMap<OrderId, RestingPriceConditionalOrder>,
-    ) -> Vec<RestingPriceConditionalOrder> {
+    ) -> Vec<PriceConditionalOrder> {
         let mut orders_vec = Vec::with_capacity(self.order_count() as usize);
 
         while !self.is_empty() {
@@ -55,7 +55,7 @@ impl TriggerPriceLevel {
                 continue; // Stale entry
             }
 
-            orders_vec.push(order);
+            orders_vec.push(order.into_order());
             self.decrement_order_count();
         }
 
@@ -163,7 +163,7 @@ mod tests {
         assert_eq!(level.order_count(), 2);
 
         let drained = level.drain_orders(&mut orders);
-        assert_eq!(drained, vec![o0, o1]);
+        assert_eq!(drained, vec![o0.into_order(), o1.into_order()]);
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
         assert!(level.is_empty());
@@ -186,7 +186,7 @@ mod tests {
         assert_eq!(level.order_count(), 1);
 
         let drained = level.drain_orders(&mut orders);
-        assert_eq!(drained, vec![o1]);
+        assert_eq!(drained, vec![o1.into_order()]);
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
         assert!(level.queue().is_empty());

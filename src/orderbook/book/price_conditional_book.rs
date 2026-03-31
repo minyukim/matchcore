@@ -1,4 +1,6 @@
-use crate::{LevelId, OrderId, Price, RestingPriceConditionalOrder, TriggerPriceLevel};
+use crate::{
+    LevelId, OrderId, Price, PriceConditionalOrder, RestingPriceConditionalOrder, TriggerPriceLevel,
+};
 
 use std::collections::BTreeMap;
 
@@ -62,7 +64,7 @@ impl PriceConditionalBook {
         &mut self,
         start_exclusive: Price,
         end_inclusive: Price,
-    ) -> Vec<RestingPriceConditionalOrder> {
+    ) -> Vec<PriceConditionalOrder> {
         if start_exclusive == end_inclusive {
             return Vec::new();
         }
@@ -104,7 +106,7 @@ impl PriceConditionalBook {
 
     /// Drains all orders from the pre-trade level
     #[allow(dead_code)]
-    pub(crate) fn drain_pre_trade_level(&mut self) -> Vec<RestingPriceConditionalOrder> {
+    pub(crate) fn drain_pre_trade_level(&mut self) -> Vec<PriceConditionalOrder> {
         self.pre_trade_level.drain_orders(&mut self.orders)
     }
 }
