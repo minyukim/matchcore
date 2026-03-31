@@ -7,32 +7,34 @@ use std::fmt;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandEffects {
-    /// Outcome of the order that was explicitly targeted by the command
-    target_order: OrderOutcome,
+    /// Outcome of the explicitly targeted order in the command
+    primary_outcome: OrderOutcome,
 
-    /// Outcomes of the other orders whose state changed as a consequence
-    /// (e.g., inactive pegged orders becoming active)
-    triggered_orders: Vec<OrderOutcome>,
+    /// Outcomes produced by cascading effects of the command
+    /// (e.g., price-conditional orders and pegged orders becoming active)
+    cascading_outcomes: Vec<OrderOutcome>,
 }
 
 impl CommandEffects {
     /// Create a new command effects
-    pub(crate) fn new(target_order: OrderOutcome, triggered_orders: Vec<OrderOutcome>) -> Self {
+    pub(crate) fn new(
+        primary_outcome: OrderOutcome,
+        cascading_outcomes: Vec<OrderOutcome>,
+    ) -> Self {
         Self {
-            target_order,
-            triggered_orders,
+            primary_outcome,
+            cascading_outcomes,
         }
     }
 
-    /// Get the outcome of the order that was explicitly targeted by the command
-    pub fn target_order(&self) -> &OrderOutcome {
-        &self.target_order
+    /// Get the outcome of the explicitly targeted order in the command
+    pub fn primary_outcome(&self) -> &OrderOutcome {
+        &self.primary_outcome
     }
 
-    /// Get the outcomes of the other orders whose state changed as a consequence
-    /// (e.g., inactive pegged orders becoming active)
-    pub fn triggered_orders(&self) -> &[OrderOutcome] {
-        &self.triggered_orders
+    /// Get the outcomes produced by cascading effects of the command
+    pub fn cascading_outcomes(&self) -> &[OrderOutcome] {
+        &self.cascading_outcomes
     }
 }
 
@@ -40,10 +42,10 @@ impl fmt::Display for CommandEffects {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "effects:")?;
 
-        write_indented(f, &format!("target {}", self.target_order()), 2)?;
+        write_indented(f, &format!("primary {}", self.primary_outcome()), 2)?;
 
-        for triggered_order in self.triggered_orders() {
-            write_indented(f, &format!("triggered {}", triggered_order), 2)?;
+        for cascading_outcome in self.cascading_outcomes() {
+            write_indented(f, &format!("cascading {}", cascading_outcome), 2)?;
         }
 
         Ok(())
@@ -61,7 +63,7 @@ mod tests {
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
-            "effects:\n  target order(1):\n    not matched\n    not cancelled\n"
+            "effects:\n  primary order(1):\n    not matched\n    not cancelled\n"
         );
 
         let command_effects = CommandEffects::new(
@@ -71,7 +73,7 @@ mod tests {
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
-            "effects:\n  target order(1):\n    not matched\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n"
+            "effects:\n  primary order(1):\n    not matched\n    not cancelled\n  cascading order(2):\n    not matched\n    not cancelled\n"
         );
 
         let command_effects = CommandEffects::new(
@@ -81,7 +83,7 @@ mod tests {
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
-            "effects:\n  target order(1):\n    not matched\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n  triggered order(3):\n    not matched\n    not cancelled\n"
+            "effects:\n  primary order(1):\n    not matched\n    not cancelled\n  cascading order(2):\n    not matched\n    not cancelled\n  cascading order(3):\n    not matched\n    not cancelled\n"
         );
 
         let mut order_outcome = OrderOutcome::new(OrderId(1));
@@ -94,7 +96,7 @@ mod tests {
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
-            "effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n  triggered order(3):\n    not matched\n    not cancelled\n"
+            "effects:\n  primary order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(2):\n    not matched\n    not cancelled\n  cascading order(3):\n    not matched\n    not cancelled\n"
         );
 
         let mut order_outcome = OrderOutcome::new(OrderId(1));
@@ -110,7 +112,7 @@ mod tests {
         println!("{}", command_effects);
         assert_eq!(
             command_effects.to_string(),
-            "effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
+            "effects:\n  primary order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
         );
     }
 }
