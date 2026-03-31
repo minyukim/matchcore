@@ -4,7 +4,7 @@ use crate::{command::*, orders::*, outcome::*, types::*};
 impl OrderBook {
     /// Execute a submit command against the order book and return the execution outcome
     pub(super) fn execute_submit(&mut self, meta: CommandMeta, cmd: &SubmitCmd) -> CommandOutcome {
-        let (mut prev_trade_price, was_bid_empty, was_ask_empty) = (
+        let (prev_trade_price, was_bid_empty, was_ask_empty) = (
             self.last_trade_price,
             self.is_side_empty(Side::Buy),
             self.is_side_empty(Side::Sell),
@@ -15,38 +15,18 @@ impl OrderBook {
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         };
-        let mut effects = match result {
-            Ok(outcome) => CommandEffects::new(outcome),
+        let outcome = match result {
+            Ok(outcome) => outcome,
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        loop {
-            let curr_trade_price = self.last_trade_price;
-            match (prev_trade_price, curr_trade_price) {
-                (Some(prev), Some(curr)) => {
-                    let orders = self.price_conditional.drain_levels(prev, curr);
-                    self.apply_activated_price_conditional_orders(meta, orders, &mut effects);
-                }
-                (None, Some(curr)) => {
-                    let orders = self.price_conditional.drain_pre_trade_level_at_price(curr);
-                    self.apply_activated_price_conditional_orders(meta, orders, &mut effects);
-                }
-                _ => {}
-            }
-            prev_trade_price = curr_trade_price;
-
-            let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
-            let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
-
-            let Some(order_outcome) = self.match_market_pegged_order(
-                meta.sequence_number,
-                bid_became_non_empty,
-                ask_became_non_empty,
-            ) else {
-                break;
-            };
-            effects.add_triggered_order(order_outcome);
-        }
+        let effects = self.process_triggered_orders(
+            meta,
+            prev_trade_price,
+            was_bid_empty,
+            was_ask_empty,
+            outcome,
+        );
 
         CommandOutcome::Applied(CommandReport::Submit(effects))
     }
