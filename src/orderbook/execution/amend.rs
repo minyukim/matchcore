@@ -6,7 +6,8 @@ use std::cmp::Reverse;
 impl OrderBook {
     /// Execute an amend command against the order book and return the execution outcome
     pub(super) fn execute_amend(&mut self, meta: CommandMeta, cmd: &AmendCmd) -> CommandOutcome {
-        let (was_bid_empty, was_ask_empty) = (
+        let (prev_trade_price, was_bid_empty, was_ask_empty) = (
+            self.last_trade_price,
             self.is_side_empty(Side::Buy),
             self.is_side_empty(Side::Sell),
         );
@@ -15,24 +16,18 @@ impl OrderBook {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
         };
-        let mut effects = match result {
-            Ok(outcome) => CommandEffects::new(outcome),
+        let outcome = match result {
+            Ok(outcome) => outcome,
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        loop {
-            let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
-            let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
-
-            let Some(order_outcome) = self.match_market_pegged_order(
-                meta.sequence_number,
-                bid_became_non_empty,
-                ask_became_non_empty,
-            ) else {
-                break;
-            };
-            effects.add_triggered_order(order_outcome);
-        }
+        let effects = self.process_triggered_orders(
+            meta,
+            prev_trade_price,
+            was_bid_empty,
+            was_ask_empty,
+            outcome,
+        );
 
         CommandOutcome::Applied(CommandReport::Amend(effects))
     }
