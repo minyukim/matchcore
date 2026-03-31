@@ -83,17 +83,21 @@ pub struct PriceConditionalOrder {
     trigger_price: Price,
     /// The direction in which the price must move relative to `trigger_price`
     direction: TriggerDirection,
-    /// The order to execute when the condition is met
-    order: TriggerOrder,
+    /// The target order to execute when the condition is met
+    target_order: TriggerOrder,
 }
 
 impl PriceConditionalOrder {
     /// Create a new price-conditional order
-    pub fn new(trigger_price: Price, direction: TriggerDirection, order: TriggerOrder) -> Self {
+    pub fn new(
+        trigger_price: Price,
+        direction: TriggerDirection,
+        target_order: TriggerOrder,
+    ) -> Self {
         Self {
             trigger_price,
             direction,
-            order,
+            target_order,
         }
     }
 
@@ -107,14 +111,14 @@ impl PriceConditionalOrder {
         self.direction
     }
 
-    /// Get the order to execute when the condition is met
-    pub fn order(&self) -> &TriggerOrder {
-        &self.order
+    /// Get the target order to execute when the condition is met
+    pub fn target_order(&self) -> &TriggerOrder {
+        &self.target_order
     }
 
-    /// Convert the price-conditional order into its order to execute when the condition is met
-    pub fn into_order(self) -> TriggerOrder {
-        self.order
+    /// Convert the price-conditional order into its target order to execute when the condition is met
+    pub fn into_target_order(self) -> TriggerOrder {
+        self.target_order
     }
 }
 

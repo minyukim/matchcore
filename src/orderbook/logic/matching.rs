@@ -18,6 +18,8 @@ pub(super) struct MatchingContext<'a> {
     pub pegged_orders: &'a mut FxHashMap<OrderId, RestingPeggedOrder>,
     pub taker_peg_levels: &'a mut [PegLevel; PegReference::COUNT],
     pub maker_peg_levels: &'a mut [PegLevel; PegReference::COUNT],
+
+    pub price_conditional_book: &'a mut PriceConditionalBook,
 }
 
 impl<'a> MatchingContext<'a> {
@@ -42,6 +44,10 @@ impl<'a> MatchingContext<'a> {
     /// It decides the next order to consume by comparing the time priority of
     /// the highest priority limit order and the highest priority pegged order.
     /// If the time priority of them are the same, it consumes the limit order first.
+    ///
+    /// Preconditions:
+    /// - `quantity` > 0
+    /// - the book is not empty on the maker side (there is at least one matchable order)
     ///
     /// Returns a `MatchResult` struct containing the result of the match.
     pub fn match_order(
@@ -203,10 +209,41 @@ impl<'a> MatchingContext<'a> {
             self.maker_peg_levels[PegReference::Primary.as_index()].repriced_at = sequence_number;
         }
 
-        *self.last_trade_price = match_result.last_trade_price();
+        let start = match *self.last_trade_price {
+            Some(prev) => prev,
+            None => {
+                let first = match_result
+                    .first_trade_price()
+                    .expect("match result must have at least one trade");
+                let orders = self
+                    .price_conditional_book
+                    .drain_pre_trade_level_at_price(first);
+                self.price_conditional_book.ready_orders.extend(orders);
+
+                first
+            }
+        };
+
+        let end = match_result
+            .last_trade_price()
+            .expect("match result must have at least one trade");
+
+        let orders = self.price_conditional_book.drain_levels(start, end);
+        self.price_conditional_book.ready_orders.extend(orders);
+
+        *self.last_trade_price = Some(end);
         match_result
     }
 
+    /// Match a taker market pegged order against the order book.
+    ///
+    /// It uses the matching context to perform the matching.
+    ///
+    /// Preconditions:
+    /// - `quantity` > 0
+    /// - the order book is not empty on the maker side (there is at least one matchable order)
+    ///
+    /// Returns an `OrderOutcome` struct containing the result of the match.
     pub(crate) fn match_taker_market_pegged_order(
         &mut self,
         sequence_number: SequenceNumber,
@@ -305,6 +342,7 @@ impl OrderBook {
                 pegged_orders: &mut self.pegged.orders,
                 taker_peg_levels: &mut self.pegged.bid_levels,
                 maker_peg_levels: &mut self.pegged.ask_levels,
+                price_conditional_book: &mut self.price_conditional,
             },
             Side::Sell => MatchingContext {
                 taker_side,
@@ -316,6 +354,7 @@ impl OrderBook {
                 pegged_orders: &mut self.pegged.orders,
                 taker_peg_levels: &mut self.pegged.ask_levels,
                 maker_peg_levels: &mut self.pegged.bid_levels,
+                price_conditional_book: &mut self.price_conditional,
             },
         }
     }
@@ -323,6 +362,10 @@ impl OrderBook {
     /// Match an order against existing orders in the order book.
     ///
     /// It uses the matching context to perform the matching.
+    ///
+    /// Preconditions:
+    /// - `quantity` > 0
+    /// - the book is not empty on the maker side (there is at least one matchable order)
     ///
     /// Returns a `MatchResult` struct containing the result of the match.
     pub(crate) fn match_order(
@@ -833,20 +876,16 @@ mod tests_match_order {
     }
 
     #[test]
-    fn test_empty_book_no_fill() {
+    #[should_panic]
+    fn test_empty_book_panic() {
         let mut orderbook = new_test_book();
 
-        let result = orderbook.match_order(SequenceNumber(0), Side::Buy, None, Quantity(30));
-
-        assert_eq!(result.taker_side(), Side::Buy);
-        assert_eq!(result.executed_quantity(), Quantity(0));
-        assert_eq!(result.executed_value(), Notional(0));
-        assert!(result.trades().is_empty());
-        assert!(orderbook.last_trade_price().is_none());
+        orderbook.match_order(SequenceNumber(0), Side::Buy, None, Quantity(30));
     }
 
     #[test]
-    fn test_limit_not_crossed_no_fill() {
+    #[should_panic]
+    fn test_limit_not_crossed_panic() {
         let mut orderbook = new_test_book();
         add_standard_order(
             &mut orderbook,
@@ -858,12 +897,7 @@ mod tests_match_order {
         );
 
         // Buy limit 99 does not cross best ask 100
-        let result =
-            orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(99)), Quantity(30));
-
-        assert_eq!(result.executed_quantity(), Quantity(0));
-        assert!(result.trades().is_empty());
-        assert_eq!(orderbook.best_ask_price(), Some(Price(100)));
+        orderbook.match_order(SequenceNumber(1), Side::Buy, Some(Price(99)), Quantity(30));
     }
 
     #[test]

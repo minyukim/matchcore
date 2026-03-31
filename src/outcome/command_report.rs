@@ -32,18 +32,24 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let report = CommandReport::Submit(CommandEffects::new(OrderOutcome::new(OrderId(1))));
+        let report = CommandReport::Submit(CommandEffects::new(
+            OrderOutcome::new(OrderId(1)),
+            Vec::new(),
+        ));
         println!("{}", report);
         assert_eq!(
             report.to_string(),
-            "order submitted: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
+            "order submitted: effects:\n  primary order(1):\n    not matched\n    not cancelled\n"
         );
 
-        let report = CommandReport::Amend(CommandEffects::new(OrderOutcome::new(OrderId(1))));
+        let report = CommandReport::Amend(CommandEffects::new(
+            OrderOutcome::new(OrderId(1)),
+            Vec::new(),
+        ));
         println!("{}", report);
         assert_eq!(
             report.to_string(),
-            "order amended: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
+            "order amended: effects:\n  primary order(1):\n    not matched\n    not cancelled\n"
         );
 
         let report = CommandReport::Cancel;
@@ -57,14 +63,13 @@ mod tests {
         let mut order_outcome3 = OrderOutcome::new(OrderId(3));
         order_outcome3.set_cancel_reason(CancelReason::PostOnlyWouldTake);
 
-        let mut command_effects = CommandEffects::new(order_outcome1);
-        command_effects.add_triggered_order(order_outcome2);
-        command_effects.add_triggered_order(order_outcome3);
+        let command_effects =
+            CommandEffects::new(order_outcome1, vec![order_outcome2, order_outcome3]);
         let report = CommandReport::Submit(command_effects);
         println!("{}", report);
         assert_eq!(
             report.to_string(),
-            "order submitted: effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
+            "order submitted: effects:\n  primary order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
         );
     }
 }

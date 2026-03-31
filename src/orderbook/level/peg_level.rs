@@ -50,6 +50,11 @@ impl PegLevel {
         self.quantity
     }
 
+    /// Get the level entries for this peg level
+    pub fn level_entries(&self) -> &LevelEntries {
+        &self.level_entries
+    }
+
     /// Add an order entry to the peg level
     pub(crate) fn add_order_entry(&mut self, queue_entry: QueueEntry, quantity: Quantity) {
         self.quantity += quantity;
@@ -71,12 +76,12 @@ impl PegLevel {
     /// Note that it does not update the quantity of the peg level
     pub(crate) fn remove_head_order(
         &mut self,
-        pegged_orders: &mut FxHashMap<OrderId, RestingPeggedOrder>,
+        orders: &mut FxHashMap<OrderId, RestingPeggedOrder>,
     ) {
         let Some(queue_entry) = self.pop() else {
             return;
         };
-        pegged_orders.remove(&queue_entry.order_id());
+        orders.remove(&queue_entry.order_id());
         self.decrement_order_count();
     }
 }

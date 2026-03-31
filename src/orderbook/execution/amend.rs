@@ -15,26 +15,14 @@ impl OrderBook {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
         };
-        let mut effects = match result {
-            Ok(outcome) => CommandEffects::new(outcome),
+        let target = match result {
+            Ok(outcome) => outcome,
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        loop {
-            let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
-            let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
+        let triggered = self.process_order_cascade(meta, was_bid_empty, was_ask_empty);
 
-            let Some(order_outcome) = self.match_market_pegged_order(
-                meta.sequence_number,
-                bid_became_non_empty,
-                ask_became_non_empty,
-            ) else {
-                break;
-            };
-            effects.add_triggered_order(order_outcome);
-        }
-
-        CommandOutcome::Applied(CommandReport::Amend(effects))
+        CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(target, triggered)))
     }
 
     /// Amend a limit order
@@ -498,8 +486,8 @@ mod tests_amend_limit_order {
                     quantity: Quantity(10),
                 }),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
-        assert!(effects.target_order().cancel_reason().is_none());
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
+        assert!(effects.primary_outcome().cancel_reason().is_none());
 
         let order = book.limit.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.time_priority(), SequenceNumber(1));
@@ -545,9 +533,9 @@ mod tests_amend_limit_order {
             OrderId(1),
             LimitOrderPatch::new().with_price(Price(100)),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(1));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(1));
 
-        let match_result = effects.target_order().match_result().unwrap();
+        let match_result = effects.primary_outcome().match_result().unwrap();
         assert_eq!(match_result.executed_quantity(), Quantity(10));
         assert_eq!(
             match_result.trades(),
@@ -597,7 +585,7 @@ mod tests_amend_limit_order {
                 })
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
         assert!(book.limit.orders.contains_key(&OrderId(0)));
         assert!(!book.limit.expiration_queue.is_empty());
     }
@@ -651,7 +639,7 @@ mod tests_amend_limit_order {
                 quantity: Quantity(5),
             }),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
 
         let order = book.limit.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.time_priority(), SequenceNumber(0));
@@ -718,7 +706,7 @@ mod tests_amend_limit_order {
                 quantity: Quantity(20),
             }),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
 
         let order = book.limit.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.time_priority(), SequenceNumber(2));
@@ -871,7 +859,7 @@ mod tests_amend_pegged_order {
                 .with_peg_reference(PegReference::Market)
                 .with_quantity(Quantity(10)),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
 
         let order = book.pegged.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.time_priority(), SequenceNumber(1));
@@ -914,9 +902,9 @@ mod tests_amend_pegged_order {
             OrderId(1),
             PeggedOrderPatch::new().with_peg_reference(PegReference::Market),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(1));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(1));
 
-        let match_result = effects.target_order().match_result().unwrap();
+        let match_result = effects.primary_outcome().match_result().unwrap();
         assert_eq!(match_result.executed_quantity(), Quantity(10));
         assert_eq!(
             match_result.trades(),
@@ -958,7 +946,7 @@ mod tests_amend_pegged_order {
                 .with_quantity(Quantity(10))
                 .with_time_in_force(TimeInForce::Gtd(Timestamp(2000))),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
         assert!(book.pegged.orders.contains_key(&OrderId(0)));
         assert!(!book.pegged.expiration_queue.is_empty());
     }
@@ -1007,7 +995,7 @@ mod tests_amend_pegged_order {
             PeggedOrderPatch::new().with_quantity(Quantity(5)),
         ));
 
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
 
         let order = book.pegged.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.time_priority(), SequenceNumber(0));
@@ -1068,7 +1056,7 @@ mod tests_amend_pegged_order {
             OrderId(0),
             PeggedOrderPatch::new().with_quantity(Quantity(20)),
         ));
-        assert_eq!(effects.target_order().order_id(), OrderId(0));
+        assert_eq!(effects.primary_outcome().order_id(), OrderId(0));
 
         let order = book.pegged.orders.get(&OrderId(0)).unwrap();
         assert_eq!(order.time_priority(), SequenceNumber(2));

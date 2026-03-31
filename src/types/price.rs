@@ -20,6 +20,16 @@ impl Price {
     pub fn as_f64(self) -> f64 {
         self.0 as f64
     }
+
+    /// Increment the price by 1
+    pub fn inc(self) -> Self {
+        Self(self.0 + 1)
+    }
+
+    /// Decrement the price by 1
+    pub fn dec(self) -> Self {
+        Self(self.0 - 1)
+    }
 }
 
 impl Sub for Price {

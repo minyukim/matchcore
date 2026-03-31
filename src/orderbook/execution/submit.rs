@@ -14,26 +14,16 @@ impl OrderBook {
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
         };
-        let mut effects = match result {
-            Ok(outcome) => CommandEffects::new(outcome),
+        let target = match result {
+            Ok(outcome) => outcome,
             Err(failure) => return CommandOutcome::Rejected(failure),
         };
 
-        loop {
-            let bid_became_non_empty = was_bid_empty && !self.is_side_empty(Side::Buy);
-            let ask_became_non_empty = was_ask_empty && !self.is_side_empty(Side::Sell);
+        let triggered = self.process_order_cascade(meta, was_bid_empty, was_ask_empty);
 
-            let Some(order_outcome) = self.match_market_pegged_order(
-                meta.sequence_number,
-                bid_became_non_empty,
-                ask_became_non_empty,
-            ) else {
-                break;
-            };
-            effects.add_triggered_order(order_outcome);
-        }
-
-        CommandOutcome::Applied(CommandReport::Submit(effects))
+        CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            target, triggered,
+        )))
     }
 
     /// Submit a market order
@@ -388,13 +378,13 @@ mod tests_submit_market_order {
         ));
 
         assert_eq!(
-            effects.target_order().cancel_reason(),
+            effects.primary_outcome().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.primary_outcome().match_result().is_none());
     }
 
     #[test]
@@ -421,7 +411,7 @@ mod tests_submit_market_order {
             MarketOrder::new(Quantity(10), Side::Buy, true),
         ));
 
-        let submitted = effects.target_order();
+        let submitted = effects.primary_outcome();
         assert_eq!(submitted.order_id(), OrderId(1));
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
@@ -503,13 +493,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.target_order().cancel_reason(),
+            effects.primary_outcome().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.primary_outcome().match_result().is_none());
         assert!(book.limit.orders.is_empty());
     }
 
@@ -544,10 +534,10 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.target_order().cancel_reason(),
+            effects.primary_outcome().cancel_reason(),
             Some(&CancelReason::PostOnlyWouldTake)
         );
-        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.primary_outcome().match_result().is_none());
     }
 
     #[test]
@@ -581,13 +571,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.target_order().cancel_reason(),
+            effects.primary_outcome().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(5)
             })
         );
-        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.primary_outcome().match_result().is_none());
         assert_eq!(book.last_trade_price(), None);
     }
 
@@ -620,7 +610,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = effects.target_order();
+        let submitted = effects.primary_outcome();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -664,7 +654,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = effects.target_order();
+        let submitted = effects.primary_outcome();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -738,10 +728,10 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let id = effects.target_order().order_id();
+        let id = effects.primary_outcome().order_id();
         assert!(book.pegged.orders.contains_key(&id));
-        assert!(effects.target_order().match_result().is_none());
-        assert!(effects.target_order().cancel_reason().is_none());
+        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.primary_outcome().cancel_reason().is_none());
     }
 
     #[test]
@@ -760,7 +750,7 @@ mod tests_submit_pegged_order {
         ));
 
         assert_eq!(
-            effects.target_order().cancel_reason(),
+            effects.primary_outcome().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -797,7 +787,7 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let submitted = effects.target_order();
+        let submitted = effects.primary_outcome();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
