@@ -1,5 +1,5 @@
 use super::{LimitOrder, MarketOrder};
-use crate::{LevelId, Price, SequenceNumber};
+use crate::{LevelId, Price, SequenceNumber, Timestamp};
 
 use std::ops::{Deref, DerefMut};
 
@@ -120,6 +120,14 @@ impl PriceConditionalOrder {
     pub fn into_target_order(self) -> TriggerOrder {
         self.target_order
     }
+
+    /// Check if the target order is expired at a given timestamp
+    pub fn is_expired(&self, timestamp: Timestamp) -> bool {
+        match self.target_order() {
+            TriggerOrder::Market(_) => false,
+            TriggerOrder::Limit(order) => order.is_expired(timestamp),
+        }
+    }
 }
 
 /// Direction of trigger evaluation relative to the trigger price
@@ -140,4 +148,91 @@ pub enum TriggerOrder {
     Market(MarketOrder),
     /// Execute a limit order
     Limit(LimitOrder),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::*;
+
+    #[test]
+    fn test_is_expired() {
+        let test_ts = 1771180000;
+
+        struct Case {
+            name: &'static str,
+            order: PriceConditionalOrder,
+            expected: bool,
+        }
+
+        let cases = [
+            Case {
+                name: "market order",
+                order: PriceConditionalOrder::new(
+                    Price(100),
+                    TriggerDirection::AtOrAbove,
+                    TriggerOrder::Market(MarketOrder::new(Quantity(100), Side::Buy, true)),
+                ),
+                expected: false,
+            },
+            Case {
+                name: "limit order (GTC)",
+                order: PriceConditionalOrder::new(
+                    Price(100),
+                    TriggerDirection::AtOrAbove,
+                    TriggerOrder::Limit(LimitOrder::new(
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(100),
+                        },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    )),
+                ),
+                expected: false,
+            },
+            Case {
+                name: "limit order (unexpired GTD)",
+                order: PriceConditionalOrder::new(
+                    Price(100),
+                    TriggerDirection::AtOrAbove,
+                    TriggerOrder::Limit(LimitOrder::new(
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(100),
+                        },
+                        OrderFlags::new(
+                            Side::Buy,
+                            false,
+                            TimeInForce::Gtd(Timestamp(test_ts + 1000)),
+                        ),
+                    )),
+                ),
+                expected: false,
+            },
+            Case {
+                name: "limit order (expired GTD)",
+                order: PriceConditionalOrder::new(
+                    Price(100),
+                    TriggerDirection::AtOrAbove,
+                    TriggerOrder::Limit(LimitOrder::new(
+                        Price(100),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(100),
+                        },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(test_ts))),
+                    )),
+                ),
+                expected: true,
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(
+                case.order.is_expired(Timestamp(test_ts)),
+                case.expected,
+                "case: {}",
+                case.name
+            );
+        }
+    }
 }
