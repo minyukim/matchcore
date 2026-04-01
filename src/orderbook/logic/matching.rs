@@ -47,7 +47,7 @@ impl<'a> MatchingContext<'a> {
     ///
     /// Preconditions:
     /// - `quantity` > 0
-    /// - the book is not empty on the maker side (there is at least one matchable order)
+    /// - there is at least one matchable order
     ///
     /// Returns a `MatchResult` struct containing the result of the match.
     pub fn match_order(
@@ -56,6 +56,18 @@ impl<'a> MatchingContext<'a> {
         limit_price: Option<Price>,
         quantity: Quantity,
     ) -> MatchResult {
+        debug_assert!(!quantity.is_zero());
+        debug_assert!(match limit_price {
+            None => self.maker_best_level().is_some(),
+            Some(limit_price) => self.maker_best_level().is_some_and(|(price, _)| {
+                if self.taker_side == Side::Buy {
+                    price <= limit_price
+                } else {
+                    price >= limit_price
+                }
+            }),
+        });
+
         let mut match_result = MatchResult::new(self.taker_side);
         let mut remaining_quantity = quantity;
         let mut needs_reprice = false;
@@ -241,7 +253,7 @@ impl<'a> MatchingContext<'a> {
     ///
     /// Preconditions:
     /// - `quantity` > 0
-    /// - the order book is not empty on the maker side (there is at least one matchable order)
+    /// - there is at least one matchable order
     ///
     /// Returns an `OrderOutcome` struct containing the result of the match.
     pub(crate) fn match_taker_market_pegged_order(
@@ -365,7 +377,7 @@ impl OrderBook {
     ///
     /// Preconditions:
     /// - `quantity` > 0
-    /// - the book is not empty on the maker side (there is at least one matchable order)
+    /// - there is at least one matchable order
     ///
     /// Returns a `MatchResult` struct containing the result of the match.
     pub(crate) fn match_order(
