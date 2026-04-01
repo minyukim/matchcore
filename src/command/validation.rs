@@ -35,6 +35,13 @@ impl PeggedOrder {
     }
 }
 
+impl PriceConditionalOrder {
+    /// Validate the order specification
+    pub fn validate(&self) -> Result<(), CommandError> {
+        validate_price_conditional_order_invariants(self.trigger_price(), self.target_order())
+    }
+}
+
 /// Validate the invariants of a limit order
 pub(super) fn validate_limit_order_invariants(
     price: Price,
@@ -110,6 +117,21 @@ fn validate_order_core_invariants(
         return Err(CommandError::PostOnlyImmediateTif);
     }
     Ok(())
+}
+
+/// Validate the invariants of a price-conditional order
+pub(super) fn validate_price_conditional_order_invariants(
+    trigger_price: Price,
+    target_order: &TriggerOrder,
+) -> Result<(), CommandError> {
+    if trigger_price.is_zero() {
+        return Err(CommandError::ZeroPrice);
+    }
+
+    match target_order {
+        TriggerOrder::Market(order) => order.validate(),
+        TriggerOrder::Limit(order) => order.validate(),
+    }
 }
 
 #[cfg(test)]
@@ -385,6 +407,84 @@ mod tests {
                         case.quantity,
                         case.post_only,
                         case.time_in_force
+                    )
+                    .unwrap_err(),
+                    e,
+                    "case: {}",
+                    case.name
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_price_conditional_order_invariants() {
+        struct Case {
+            name: &'static str,
+            trigger_price: Price,
+            target_order: TriggerOrder,
+            expected: Result<(), CommandError>,
+        }
+        let cases = [
+            Case {
+                name: "valid price-conditional order",
+                trigger_price: Price(100),
+                target_order: TriggerOrder::Limit(LimitOrder::new(
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(100),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                )),
+                expected: Ok(()),
+            },
+            Case {
+                name: "zero trigger price",
+                trigger_price: Price(0),
+                target_order: TriggerOrder::Limit(LimitOrder::new(
+                    Price(100),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(100),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                )),
+                expected: Err(CommandError::ZeroPrice),
+            },
+            Case {
+                name: "invalid target market order",
+                trigger_price: Price(100),
+                target_order: TriggerOrder::Market(MarketOrder::new(Quantity(0), Side::Buy, false)),
+                expected: Err(CommandError::ZeroQuantity),
+            },
+            Case {
+                name: "invalid target limit order",
+                trigger_price: Price(100),
+                target_order: TriggerOrder::Limit(LimitOrder::new(
+                    Price(0),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(100),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                )),
+                expected: Err(CommandError::ZeroPrice),
+            },
+        ];
+
+        for case in cases {
+            match case.expected {
+                Ok(()) => assert!(
+                    validate_price_conditional_order_invariants(
+                        case.trigger_price,
+                        &case.target_order
+                    )
+                    .is_ok(),
+                    "case: {}",
+                    case.name
+                ),
+                Err(e) => assert_eq!(
+                    validate_price_conditional_order_invariants(
+                        case.trigger_price,
+                        &case.target_order
                     )
                     .unwrap_err(),
                     e,

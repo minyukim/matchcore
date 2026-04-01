@@ -1,5 +1,5 @@
 use super::OrderBook;
-use crate::{command::*, orders::*, outcome::*, types::*};
+use crate::{QueueEntry, command::*, orders::*, outcome::*, types::*};
 
 impl OrderBook {
     /// Execute a submit command against the order book and return the execution outcome
@@ -13,6 +13,7 @@ impl OrderBook {
             NewOrder::Market(order) => self.submit_market_order(meta.sequence_number, order),
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
+            NewOrder::PriceConditional(order) => self.submit_price_conditional_order(meta, order),
         };
         let target = match result {
             Ok(outcome) => outcome,
@@ -340,6 +341,62 @@ impl OrderBook {
         self.add_pegged_order(sequence_number, id, order.clone());
 
         OrderOutcome::new(id)
+    }
+
+    /// Submit a price-conditional order
+    fn submit_price_conditional_order(
+        &mut self,
+        meta: CommandMeta,
+        order: &PriceConditionalOrder,
+    ) -> Result<OrderOutcome, CommandFailure> {
+        order.validate().map_err(CommandFailure::InvalidCommand)?;
+
+        if order.is_expired(meta.timestamp) {
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
+        }
+
+        Ok(self.submit_validated_price_conditional_order(
+            meta.sequence_number,
+            OrderId::from(meta.sequence_number),
+            order,
+        ))
+    }
+
+    /// Submit a validated price-conditional order
+    pub(super) fn submit_validated_price_conditional_order(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        order: &PriceConditionalOrder,
+    ) -> OrderOutcome {
+        let outcome = OrderOutcome::new(id);
+
+        let Some(last_trade_price) = self.last_trade_price() else {
+            // All the price-conditional orders have to be checked and activated in order when the first trade occurs
+            self.price_conditional
+                .pre_trade_level
+                .add_order_entry(QueueEntry::new(sequence_number, id));
+            return outcome;
+        };
+
+        // Check if the price-conditional order has to be activated immediately
+        match order.direction() {
+            TriggerDirection::AtOrAbove if last_trade_price >= order.trigger_price() => {
+                self.price_conditional
+                    .ready_orders
+                    .push_back((id, order.clone()));
+            }
+            TriggerDirection::AtOrBelow if last_trade_price <= order.trigger_price() => {
+                self.price_conditional
+                    .ready_orders
+                    .push_back((id, order.clone()));
+            }
+            _ => {
+                self.add_price_conditional_order(sequence_number, id, order.clone());
+            }
+        }
+
+        outcome
     }
 }
 
@@ -798,5 +855,199 @@ mod tests_submit_pegged_order {
         assert_eq!(resting.peg_reference(), PegReference::Market);
         assert_eq!(resting.side(), Side::Buy);
         assert_eq!(resting.quantity(), Quantity(5));
+    }
+}
+
+#[cfg(test)]
+mod tests_submit_price_conditional_order {
+    use super::*;
+
+    fn submit(
+        book: &mut OrderBook,
+        seq: u64,
+        ts: u64,
+        order: PriceConditionalOrder,
+    ) -> CommandOutcome {
+        book.execute_submit(
+            CommandMeta {
+                sequence_number: SequenceNumber(seq),
+                timestamp: Timestamp(ts),
+            },
+            &SubmitCmd {
+                order: NewOrder::PriceConditional(order),
+            },
+        )
+    }
+
+    fn submit_market(
+        book: &mut OrderBook,
+        seq: u64,
+        ts: u64,
+        order: MarketOrder,
+    ) -> CommandOutcome {
+        book.execute_submit(
+            CommandMeta {
+                sequence_number: SequenceNumber(seq),
+                timestamp: Timestamp(ts),
+            },
+            &SubmitCmd {
+                order: NewOrder::Market(order),
+            },
+        )
+    }
+
+    fn unwrap_submit_effects(outcome: CommandOutcome) -> CommandEffects {
+        match outcome {
+            CommandOutcome::Applied(CommandReport::Submit(effects)) => effects,
+            other => panic!("expected applied submit, got: {other:?}"),
+        }
+    }
+
+    fn seed_last_trade_price(book: &mut OrderBook, trade_price: Price) {
+        // Create a single trade at `trade_price` so the book has a last-trade price.
+        book.add_limit_order(
+            SequenceNumber(0),
+            OrderId(0),
+            LimitOrder::new(
+                trade_price,
+                QuantityPolicy::Standard {
+                    quantity: Quantity(1),
+                },
+                OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+            ),
+        );
+
+        let _ = submit_market(book, 1, 0, MarketOrder::new(Quantity(1), Side::Buy, false));
+        assert_eq!(book.last_trade_price(), Some(trade_price));
+    }
+
+    #[test]
+    fn reject_expired_order() {
+        let mut book = OrderBook::new("TEST");
+
+        let outcome = submit(
+            &mut book,
+            0,
+            1000,
+            PriceConditionalOrder::new(
+                Price(100),
+                TriggerDirection::AtOrAbove,
+                TriggerOrder::Limit(LimitOrder::new(
+                    Price(99),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
+                )),
+            ),
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
+            other => panic!("expected expired rejection, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn activate_immediately_at_or_above_submits_target_limit_order() {
+        let mut book = OrderBook::new("TEST");
+        seed_last_trade_price(&mut book, Price(100));
+
+        let effects = unwrap_submit_effects(submit(
+            &mut book,
+            2,
+            0,
+            PriceConditionalOrder::new(
+                Price(100),
+                TriggerDirection::AtOrAbove,
+                TriggerOrder::Limit(LimitOrder::new(
+                    Price(99),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                )),
+            ),
+        ));
+
+        let primary = effects.primary_outcome();
+        assert_eq!(primary.order_id(), OrderId(2));
+        assert!(primary.match_result().is_none());
+        assert!(primary.cancel_reason().is_none());
+
+        let cascading = effects.cascading_outcomes();
+        assert_eq!(cascading.len(), 1);
+        assert_eq!(cascading[0].order_id(), OrderId(2));
+        assert!(cascading[0].match_result().is_none());
+        assert!(cascading[0].cancel_reason().is_none());
+
+        // Target limit order should have been submitted as a normal order with the same id.
+        assert!(book.limit.orders.contains_key(&OrderId(2)));
+        assert!(!book.price_conditional.orders.contains_key(&OrderId(2)));
+    }
+
+    #[test]
+    fn activate_immediately_at_or_below_submits_target_limit_order() {
+        let mut book = OrderBook::new("TEST");
+        seed_last_trade_price(&mut book, Price(100));
+
+        let effects = unwrap_submit_effects(submit(
+            &mut book,
+            2,
+            0,
+            PriceConditionalOrder::new(
+                Price(100),
+                TriggerDirection::AtOrBelow,
+                TriggerOrder::Limit(LimitOrder::new(
+                    Price(101),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                )),
+            ),
+        ));
+
+        let primary = effects.primary_outcome();
+        assert_eq!(primary.order_id(), OrderId(2));
+        assert!(primary.match_result().is_none());
+        assert!(primary.cancel_reason().is_none());
+
+        let cascading = effects.cascading_outcomes();
+        assert_eq!(cascading.len(), 1);
+        assert_eq!(cascading[0].order_id(), OrderId(2));
+        assert!(cascading[0].match_result().is_none());
+        assert!(cascading[0].cancel_reason().is_none());
+
+        assert!(book.limit.orders.contains_key(&OrderId(2)));
+        assert!(!book.price_conditional.orders.contains_key(&OrderId(2)));
+    }
+
+    #[test]
+    fn rest_in_price_conditional_book_when_not_triggered() {
+        let mut book = OrderBook::new("TEST");
+        seed_last_trade_price(&mut book, Price(100));
+
+        let effects = unwrap_submit_effects(submit(
+            &mut book,
+            2,
+            0,
+            PriceConditionalOrder::new(
+                Price(101),
+                TriggerDirection::AtOrAbove,
+                TriggerOrder::Market(MarketOrder::new(Quantity(10), Side::Buy, false)),
+            ),
+        ));
+
+        let primary = effects.primary_outcome();
+        assert_eq!(primary.order_id(), OrderId(2));
+        assert!(primary.match_result().is_none());
+        assert!(primary.cancel_reason().is_none());
+
+        let cascading = effects.cascading_outcomes();
+        assert!(cascading.is_empty());
+
+        assert!(book.price_conditional.orders.contains_key(&OrderId(2)));
+        assert!(!book.limit.orders.contains_key(&OrderId(2)));
     }
 }

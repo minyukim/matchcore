@@ -1,4 +1,4 @@
-use crate::{LimitOrder, MarketOrder, PeggedOrder};
+use crate::{LimitOrder, MarketOrder, PeggedOrder, PriceConditionalOrder};
 
 /// Represents a command to submit a new order
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -18,4 +18,6 @@ pub enum NewOrder {
     Limit(LimitOrder),
     /// A new pegged order
     Pegged(PeggedOrder),
+    /// A new price-conditional order
+    PriceConditional(PriceConditionalOrder),
 }
