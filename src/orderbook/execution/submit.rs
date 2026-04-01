@@ -13,6 +13,7 @@ impl OrderBook {
             NewOrder::Market(order) => self.submit_market_order(meta.sequence_number, order),
             NewOrder::Limit(order) => self.submit_limit_order(meta, order),
             NewOrder::Pegged(order) => self.submit_pegged_order(meta, order),
+            NewOrder::PriceConditional(order) => todo!(),
         };
         let target = match result {
             Ok(outcome) => outcome,
