@@ -15,16 +15,16 @@ pub struct RestingLimitOrder {
     /// The ID of the level the order is resting at
     level_id: LevelId,
     /// The limit order
-    order: LimitOrder,
+    inner: LimitOrder,
 }
 
 impl RestingLimitOrder {
     /// Create a new resting limit order
-    pub fn new(time_priority: SequenceNumber, level_id: LevelId, order: LimitOrder) -> Self {
+    pub fn new(time_priority: SequenceNumber, level_id: LevelId, inner: LimitOrder) -> Self {
         Self {
             time_priority,
             level_id,
-            order,
+            inner,
         }
     }
 
@@ -43,14 +43,19 @@ impl RestingLimitOrder {
         self.level_id
     }
 
+    /// Update the ID of the level the order is resting at
+    pub(crate) fn update_level_id(&mut self, new_level_id: LevelId) {
+        self.level_id = new_level_id;
+    }
+
     /// Get the limit order
-    pub fn order(&self) -> &LimitOrder {
-        &self.order
+    pub fn inner(&self) -> &LimitOrder {
+        &self.inner
     }
 
     /// Convert the resting limit order into a limit order
-    pub fn into_order(self) -> LimitOrder {
-        self.order
+    pub fn into_inner(self) -> LimitOrder {
+        self.inner
     }
 }
 
@@ -58,12 +63,12 @@ impl Deref for RestingLimitOrder {
     type Target = LimitOrder;
 
     fn deref(&self) -> &Self::Target {
-        &self.order
+        &self.inner
     }
 }
 impl DerefMut for RestingLimitOrder {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.order
+        &mut self.inner
     }
 }
 

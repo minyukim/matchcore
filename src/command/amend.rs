@@ -1,11 +1,11 @@
 use super::{
     CommandError,
-    validation::{validate_limit_order_invariants, validate_pegged_order_invariants},
+    validation::{
+        validate_limit_order_invariants, validate_pegged_order_invariants,
+        validate_price_conditional_order_invariants,
+    },
 };
-use crate::{
-    LimitOrder, OrderId, PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, TimeInForce,
-    Timestamp,
-};
+use crate::{orders::*, types::*};
 
 use std::ops::{Deref, DerefMut};
 
@@ -27,6 +27,8 @@ pub enum AmendPatch {
     Limit(LimitOrderPatch),
     /// The patch to a pegged order
     Pegged(PeggedOrderPatch),
+    /// The patch to a price-conditional order
+    PriceConditional(PriceConditionalOrderPatch),
 }
 
 /// Represents the patch to a limit order
@@ -236,10 +238,70 @@ impl OrderFlagsPatch {
     }
 }
 
+/// Represents the patch to a price-conditional order
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PriceConditionalOrderPatch {
+    /// The new price condition of the order
+    pub price_condition: Option<PriceCondition>,
+    /// The new target order to execute when the condition is met
+    pub target_order: Option<TriggerOrder>,
+}
+
+impl PriceConditionalOrderPatch {
+    /// Create a new empty price-conditional order patch
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns this patch with the price condition set.
+    pub fn with_price_condition(mut self, v: PriceCondition) -> Self {
+        self.price_condition = Some(v);
+        self
+    }
+
+    /// Returns this patch with the target order set.
+    pub fn with_target_order(mut self, v: TriggerOrder) -> Self {
+        self.target_order = Some(v);
+        self
+    }
+
+    /// Check if the patch is empty
+    pub fn is_empty(&self) -> bool {
+        self.price_condition.is_none() && self.target_order.is_none()
+    }
+
+    /// Checks if the patch has expired time in force at a given timestamp
+    pub fn has_expired_time_in_force(&self, timestamp: Timestamp) -> bool {
+        self.target_order
+            .as_ref()
+            .is_some_and(|target_order| target_order.is_expired(timestamp))
+    }
+
+    /// Apply the patch to the order if the patch does not conflict with the order
+    pub(crate) fn apply(&self, order: &mut PriceConditionalOrder) -> Result<(), CommandError> {
+        let new_price_condition = self.price_condition.unwrap_or(order.price_condition());
+        let new_target_order = self.target_order.as_ref().unwrap_or(order.target_order());
+
+        validate_price_conditional_order_invariants(
+            new_price_condition.trigger_price(),
+            new_target_order,
+        )?;
+
+        order.update_target_order(new_target_order.clone());
+        order.update_price_condition(new_price_condition);
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LimitOrder, OrderFlags, PeggedOrder, Side};
+    use crate::{
+        LimitOrder, MarketOrder, OrderFlags, PeggedOrder, PriceConditionalOrder, Side,
+        TriggerDirection, TriggerOrder,
+    };
 
     #[test]
     fn test_is_empty_limit_order_patch() {
@@ -718,6 +780,220 @@ mod tests {
                     assert_eq!(
                         order.quantity(),
                         case.order.quantity(),
+                        "case: {}",
+                        case.name
+                    );
+                }
+                (expected, actual) => {
+                    panic!(
+                        "case: {}: expected {:?}, got {:?}",
+                        case.name, expected, actual
+                    );
+                }
+            }
+        }
+    }
+
+    fn sample_price_conditional_order() -> PriceConditionalOrder {
+        PriceConditionalOrder::new(
+            PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
+            TriggerOrder::Limit(LimitOrder::new(
+                Price(50),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            )),
+        )
+    }
+
+    #[test]
+    fn test_is_empty_price_conditional_order_patch() {
+        let patch = PriceConditionalOrderPatch::new();
+        assert!(patch.is_empty());
+        let patch = PriceConditionalOrderPatch::new()
+            .with_price_condition(PriceCondition::new(Price(100), TriggerDirection::AtOrAbove));
+        assert!(!patch.is_empty());
+        let patch = PriceConditionalOrderPatch::new().with_target_order(TriggerOrder::Market(
+            MarketOrder::new(Quantity(10), Side::Buy, true),
+        ));
+        assert!(!patch.is_empty());
+    }
+
+    #[test]
+    fn test_has_expired_time_in_force_price_conditional_order_patch() {
+        let ts = Timestamp(1_000_000);
+
+        assert!(
+            !PriceConditionalOrderPatch::new().has_expired_time_in_force(ts),
+            "empty patch"
+        );
+
+        let patch = PriceConditionalOrderPatch::new().with_target_order(TriggerOrder::Limit(
+            LimitOrder::new(
+                Price(50),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+            ),
+        ));
+        assert!(!patch.has_expired_time_in_force(ts));
+
+        let patch = PriceConditionalOrderPatch::new().with_target_order(TriggerOrder::Limit(
+            LimitOrder::new(
+                Price(50),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(ts)),
+            ),
+        ));
+        assert!(patch.has_expired_time_in_force(ts));
+
+        let patch = PriceConditionalOrderPatch::new().with_target_order(TriggerOrder::Limit(
+            LimitOrder::new(
+                Price(50),
+                QuantityPolicy::Standard {
+                    quantity: Quantity(10),
+                },
+                OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(ts.0 + 1))),
+            ),
+        ));
+        assert!(!patch.has_expired_time_in_force(ts));
+    }
+
+    #[test]
+    fn test_apply_price_conditional_order_patch() {
+        struct Case {
+            name: &'static str,
+            order: PriceConditionalOrder,
+            patch: PriceConditionalOrderPatch,
+            expected: Result<(), CommandError>,
+        }
+
+        let cases =
+            [
+                Case {
+                    name: "no-op patch (explicit same trigger, direction, target)",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new()
+                        .with_price_condition(PriceCondition::new(
+                            Price(100),
+                            TriggerDirection::AtOrAbove,
+                        ))
+                        .with_target_order(TriggerOrder::Limit(LimitOrder::new(
+                            Price(50),
+                            QuantityPolicy::Standard {
+                                quantity: Quantity(10),
+                            },
+                            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                        ))),
+                    expected: Ok(()),
+                },
+                Case {
+                    name: "update trigger_price only",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new().with_price_condition(
+                        PriceCondition::new(Price(200), TriggerDirection::AtOrAbove),
+                    ),
+                    expected: Ok(()),
+                },
+                Case {
+                    name: "update direction only",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new().with_price_condition(
+                        PriceCondition::new(Price(100), TriggerDirection::AtOrBelow),
+                    ),
+                    expected: Ok(()),
+                },
+                Case {
+                    name: "update target_order only",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new().with_target_order(
+                        TriggerOrder::Limit(LimitOrder::new(
+                            Price(60),
+                            QuantityPolicy::Standard {
+                                quantity: Quantity(20),
+                            },
+                            OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                        )),
+                    ),
+                    expected: Ok(()),
+                },
+                Case {
+                    name: "invalid: zero trigger price from patch",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new().with_price_condition(
+                        PriceCondition::new(Price(0), TriggerDirection::AtOrAbove),
+                    ),
+                    expected: Err(CommandError::ZeroTriggerPrice),
+                },
+                Case {
+                    name: "invalid: zero-quantity market target from patch",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new().with_target_order(
+                        TriggerOrder::Market(MarketOrder::new(Quantity(0), Side::Buy, false)),
+                    ),
+                    expected: Err(CommandError::ZeroQuantity),
+                },
+                Case {
+                    name: "invalid: zero-price limit target from patch",
+                    order: sample_price_conditional_order(),
+                    patch: PriceConditionalOrderPatch::new().with_target_order(
+                        TriggerOrder::Limit(LimitOrder::new(
+                            Price(0),
+                            QuantityPolicy::Standard {
+                                quantity: Quantity(10),
+                            },
+                            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                        )),
+                    ),
+                    expected: Err(CommandError::ZeroPrice),
+                },
+            ];
+
+        for case in cases {
+            let mut order = case.order.clone();
+            let result = case.patch.apply(&mut order);
+
+            match (&case.expected, &result) {
+                (Ok(()), Ok(())) => {
+                    let expected_price_condition = case
+                        .patch
+                        .price_condition
+                        .unwrap_or(case.order.price_condition());
+                    let expected_target_order = case
+                        .patch
+                        .target_order
+                        .as_ref()
+                        .unwrap_or(case.order.target_order())
+                        .clone();
+
+                    assert_eq!(
+                        order.price_condition(),
+                        expected_price_condition,
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(
+                        order.target_order(),
+                        &expected_target_order,
+                        "case: {}",
+                        case.name
+                    );
+                }
+                (Err(expected_err), Err(actual_err)) => {
+                    assert_eq!(actual_err, expected_err, "case: {}", case.name);
+                    assert_eq!(
+                        order.price_condition(),
+                        case.order.price_condition(),
+                        "case: {}",
+                        case.name
+                    );
+                    assert_eq!(
+                        order.target_order(),
+                        case.order.target_order(),
                         "case: {}",
                         case.name
                     );

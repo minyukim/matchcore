@@ -97,7 +97,7 @@ impl OrderBook {
             order.side(),
         );
 
-        Some(order.into_order())
+        Some(order.into_inner())
     }
 
     /// Apply the removal of a limit order from the order book
@@ -155,7 +155,6 @@ impl OrderBook {
     }
 
     /// Add a price-conditional order to the order book
-    #[allow(dead_code)]
     pub(crate) fn add_price_conditional_order(
         &mut self,
         sequence_number: SequenceNumber,
@@ -217,7 +216,7 @@ impl PeggedBook {
 
     /// Remove a pegged order from the order book
     pub(crate) fn remove_order(&mut self, id: OrderId) -> Option<PeggedOrder> {
-        let order = self.orders.remove(&id)?.into_order();
+        let order = self.orders.remove(&id)?.into_inner();
 
         self.apply_order_removal(order.peg_reference(), order.quantity(), order.side());
 
@@ -247,7 +246,22 @@ impl PriceConditionalBook {
         id: OrderId,
         order: PriceConditionalOrder,
     ) {
-        let level_id = match self.trigger_prices.entry(order.trigger_price()) {
+        let level_id = self.apply_order_addition(sequence_number, id, order.trigger_price());
+
+        self.orders.insert(
+            id,
+            RestingPriceConditionalOrder::new(sequence_number, level_id, order),
+        );
+    }
+
+    /// Apply the addition of a price-conditional order to the order book
+    pub(crate) fn apply_order_addition(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        trigger_price: Price,
+    ) -> LevelId {
+        let level_id = match self.trigger_prices.entry(trigger_price) {
             Entry::Occupied(e) => *e.get(),
             Entry::Vacant(e) => {
                 let level_id = self.levels.insert(TriggerPriceLevel::new());
@@ -258,25 +272,26 @@ impl PriceConditionalBook {
         };
         self.levels[level_id].add_order_entry(QueueEntry::new(sequence_number, id));
 
-        self.orders.insert(
-            id,
-            RestingPriceConditionalOrder::new(sequence_number, level_id, order),
-        );
+        level_id
     }
 
     /// Remove a price-conditional order from the order book
     pub(crate) fn remove_order(&mut self, id: OrderId) -> Option<PriceConditionalOrder> {
         let order = self.orders.remove(&id)?;
 
-        let level_id = order.level_id();
+        self.apply_order_removal(order.level_id(), order.trigger_price());
+
+        Some(order.into_inner())
+    }
+
+    /// Apply the removal of a price-conditional order from the order book
+    pub(crate) fn apply_order_removal(&mut self, level_id: LevelId, trigger_price: Price) {
         let level = &mut self.levels[level_id];
         level.mark_order_removed();
         if level.is_empty() {
             self.levels.remove(level_id);
-            self.trigger_prices.remove(&order.trigger_price());
+            self.trigger_prices.remove(&trigger_price);
         }
-
-        Some(order.into_order())
     }
 }
 
@@ -308,7 +323,7 @@ mod tests {
             book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             1
         );
-        assert_eq!(book.limit.orders.get(&OrderId(0)).unwrap().order(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(0)).unwrap().inner(), &order);
 
         let order = LimitOrder::new(
             Price(100),
@@ -325,7 +340,7 @@ mod tests {
             book.limit.get_bid_level(Price(100)).unwrap().order_count(),
             2
         );
-        assert_eq!(book.limit.orders.get(&OrderId(1)).unwrap().order(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(1)).unwrap().inner(), &order);
 
         let order = LimitOrder::new(
             Price(110),
@@ -346,7 +361,7 @@ mod tests {
             book.limit.get_ask_level(Price(110)).unwrap().order_count(),
             1
         );
-        assert_eq!(book.limit.orders.get(&OrderId(2)).unwrap().order(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(2)).unwrap().inner(), &order);
 
         let order = LimitOrder::new(
             Price(105),
@@ -371,7 +386,7 @@ mod tests {
             book.limit.get_ask_level(Price(105)).unwrap().order_count(),
             1
         );
-        assert_eq!(book.limit.orders.get(&OrderId(3)).unwrap().order(), &order);
+        assert_eq!(book.limit.orders.get(&OrderId(3)).unwrap().inner(), &order);
     }
 
     #[test]
@@ -521,7 +536,7 @@ mod tests {
             assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
         }
         assert_eq!(book.pegged.orders.len(), 1);
-        assert_eq!(book.pegged.orders.get(&OrderId(0)).unwrap().order(), &order);
+        assert_eq!(book.pegged.orders.get(&OrderId(0)).unwrap().inner(), &order);
 
         let order = PeggedOrder::new(
             PegReference::Market,
@@ -544,7 +559,7 @@ mod tests {
             assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
         }
         assert_eq!(book.pegged.orders.len(), 2);
-        assert_eq!(book.pegged.orders.get(&OrderId(1)).unwrap().order(), &order);
+        assert_eq!(book.pegged.orders.get(&OrderId(1)).unwrap().inner(), &order);
 
         let order = PeggedOrder::new(
             PegReference::MidPrice,
@@ -567,7 +582,7 @@ mod tests {
             assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
         }
         assert_eq!(book.pegged.orders.len(), 3);
-        assert_eq!(book.pegged.orders.get(&OrderId(2)).unwrap().order(), &order);
+        assert_eq!(book.pegged.orders.get(&OrderId(2)).unwrap().inner(), &order);
 
         let order = PeggedOrder::new(
             PegReference::Primary,
@@ -590,7 +605,7 @@ mod tests {
             assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
         }
         assert_eq!(book.pegged.orders.len(), 4);
-        assert_eq!(book.pegged.orders.get(&OrderId(3)).unwrap().order(), &order);
+        assert_eq!(book.pegged.orders.get(&OrderId(3)).unwrap().inner(), &order);
 
         let order = PeggedOrder::new(
             PegReference::MidPrice,
@@ -613,7 +628,7 @@ mod tests {
             assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
         }
         assert_eq!(book.pegged.orders.len(), 5);
-        assert_eq!(book.pegged.orders.get(&OrderId(4)).unwrap().order(), &order);
+        assert_eq!(book.pegged.orders.get(&OrderId(4)).unwrap().inner(), &order);
 
         let order = PeggedOrder::new(
             PegReference::MidPrice,
@@ -636,7 +651,7 @@ mod tests {
             assert_eq!(book.pegged.ask_levels[peg.as_index()].order_count(), count);
         }
         assert_eq!(book.pegged.orders.len(), 6);
-        assert_eq!(book.pegged.orders.get(&OrderId(5)).unwrap().order(), &order);
+        assert_eq!(book.pegged.orders.get(&OrderId(5)).unwrap().inner(), &order);
     }
 
     #[test]
@@ -743,8 +758,7 @@ mod tests {
 
     fn price_conditional_order(trigger: Price) -> PriceConditionalOrder {
         PriceConditionalOrder::new(
-            trigger,
-            TriggerDirection::AtOrAbove,
+            PriceCondition::new(trigger, TriggerDirection::AtOrAbove),
             TriggerOrder::Market(MarketOrder::new(Quantity(10), Side::Buy, false)),
         )
     }
@@ -771,7 +785,7 @@ mod tests {
                 .orders
                 .get(&OrderId(0))
                 .unwrap()
-                .order(),
+                .inner(),
             &order
         );
 
@@ -791,7 +805,7 @@ mod tests {
                 .orders
                 .get(&OrderId(1))
                 .unwrap()
-                .order(),
+                .inner(),
             &order
         );
 
@@ -818,7 +832,7 @@ mod tests {
                 .orders
                 .get(&OrderId(2))
                 .unwrap()
-                .order(),
+                .inner(),
             &order
         );
     }

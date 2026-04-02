@@ -371,30 +371,24 @@ impl OrderBook {
     ) -> OrderOutcome {
         let outcome = OrderOutcome::new(id);
 
-        let Some(last_trade_price) = self.last_trade_price() else {
-            // All the price-conditional orders have to be checked and activated in order when the first trade occurs
-            self.price_conditional
-                .pre_trade_level
-                .add_order_entry(QueueEntry::new(sequence_number, id));
-            return outcome;
-        };
-
-        // Check if the price-conditional order has to be activated immediately
-        match order.direction() {
-            TriggerDirection::AtOrAbove if last_trade_price >= order.trigger_price() => {
+        match self.last_trade_price {
+            None => {
+                // All the price-conditional orders have to be checked and activated in order when the first trade occurs
                 self.price_conditional
-                    .ready_orders
-                    .push_back((id, order.clone()));
+                    .pre_trade_level
+                    .add_order_entry(QueueEntry::new(sequence_number, id));
             }
-            TriggerDirection::AtOrBelow if last_trade_price <= order.trigger_price() => {
-                self.price_conditional
-                    .ready_orders
-                    .push_back((id, order.clone()));
-            }
-            _ => {
-                self.add_price_conditional_order(sequence_number, id, order.clone());
+            Some(last_trade_price) => {
+                if order.is_ready(last_trade_price) {
+                    self.price_conditional
+                        .ready_orders
+                        .push_back((id, order.clone()));
+                    return outcome;
+                }
             }
         }
+
+        self.add_price_conditional_order(sequence_number, id, order.clone());
 
         outcome
     }
@@ -930,8 +924,7 @@ mod tests_submit_price_conditional_order {
             0,
             1000,
             PriceConditionalOrder::new(
-                Price(100),
-                TriggerDirection::AtOrAbove,
+                PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
                 TriggerOrder::Limit(LimitOrder::new(
                     Price(99),
                     QuantityPolicy::Standard {
@@ -958,8 +951,7 @@ mod tests_submit_price_conditional_order {
             2,
             0,
             PriceConditionalOrder::new(
-                Price(100),
-                TriggerDirection::AtOrAbove,
+                PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
                 TriggerOrder::Limit(LimitOrder::new(
                     Price(99),
                     QuantityPolicy::Standard {
@@ -996,8 +988,7 @@ mod tests_submit_price_conditional_order {
             2,
             0,
             PriceConditionalOrder::new(
-                Price(100),
-                TriggerDirection::AtOrBelow,
+                PriceCondition::new(Price(100), TriggerDirection::AtOrBelow),
                 TriggerOrder::Limit(LimitOrder::new(
                     Price(101),
                     QuantityPolicy::Standard {
@@ -1033,8 +1024,7 @@ mod tests_submit_price_conditional_order {
             2,
             0,
             PriceConditionalOrder::new(
-                Price(101),
-                TriggerDirection::AtOrAbove,
+                PriceCondition::new(Price(101), TriggerDirection::AtOrAbove),
                 TriggerOrder::Market(MarketOrder::new(Quantity(10), Side::Buy, false)),
             ),
         ));

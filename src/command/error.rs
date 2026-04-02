@@ -8,6 +8,8 @@ pub enum CommandError {
     ZeroPrice,
     /// The quantity of the order is zero
     ZeroQuantity,
+    /// The trigger price of the price-conditional order is zero
+    ZeroTriggerPrice,
     /// The hidden quantity of the iceberg order is zero
     IcebergZeroHiddenQuantity,
     /// The replenish quantity of the iceberg order is zero
@@ -33,6 +35,7 @@ impl fmt::Display for CommandError {
         match self {
             CommandError::ZeroPrice => write!(f, "price is zero"),
             CommandError::ZeroQuantity => write!(f, "quantity is zero"),
+            CommandError::ZeroTriggerPrice => write!(f, "trigger price is zero"),
             CommandError::IcebergZeroHiddenQuantity => write!(f, "iceberg hidden quantity is zero"),
             CommandError::IcebergZeroReplenishQuantity => {
                 write!(f, "iceberg replenish quantity is zero")
@@ -72,6 +75,10 @@ mod tests {
     fn test_display() {
         assert_eq!(CommandError::ZeroPrice.to_string(), "price is zero");
         assert_eq!(CommandError::ZeroQuantity.to_string(), "quantity is zero");
+        assert_eq!(
+            CommandError::ZeroTriggerPrice.to_string(),
+            "trigger price is zero"
+        );
         assert_eq!(
             CommandError::IcebergZeroHiddenQuantity.to_string(),
             "iceberg hidden quantity is zero"
