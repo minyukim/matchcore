@@ -7,11 +7,11 @@ use std::fmt;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandEffects {
-    /// Outcome of the order that was explicitly targeted by the command
+    /// Outcome of the explicitly targeted order in the command
     target_order: OrderOutcome,
 
-    /// Outcomes of the other orders whose state changed as a consequence
-    /// (e.g., inactive pegged orders becoming active)
+    /// Outcomes of the orders triggered by cascading effects of the command
+    /// (e.g., price-conditional orders and pegged orders becoming active)
     triggered_orders: Vec<OrderOutcome>,
 }
 
@@ -24,13 +24,12 @@ impl CommandEffects {
         }
     }
 
-    /// Get the outcome of the order that was explicitly targeted by the command
+    /// Get the outcome of the explicitly targeted order in the command
     pub fn target_order(&self) -> &OrderOutcome {
         &self.target_order
     }
 
-    /// Get the outcomes of the other orders whose state changed as a consequence
-    /// (e.g., inactive pegged orders becoming active)
+    /// Get the outcomes of the orders triggered by cascading effects of the command
     pub fn triggered_orders(&self) -> &[OrderOutcome] {
         &self.triggered_orders
     }
