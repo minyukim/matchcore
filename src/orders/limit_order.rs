@@ -43,6 +43,11 @@ impl RestingLimitOrder {
         self.level_id
     }
 
+    /// Update the ID of the level the order is resting at
+    pub(crate) fn update_level_id(&mut self, new_level_id: LevelId) {
+        self.level_id = new_level_id;
+    }
+
     /// Get the limit order
     pub fn inner(&self) -> &LimitOrder {
         &self.inner

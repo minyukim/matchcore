@@ -73,12 +73,12 @@ impl OrderBook {
         {
             order.update_time_priority(sequence_number);
 
-            let level_id = order.level_id();
+            let old_level_id = order.level_id();
             let order = order.inner().clone();
 
             self.apply_limit_order_removal(
                 sequence_number,
-                level_id,
+                old_level_id,
                 old_price,
                 old_visible_quantity,
                 old_hidden_quantity,
@@ -98,7 +98,7 @@ impl OrderBook {
                     return Ok(outcome);
                 }
 
-                self.apply_limit_order_addition(
+                let level_id = self.apply_limit_order_addition(
                     sequence_number,
                     id,
                     order.price(),
@@ -106,6 +106,12 @@ impl OrderBook {
                     order.hidden_quantity(),
                     order.side(),
                 );
+
+                self.limit
+                    .orders
+                    .get_mut(&id)
+                    .unwrap()
+                    .update_level_id(level_id);
 
                 return Ok(outcome);
             }
@@ -160,14 +166,7 @@ impl OrderBook {
                 .quantity_policy()
                 .with_remaining_quantity(remaining_quantity);
 
-            // Update the order in the order book with the new quantity policy
-            self.limit
-                .orders
-                .get_mut(&id)
-                .unwrap()
-                .update_quantity_policy(quantity_policy);
-
-            self.apply_limit_order_addition(
+            let level_id = self.apply_limit_order_addition(
                 sequence_number,
                 id,
                 order.price(),
@@ -175,6 +174,10 @@ impl OrderBook {
                 quantity_policy.hidden_quantity(),
                 order.side(),
             );
+
+            let order = self.limit.orders.get_mut(&id).unwrap();
+            order.update_level_id(level_id);
+            order.update_quantity_policy(quantity_policy);
 
             return Ok(outcome);
         }
