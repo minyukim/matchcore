@@ -55,7 +55,7 @@ mod tests {
         println!("{}", outcome);
         assert_eq!(
             outcome.to_string(),
-            "order submitted: effects:\n  primary order(1):\n    not matched\n    not cancelled\n"
+            "order submitted: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
         );
 
         let outcome = CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(
@@ -65,7 +65,7 @@ mod tests {
         println!("{}", outcome);
         assert_eq!(
             outcome.to_string(),
-            "order amended: effects:\n  primary order(1):\n    not matched\n    not cancelled\n"
+            "order amended: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
         );
 
         let outcome = CommandOutcome::Applied(CommandReport::Cancel);
@@ -93,7 +93,7 @@ mod tests {
         println!("{}", outcome);
         assert_eq!(
             outcome.to_string(),
-            "order submitted: effects:\n  primary order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  cascading order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
+            "order submitted: effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
         );
     }
 }

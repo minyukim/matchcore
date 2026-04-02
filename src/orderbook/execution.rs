@@ -550,10 +550,10 @@ mod tests {
     fn target_order_id(outcome: &CommandOutcome) -> Option<OrderId> {
         match outcome {
             CommandOutcome::Applied(CommandReport::Submit(command_effects)) => {
-                Some(command_effects.primary_outcome().order_id())
+                Some(command_effects.target_order().order_id())
             }
             CommandOutcome::Applied(CommandReport::Amend(command_effects)) => {
-                Some(command_effects.primary_outcome().order_id())
+                Some(command_effects.target_order().order_id())
             }
             _ => None,
         }

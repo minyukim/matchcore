@@ -435,13 +435,13 @@ mod tests_submit_market_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
     }
 
     #[test]
@@ -468,7 +468,7 @@ mod tests_submit_market_order {
             MarketOrder::new(Quantity(10), Side::Buy, true),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(submitted.order_id(), OrderId(1));
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
@@ -550,13 +550,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
         assert!(book.limit.orders.is_empty());
     }
 
@@ -591,10 +591,10 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::PostOnlyWouldTake)
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
     }
 
     #[test]
@@ -628,13 +628,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(5)
             })
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
         assert_eq!(book.last_trade_price(), None);
     }
 
@@ -667,7 +667,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -711,7 +711,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -785,10 +785,10 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let id = effects.primary_outcome().order_id();
+        let id = effects.target_order().order_id();
         assert!(book.pegged.orders.contains_key(&id));
-        assert!(effects.primary_outcome().match_result().is_none());
-        assert!(effects.primary_outcome().cancel_reason().is_none());
+        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.target_order().cancel_reason().is_none());
     }
 
     #[test]
@@ -807,7 +807,7 @@ mod tests_submit_pegged_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -844,7 +844,7 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -970,16 +970,16 @@ mod tests_submit_price_conditional_order {
             ),
         ));
 
-        let primary = effects.primary_outcome();
-        assert_eq!(primary.order_id(), OrderId(2));
-        assert!(primary.match_result().is_none());
-        assert!(primary.cancel_reason().is_none());
+        let target = effects.target_order();
+        assert_eq!(target.order_id(), OrderId(2));
+        assert!(target.match_result().is_none());
+        assert!(target.cancel_reason().is_none());
 
-        let cascading = effects.cascading_outcomes();
-        assert_eq!(cascading.len(), 1);
-        assert_eq!(cascading[0].order_id(), OrderId(2));
-        assert!(cascading[0].match_result().is_none());
-        assert!(cascading[0].cancel_reason().is_none());
+        let triggered = effects.triggered_orders();
+        assert_eq!(triggered.len(), 1);
+        assert_eq!(triggered[0].order_id(), OrderId(2));
+        assert!(triggered[0].match_result().is_none());
+        assert!(triggered[0].cancel_reason().is_none());
 
         // Target limit order should have been submitted as a normal order with the same id.
         assert!(book.limit.orders.contains_key(&OrderId(2)));
@@ -1008,16 +1008,16 @@ mod tests_submit_price_conditional_order {
             ),
         ));
 
-        let primary = effects.primary_outcome();
-        assert_eq!(primary.order_id(), OrderId(2));
-        assert!(primary.match_result().is_none());
-        assert!(primary.cancel_reason().is_none());
+        let target = effects.target_order();
+        assert_eq!(target.order_id(), OrderId(2));
+        assert!(target.match_result().is_none());
+        assert!(target.cancel_reason().is_none());
 
-        let cascading = effects.cascading_outcomes();
-        assert_eq!(cascading.len(), 1);
-        assert_eq!(cascading[0].order_id(), OrderId(2));
-        assert!(cascading[0].match_result().is_none());
-        assert!(cascading[0].cancel_reason().is_none());
+        let triggered = effects.triggered_orders();
+        assert_eq!(triggered.len(), 1);
+        assert_eq!(triggered[0].order_id(), OrderId(2));
+        assert!(triggered[0].match_result().is_none());
+        assert!(triggered[0].cancel_reason().is_none());
 
         assert!(book.limit.orders.contains_key(&OrderId(2)));
         assert!(!book.price_conditional.orders.contains_key(&OrderId(2)));
@@ -1039,13 +1039,13 @@ mod tests_submit_price_conditional_order {
             ),
         ));
 
-        let primary = effects.primary_outcome();
-        assert_eq!(primary.order_id(), OrderId(2));
-        assert!(primary.match_result().is_none());
-        assert!(primary.cancel_reason().is_none());
+        let target = effects.target_order();
+        assert_eq!(target.order_id(), OrderId(2));
+        assert!(target.match_result().is_none());
+        assert!(target.cancel_reason().is_none());
 
-        let cascading = effects.cascading_outcomes();
-        assert!(cascading.is_empty());
+        let triggered = effects.triggered_orders();
+        assert!(triggered.is_empty());
 
         assert!(book.price_conditional.orders.contains_key(&OrderId(2)));
         assert!(!book.limit.orders.contains_key(&OrderId(2)));
