@@ -155,7 +155,6 @@ impl OrderBook {
     }
 
     /// Add a price-conditional order to the order book
-    #[allow(dead_code)]
     pub(crate) fn add_price_conditional_order(
         &mut self,
         sequence_number: SequenceNumber,

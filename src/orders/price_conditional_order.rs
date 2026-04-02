@@ -35,7 +35,6 @@ impl RestingPriceConditionalOrder {
     }
 
     /// Update the time priority of the order
-    #[allow(dead_code)]
     pub(crate) fn update_time_priority(&mut self, new_time_priority: SequenceNumber) {
         self.time_priority = new_time_priority;
     }
@@ -46,7 +45,6 @@ impl RestingPriceConditionalOrder {
     }
 
     /// Update the ID of the level the order is resting at
-    #[allow(dead_code)]
     pub(crate) fn update_level_id(&mut self, new_level_id: LevelId) {
         self.level_id = new_level_id;
     }
