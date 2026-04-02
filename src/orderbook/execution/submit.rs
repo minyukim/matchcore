@@ -435,13 +435,13 @@ mod tests_submit_market_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
     }
 
     #[test]
@@ -468,7 +468,7 @@ mod tests_submit_market_order {
             MarketOrder::new(Quantity(10), Side::Buy, true),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(submitted.order_id(), OrderId(1));
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
@@ -550,13 +550,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
             })
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
         assert!(book.limit.orders.is_empty());
     }
 
@@ -591,10 +591,10 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::PostOnlyWouldTake)
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
     }
 
     #[test]
@@ -628,13 +628,13 @@ mod tests_submit_limit_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(5)
             })
         );
-        assert!(effects.primary_outcome().match_result().is_none());
+        assert!(effects.target_order().match_result().is_none());
         assert_eq!(book.last_trade_price(), None);
     }
 
@@ -667,7 +667,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -711,7 +711,7 @@ mod tests_submit_limit_order {
             ),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
@@ -785,10 +785,10 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let id = effects.primary_outcome().order_id();
+        let id = effects.target_order().order_id();
         assert!(book.pegged.orders.contains_key(&id));
-        assert!(effects.primary_outcome().match_result().is_none());
-        assert!(effects.primary_outcome().cancel_reason().is_none());
+        assert!(effects.target_order().match_result().is_none());
+        assert!(effects.target_order().cancel_reason().is_none());
     }
 
     #[test]
@@ -807,7 +807,7 @@ mod tests_submit_pegged_order {
         ));
 
         assert_eq!(
-            effects.primary_outcome().cancel_reason(),
+            effects.target_order().cancel_reason(),
             Some(&CancelReason::InsufficientLiquidity {
                 requested: Quantity(10),
                 available: Quantity(0)
@@ -844,7 +844,7 @@ mod tests_submit_pegged_order {
             ),
         ));
 
-        let submitted = effects.primary_outcome();
+        let submitted = effects.target_order();
         assert_eq!(
             submitted.match_result().unwrap().executed_quantity(),
             Quantity(5)
