@@ -136,8 +136,7 @@ mod tests {
             time_priority,
             order_id,
             PriceConditionalOrder::new(
-                trigger_price,
-                TriggerDirection::AtOrAbove,
+                PriceCondition::new(trigger_price, TriggerDirection::AtOrAbove),
                 TriggerOrder::Market(MarketOrder::new(Quantity(1), Side::Buy, false)),
             ),
         );

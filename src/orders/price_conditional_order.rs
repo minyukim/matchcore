@@ -34,9 +34,21 @@ impl RestingPriceConditionalOrder {
         self.time_priority
     }
 
+    /// Update the time priority of the order
+    #[allow(dead_code)]
+    pub(crate) fn update_time_priority(&mut self, new_time_priority: SequenceNumber) {
+        self.time_priority = new_time_priority;
+    }
+
     /// Get the ID of the level the order is resting at
     pub fn level_id(&self) -> LevelId {
         self.level_id
+    }
+
+    /// Update the ID of the level the order is resting at
+    #[allow(dead_code)]
+    pub(crate) fn update_level_id(&mut self, new_level_id: LevelId) {
+        self.level_id = new_level_id;
     }
 
     /// Get the price-conditional order
@@ -79,46 +91,24 @@ impl DerefMut for RestingPriceConditionalOrder {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PriceConditionalOrder {
-    /// The trigger price threshold
-    trigger_price: Price,
-    /// The direction in which the price must move relative to `trigger_price`
-    direction: TriggerDirection,
+    /// The condition that must be met for the order to be activated
+    price_condition: PriceCondition,
     /// The target order to execute when the condition is met
     target_order: TriggerOrder,
 }
 
 impl PriceConditionalOrder {
     /// Create a new price-conditional order
-    pub fn new(
-        trigger_price: Price,
-        direction: TriggerDirection,
-        target_order: TriggerOrder,
-    ) -> Self {
+    pub fn new(price_condition: PriceCondition, target_order: TriggerOrder) -> Self {
         Self {
-            trigger_price,
-            direction,
+            price_condition,
             target_order,
         }
     }
 
-    /// Get the trigger price threshold
-    pub fn trigger_price(&self) -> Price {
-        self.trigger_price
-    }
-
-    /// Update the trigger price threshold
-    pub(crate) fn update_trigger_price(&mut self, new_trigger_price: Price) {
-        self.trigger_price = new_trigger_price;
-    }
-
-    /// Get the direction in which the price must move relative to `trigger_price`
-    pub fn direction(&self) -> TriggerDirection {
-        self.direction
-    }
-
-    /// Update the direction in which the price must move relative to `trigger_price`
-    pub(crate) fn update_direction(&mut self, new_direction: TriggerDirection) {
-        self.direction = new_direction;
+    /// Get the condition that must be met for the order to be activated
+    pub fn price_condition(&self) -> PriceCondition {
+        self.price_condition
     }
 
     /// Get the target order to execute when the condition is met
@@ -139,6 +129,74 @@ impl PriceConditionalOrder {
     /// Check if the target order is expired at a given timestamp
     pub fn is_expired(&self, timestamp: Timestamp) -> bool {
         self.target_order.is_expired(timestamp)
+    }
+
+    /// Check if the price-conditional order is ready to be activated at a given price
+    pub fn is_ready(&self, price: Price) -> bool {
+        self.price_condition.is_met(price)
+    }
+}
+
+impl Deref for PriceConditionalOrder {
+    type Target = PriceCondition;
+
+    fn deref(&self) -> &Self::Target {
+        &self.price_condition
+    }
+}
+impl DerefMut for PriceConditionalOrder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.price_condition
+    }
+}
+
+/// Represents the condition that must be met for a price-conditional order to be activated
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PriceCondition {
+    /// The reference price that defines when the condition activates
+    trigger_price: Price,
+    /// The condition direction:
+    /// - `AtOrAbove`: activates when market price >= `trigger_price`
+    /// - `AtOrBelow`: activates when market price <= `trigger_price`
+    direction: TriggerDirection,
+}
+
+impl PriceCondition {
+    /// Create a new price condition
+    pub fn new(trigger_price: Price, direction: TriggerDirection) -> Self {
+        Self {
+            trigger_price,
+            direction,
+        }
+    }
+
+    /// Get the reference price that defines when the condition activates
+    pub fn trigger_price(&self) -> Price {
+        self.trigger_price
+    }
+
+    /// Update the reference price that defines when the condition activates
+    pub(crate) fn update_trigger_price(&mut self, new_trigger_price: Price) {
+        self.trigger_price = new_trigger_price;
+    }
+
+    /// Get the direction in which the price must move relative to `trigger_price`
+    pub fn direction(&self) -> TriggerDirection {
+        self.direction
+    }
+
+    /// Update the direction in which the price must move relative to `trigger_price`
+    pub(crate) fn update_direction(&mut self, new_direction: TriggerDirection) {
+        self.direction = new_direction;
+    }
+
+    /// Check if the price condition is met at a given price
+    pub fn is_met(&self, price: Price) -> bool {
+        match self.direction() {
+            TriggerDirection::AtOrAbove => price >= self.trigger_price(),
+            TriggerDirection::AtOrBelow => price <= self.trigger_price(),
+        }
     }
 }
 
@@ -191,8 +249,7 @@ mod tests {
             Case {
                 name: "market order",
                 order: PriceConditionalOrder::new(
-                    Price(100),
-                    TriggerDirection::AtOrAbove,
+                    PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
                     TriggerOrder::Market(MarketOrder::new(Quantity(100), Side::Buy, true)),
                 ),
                 expected: false,
@@ -200,8 +257,7 @@ mod tests {
             Case {
                 name: "limit order (GTC)",
                 order: PriceConditionalOrder::new(
-                    Price(100),
-                    TriggerDirection::AtOrAbove,
+                    PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
                     TriggerOrder::Limit(LimitOrder::new(
                         Price(100),
                         QuantityPolicy::Standard {
@@ -215,8 +271,7 @@ mod tests {
             Case {
                 name: "limit order (unexpired GTD)",
                 order: PriceConditionalOrder::new(
-                    Price(100),
-                    TriggerDirection::AtOrAbove,
+                    PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
                     TriggerOrder::Limit(LimitOrder::new(
                         Price(100),
                         QuantityPolicy::Standard {
@@ -234,8 +289,7 @@ mod tests {
             Case {
                 name: "limit order (expired GTD)",
                 order: PriceConditionalOrder::new(
-                    Price(100),
-                    TriggerDirection::AtOrAbove,
+                    PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
                     TriggerOrder::Limit(LimitOrder::new(
                         Price(100),
                         QuantityPolicy::Standard {
@@ -251,6 +305,52 @@ mod tests {
         for case in cases {
             assert_eq!(
                 case.order.is_expired(Timestamp(test_ts)),
+                case.expected,
+                "case: {}",
+                case.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_met() {
+        struct Case {
+            name: &'static str,
+            price_condition: PriceCondition,
+            market_price: Price,
+            expected: bool,
+        }
+
+        let cases = [
+            Case {
+                name: "at or above trigger price",
+                price_condition: PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
+                market_price: Price(100),
+                expected: true,
+            },
+            Case {
+                name: "at or below trigger price",
+                price_condition: PriceCondition::new(Price(100), TriggerDirection::AtOrBelow),
+                market_price: Price(100),
+                expected: true,
+            },
+            Case {
+                name: "at or above trigger price (not ready)",
+                price_condition: PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
+                market_price: Price(99),
+                expected: false,
+            },
+            Case {
+                name: "at or below trigger price (not ready)",
+                price_condition: PriceCondition::new(Price(100), TriggerDirection::AtOrBelow),
+                market_price: Price(101),
+                expected: false,
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(
+                case.price_condition.is_met(case.market_price),
                 case.expected,
                 "case: {}",
                 case.name

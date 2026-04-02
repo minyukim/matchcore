@@ -804,8 +804,7 @@ mod tests {
 
     fn sample_price_conditional_order() -> PriceConditionalOrder {
         PriceConditionalOrder::new(
-            Price(100),
-            TriggerDirection::AtOrAbove,
+            PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
             TriggerOrder::Limit(LimitOrder::new(
                 Price(50),
                 QuantityPolicy::Standard {

@@ -140,8 +140,7 @@ mod tests {
             time_priority,
             0, // LevelId is crate-private; tests are in-crate.
             PriceConditionalOrder::new(
-                trigger_price,
-                direction,
+                PriceCondition::new(trigger_price, direction),
                 TriggerOrder::Market(MarketOrder::new(Quantity(1), Side::Buy, false)),
             ),
         )

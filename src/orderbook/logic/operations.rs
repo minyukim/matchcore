@@ -759,8 +759,7 @@ mod tests {
 
     fn price_conditional_order(trigger: Price) -> PriceConditionalOrder {
         PriceConditionalOrder::new(
-            trigger,
-            TriggerDirection::AtOrAbove,
+            PriceCondition::new(trigger, TriggerDirection::AtOrAbove),
             TriggerOrder::Market(MarketOrder::new(Quantity(10), Side::Buy, false)),
         )
     }
