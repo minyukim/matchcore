@@ -123,10 +123,7 @@ impl PriceConditionalOrder {
 
     /// Check if the target order is expired at a given timestamp
     pub fn is_expired(&self, timestamp: Timestamp) -> bool {
-        match self.target_order() {
-            TriggerOrder::Market(_) => false,
-            TriggerOrder::Limit(order) => order.is_expired(timestamp),
-        }
+        self.target_order.is_expired(timestamp)
     }
 }
 
@@ -148,6 +145,16 @@ pub enum TriggerOrder {
     Market(MarketOrder),
     /// Execute a limit order
     Limit(LimitOrder),
+}
+
+impl TriggerOrder {
+    /// Check if the order is expired at a given timestamp
+    pub fn is_expired(&self, timestamp: Timestamp) -> bool {
+        match self {
+            TriggerOrder::Market(_) => false,
+            TriggerOrder::Limit(order) => order.is_expired(timestamp),
+        }
+    }
 }
 
 #[cfg(test)]
