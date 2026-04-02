@@ -106,9 +106,19 @@ impl PriceConditionalOrder {
         self.trigger_price
     }
 
+    /// Update the trigger price threshold
+    pub(crate) fn update_trigger_price(&mut self, new_trigger_price: Price) {
+        self.trigger_price = new_trigger_price;
+    }
+
     /// Get the direction in which the price must move relative to `trigger_price`
     pub fn direction(&self) -> TriggerDirection {
         self.direction
+    }
+
+    /// Update the direction in which the price must move relative to `trigger_price`
+    pub(crate) fn update_direction(&mut self, new_direction: TriggerDirection) {
+        self.direction = new_direction;
     }
 
     /// Get the target order to execute when the condition is met
@@ -119,6 +129,11 @@ impl PriceConditionalOrder {
     /// Convert the price-conditional order into its target order to execute when the condition is met
     pub fn into_target_order(self) -> TriggerOrder {
         self.target_order
+    }
+
+    /// Update the target order to execute when the condition is met
+    pub(crate) fn update_target_order(&mut self, new_target_order: TriggerOrder) {
+        self.target_order = new_target_order;
     }
 
     /// Check if the target order is expired at a given timestamp
