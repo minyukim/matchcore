@@ -287,7 +287,6 @@ impl PriceConditionalOrderPatch {
     }
 
     /// Apply the patch to the order if the patch does not conflict with the order
-    #[allow(dead_code)]
     pub(crate) fn apply(&self, order: &mut PriceConditionalOrder) -> Result<(), CommandError> {
         let new_trigger_price = self.trigger_price.unwrap_or(order.trigger_price());
         let new_direction = self.direction.unwrap_or(order.direction());

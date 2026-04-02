@@ -14,7 +14,9 @@ impl OrderBook {
         let result = match &cmd.patch {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
-            AmendPatch::PriceConditional(_) => todo!(),
+            AmendPatch::PriceConditional(patch) => {
+                self.amend_price_conditional_order(meta, cmd.order_id, patch)
+            }
         };
         let target = match result {
             Ok(outcome) => outcome,
@@ -345,15 +347,94 @@ impl OrderBook {
 
         Ok(OrderOutcome::new(id))
     }
+
+    /// Amend a price-conditional order
+    fn amend_price_conditional_order(
+        &mut self,
+        meta: CommandMeta,
+        id: OrderId,
+        patch: &PriceConditionalOrderPatch,
+    ) -> Result<OrderOutcome, CommandFailure> {
+        if patch.is_empty() {
+            return Err(CommandFailure::InvalidCommand(CommandError::EmptyPatch));
+        }
+
+        if patch.has_expired_time_in_force(meta.timestamp) {
+            return Err(CommandFailure::InvalidCommand(CommandError::Expired));
+        }
+
+        let order = self
+            .price_conditional
+            .orders
+            .get_mut(&id)
+            .ok_or(CommandFailure::OrderNotFound)?;
+
+        let (old_level_id, old_condition) = (order.level_id(), order.price_condition());
+
+        patch.apply(order).map_err(CommandFailure::InvalidCommand)?;
+
+        let condition = order.price_condition();
+
+        let sequence_number = meta.sequence_number;
+
+        // Any change to the trigger condition or target order resets time priority
+        order.update_time_priority(sequence_number);
+
+        let outcome = OrderOutcome::new(id);
+
+        let queue_entry = QueueEntry::new(sequence_number, id);
+
+        if self.last_trade_price.is_none() {
+            // All the price-conditional orders have to be checked and activated in order when the first trade occurs
+            self.price_conditional.pre_trade_level.push(queue_entry);
+        }
+
+        if condition == old_condition {
+            self.price_conditional.levels[old_level_id].push(queue_entry);
+            return Ok(outcome);
+        }
+
+        let old_trigger_price = old_condition.trigger_price();
+        if let Some(last_trade_price) = self.last_trade_price
+            && condition.is_met(last_trade_price)
+        {
+            self.price_conditional
+                .ready_orders
+                .push_back((id, order.order().clone()));
+
+            self.price_conditional
+                .apply_order_removal(old_level_id, old_trigger_price);
+
+            return Ok(outcome);
+        }
+
+        let trigger_price = condition.trigger_price();
+        if trigger_price != old_trigger_price {
+            self.price_conditional
+                .apply_order_removal(old_level_id, old_trigger_price);
+
+            let level_id =
+                self.price_conditional
+                    .apply_order_addition(sequence_number, id, trigger_price);
+
+            self.price_conditional
+                .orders
+                .get_mut(&id)
+                .unwrap()
+                .update_level_id(level_id);
+
+            return Ok(outcome);
+        }
+
+        self.price_conditional.levels[old_level_id].push(queue_entry);
+        Ok(outcome)
+    }
 }
 
 #[cfg(test)]
 mod tests_amend_limit_order {
     use super::*;
-    use crate::{
-        AmendCmd, AmendPatch, CommandMeta, CommandOutcome, LimitOrder, LimitOrderPatch, OrderFlags,
-        OrderId, Price, Quantity, QuantityPolicy, SequenceNumber, Side, TimeInForce, Timestamp,
-    };
+    use crate::*;
 
     fn amend(
         book: &mut OrderBook,
@@ -730,11 +811,7 @@ mod tests_amend_limit_order {
 #[cfg(test)]
 mod tests_amend_pegged_order {
     use super::*;
-    use crate::{
-        AmendCmd, AmendPatch, CommandMeta, CommandOutcome, LimitOrder, OrderFlags, OrderId,
-        PegReference, PeggedOrder, PeggedOrderPatch, Price, Quantity, QuantityPolicy,
-        SequenceNumber, Side, TimeInForce, Timestamp, Trade,
-    };
+    use crate::*;
 
     fn amend(
         book: &mut OrderBook,
@@ -1073,6 +1150,290 @@ mod tests_amend_pegged_order {
                 QueueEntry::new(SequenceNumber(1), OrderId(1)),
                 QueueEntry::new(SequenceNumber(2), OrderId(0))
             ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_amend_price_conditional_order {
+    use super::*;
+    use crate::*;
+
+    fn amend(
+        book: &mut OrderBook,
+        seq: u64,
+        ts: u64,
+        order_id: OrderId,
+        patch: PriceConditionalOrderPatch,
+    ) -> CommandOutcome {
+        book.execute_amend(
+            CommandMeta {
+                sequence_number: SequenceNumber(seq),
+                timestamp: Timestamp(ts),
+            },
+            &AmendCmd {
+                order_id,
+                patch: AmendPatch::PriceConditional(patch),
+            },
+        )
+    }
+
+    fn unwrap_amend_effects(outcome: CommandOutcome) -> CommandEffects {
+        match outcome {
+            CommandOutcome::Applied(CommandReport::Amend(effects)) => effects,
+            other => panic!("expected applied amend, got: {other:?}"),
+        }
+    }
+
+    fn make_pco(trigger_price: Price, direction: TriggerDirection) -> PriceConditionalOrder {
+        PriceConditionalOrder::new(
+            PriceCondition::new(trigger_price, direction),
+            TriggerOrder::Market(MarketOrder::new(Quantity(10), Side::Buy, false)),
+        )
+    }
+
+    #[test]
+    fn reject_empty_patch() {
+        let mut book = OrderBook::new("TEST");
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            make_pco(Price(100), TriggerDirection::AtOrAbove),
+        );
+
+        let outcome = amend(
+            &mut book,
+            1,
+            0,
+            OrderId(0),
+            PriceConditionalOrderPatch::new(),
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::EmptyPatch)) => {}
+            other => panic!("expected empty patch rejection, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reject_expired_target_order_time_in_force() {
+        let mut book = OrderBook::new("TEST");
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            make_pco(Price(100), TriggerDirection::AtOrAbove),
+        );
+
+        let expired_target = TriggerOrder::Limit(LimitOrder::new(
+            Price(100),
+            QuantityPolicy::Standard {
+                quantity: Quantity(10),
+            },
+            OrderFlags::new(Side::Buy, false, TimeInForce::Gtd(Timestamp(1000))),
+        ));
+
+        let outcome = amend(
+            &mut book,
+            1,
+            1000,
+            OrderId(0),
+            PriceConditionalOrderPatch::new().with_target_order(expired_target),
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::Expired)) => {}
+            other => panic!("expected expired rejection, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reject_order_not_found() {
+        let mut book = OrderBook::new("TEST");
+
+        let outcome = amend(
+            &mut book,
+            1,
+            0,
+            OrderId(999),
+            PriceConditionalOrderPatch::new().with_trigger_price(Price(100)),
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
+            other => panic!("expected order not found, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn condition_unchanged_requeues_same_level_and_enqueues_pre_trade_when_no_last_trade() {
+        let mut book = OrderBook::new("TEST");
+        assert!(book.last_trade_price.is_none());
+
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            make_pco(Price(100), TriggerDirection::AtOrAbove),
+        );
+
+        let old_level_id = book
+            .price_conditional
+            .orders
+            .get(&OrderId(0))
+            .unwrap()
+            .level_id();
+
+        let effects = unwrap_amend_effects(amend(
+            &mut book,
+            1,
+            0,
+            OrderId(0),
+            PriceConditionalOrderPatch::new().with_target_order(TriggerOrder::Market(
+                MarketOrder::new(Quantity(20), Side::Buy, false),
+            )),
+        ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
+
+        let order = book.price_conditional.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(1));
+        assert_eq!(order.level_id(), old_level_id);
+
+        assert_eq!(
+            book.price_conditional
+                .pre_trade_level
+                .queue()
+                .back()
+                .copied(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(0)))
+        );
+        assert_eq!(
+            book.price_conditional.levels[old_level_id]
+                .queue()
+                .back()
+                .copied(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(0)))
+        );
+    }
+
+    #[test]
+    fn condition_changed_and_is_met_moves_order_to_ready_queue_when_last_trade_exists() {
+        let mut book = OrderBook::new("TEST");
+        book.last_trade_price = Some(Price(105));
+
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            make_pco(Price(200), TriggerDirection::AtOrAbove),
+        );
+
+        let effects = unwrap_amend_effects(amend(
+            &mut book,
+            1,
+            0,
+            OrderId(0),
+            PriceConditionalOrderPatch::new()
+                .with_trigger_price(Price(100))
+                .with_direction(TriggerDirection::AtOrAbove),
+        ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
+
+        // Ready orders are consumed immediately by cascade processing.
+        assert!(book.price_conditional.pre_trade_level.queue().is_empty());
+        assert!(book.price_conditional.ready_orders.is_empty());
+        assert_eq!(effects.triggered_orders().len(), 1);
+        assert_eq!(effects.triggered_orders()[0].order_id(), OrderId(0));
+    }
+
+    #[test]
+    fn trigger_price_change_moves_order_to_new_trigger_level_and_updates_level_id() {
+        let mut book = OrderBook::new("TEST");
+        book.last_trade_price = Some(Price(50)); // present, but won't meet either condition
+
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            make_pco(Price(100), TriggerDirection::AtOrAbove),
+        );
+
+        let _old_level_id = book
+            .price_conditional
+            .orders
+            .get(&OrderId(0))
+            .unwrap()
+            .level_id();
+        assert!(
+            book.price_conditional
+                .trigger_prices
+                .contains_key(&Price(100))
+        );
+
+        let effects = unwrap_amend_effects(amend(
+            &mut book,
+            1,
+            0,
+            OrderId(0),
+            PriceConditionalOrderPatch::new().with_trigger_price(Price(120)),
+        ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
+
+        let order = book.price_conditional.orders.get(&OrderId(0)).unwrap();
+        assert_eq!(order.time_priority(), SequenceNumber(1));
+        assert_eq!(order.trigger_price(), Price(120));
+
+        // Old trigger price mapping is removed (single-order setup). Note that slab indices may be
+        // reused immediately, so do not assert that `old_level_id` is vacant.
+        assert!(
+            !book
+                .price_conditional
+                .trigger_prices
+                .contains_key(&Price(100))
+        );
+
+        // New level exists and order points to it
+        let new_level_id = *book
+            .price_conditional
+            .trigger_prices
+            .get(&Price(120))
+            .unwrap();
+        assert_eq!(order.level_id(), new_level_id);
+        assert_eq!(
+            book.price_conditional.levels[new_level_id].queue(),
+            &[QueueEntry::new(SequenceNumber(1), OrderId(0))]
+        );
+    }
+
+    #[test]
+    fn condition_changed_but_same_trigger_price_requeues_old_level() {
+        let mut book = OrderBook::new("TEST");
+
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            make_pco(Price(100), TriggerDirection::AtOrAbove),
+        );
+
+        let old_level_id = book
+            .price_conditional
+            .orders
+            .get(&OrderId(0))
+            .unwrap()
+            .level_id();
+
+        let effects = unwrap_amend_effects(amend(
+            &mut book,
+            1,
+            0,
+            OrderId(0),
+            PriceConditionalOrderPatch::new().with_direction(TriggerDirection::AtOrBelow),
+        ));
+        assert_eq!(effects.target_order().order_id(), OrderId(0));
+
+        assert!(book.price_conditional.ready_orders.is_empty());
+        assert_eq!(
+            book.price_conditional.levels[old_level_id]
+                .queue()
+                .back()
+                .copied(),
+            Some(QueueEntry::new(SequenceNumber(1), OrderId(0)))
         );
     }
 }
