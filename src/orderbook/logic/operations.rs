@@ -247,7 +247,22 @@ impl PriceConditionalBook {
         id: OrderId,
         order: PriceConditionalOrder,
     ) {
-        let level_id = match self.trigger_prices.entry(order.trigger_price()) {
+        let level_id = self.apply_order_addition(sequence_number, id, order.trigger_price());
+
+        self.orders.insert(
+            id,
+            RestingPriceConditionalOrder::new(sequence_number, level_id, order),
+        );
+    }
+
+    /// Apply the addition of a price-conditional order to the order book
+    pub(crate) fn apply_order_addition(
+        &mut self,
+        sequence_number: SequenceNumber,
+        id: OrderId,
+        trigger_price: Price,
+    ) -> LevelId {
+        let level_id = match self.trigger_prices.entry(trigger_price) {
             Entry::Occupied(e) => *e.get(),
             Entry::Vacant(e) => {
                 let level_id = self.levels.insert(TriggerPriceLevel::new());
@@ -258,25 +273,26 @@ impl PriceConditionalBook {
         };
         self.levels[level_id].add_order_entry(QueueEntry::new(sequence_number, id));
 
-        self.orders.insert(
-            id,
-            RestingPriceConditionalOrder::new(sequence_number, level_id, order),
-        );
+        level_id
     }
 
     /// Remove a price-conditional order from the order book
     pub(crate) fn remove_order(&mut self, id: OrderId) -> Option<PriceConditionalOrder> {
         let order = self.orders.remove(&id)?;
 
-        let level_id = order.level_id();
+        self.apply_order_removal(order.level_id(), order.trigger_price());
+
+        Some(order.into_order())
+    }
+
+    /// Apply the removal of a price-conditional order from the order book
+    pub(crate) fn apply_order_removal(&mut self, level_id: LevelId, trigger_price: Price) {
         let level = &mut self.levels[level_id];
         level.mark_order_removed();
         if level.is_empty() {
             self.levels.remove(level_id);
-            self.trigger_prices.remove(&order.trigger_price());
+            self.trigger_prices.remove(&trigger_price);
         }
-
-        Some(order.into_order())
     }
 }
 
