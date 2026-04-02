@@ -371,19 +371,21 @@ impl OrderBook {
     ) -> OrderOutcome {
         let outcome = OrderOutcome::new(id);
 
-        let Some(last_trade_price) = self.last_trade_price() else {
-            // All the price-conditional orders have to be checked and activated in order when the first trade occurs
-            self.price_conditional
-                .pre_trade_level
-                .add_order_entry(QueueEntry::new(sequence_number, id));
-            return outcome;
-        };
-
-        if order.is_ready(last_trade_price) {
-            self.price_conditional
-                .ready_orders
-                .push_back((id, order.clone()));
-            return outcome;
+        match self.last_trade_price {
+            None => {
+                // All the price-conditional orders have to be checked and activated in order when the first trade occurs
+                self.price_conditional
+                    .pre_trade_level
+                    .add_order_entry(QueueEntry::new(sequence_number, id));
+            }
+            Some(last_trade_price) => {
+                if order.is_ready(last_trade_price) {
+                    self.price_conditional
+                        .ready_orders
+                        .push_back((id, order.clone()));
+                    return outcome;
+                }
+            }
         }
 
         self.add_price_conditional_order(sequence_number, id, order.clone());
