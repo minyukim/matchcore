@@ -125,7 +125,7 @@ pub(super) fn validate_price_conditional_order_invariants(
     target_order: &TriggerOrder,
 ) -> Result<(), CommandError> {
     if trigger_price.is_zero() {
-        return Err(CommandError::ZeroPrice);
+        return Err(CommandError::ZeroTriggerPrice);
     }
 
     match target_order {
@@ -448,7 +448,7 @@ mod tests {
                     },
                     OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
                 )),
-                expected: Err(CommandError::ZeroPrice),
+                expected: Err(CommandError::ZeroTriggerPrice),
             },
             Case {
                 name: "invalid target market order",
