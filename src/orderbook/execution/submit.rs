@@ -970,16 +970,16 @@ mod tests_submit_price_conditional_order {
             ),
         ));
 
-        let primary = effects.primary_outcome();
-        assert_eq!(primary.order_id(), OrderId(2));
-        assert!(primary.match_result().is_none());
-        assert!(primary.cancel_reason().is_none());
+        let target = effects.target_order();
+        assert_eq!(target.order_id(), OrderId(2));
+        assert!(target.match_result().is_none());
+        assert!(target.cancel_reason().is_none());
 
-        let cascading = effects.cascading_outcomes();
-        assert_eq!(cascading.len(), 1);
-        assert_eq!(cascading[0].order_id(), OrderId(2));
-        assert!(cascading[0].match_result().is_none());
-        assert!(cascading[0].cancel_reason().is_none());
+        let triggered = effects.triggered_orders();
+        assert_eq!(triggered.len(), 1);
+        assert_eq!(triggered[0].order_id(), OrderId(2));
+        assert!(triggered[0].match_result().is_none());
+        assert!(triggered[0].cancel_reason().is_none());
 
         // Target limit order should have been submitted as a normal order with the same id.
         assert!(book.limit.orders.contains_key(&OrderId(2)));
@@ -1008,16 +1008,16 @@ mod tests_submit_price_conditional_order {
             ),
         ));
 
-        let primary = effects.primary_outcome();
-        assert_eq!(primary.order_id(), OrderId(2));
-        assert!(primary.match_result().is_none());
-        assert!(primary.cancel_reason().is_none());
+        let target = effects.target_order();
+        assert_eq!(target.order_id(), OrderId(2));
+        assert!(target.match_result().is_none());
+        assert!(target.cancel_reason().is_none());
 
-        let cascading = effects.cascading_outcomes();
-        assert_eq!(cascading.len(), 1);
-        assert_eq!(cascading[0].order_id(), OrderId(2));
-        assert!(cascading[0].match_result().is_none());
-        assert!(cascading[0].cancel_reason().is_none());
+        let triggered = effects.triggered_orders();
+        assert_eq!(triggered.len(), 1);
+        assert_eq!(triggered[0].order_id(), OrderId(2));
+        assert!(triggered[0].match_result().is_none());
+        assert!(triggered[0].cancel_reason().is_none());
 
         assert!(book.limit.orders.contains_key(&OrderId(2)));
         assert!(!book.price_conditional.orders.contains_key(&OrderId(2)));
@@ -1039,13 +1039,13 @@ mod tests_submit_price_conditional_order {
             ),
         ));
 
-        let primary = effects.primary_outcome();
-        assert_eq!(primary.order_id(), OrderId(2));
-        assert!(primary.match_result().is_none());
-        assert!(primary.cancel_reason().is_none());
+        let target = effects.target_order();
+        assert_eq!(target.order_id(), OrderId(2));
+        assert!(target.match_result().is_none());
+        assert!(target.cancel_reason().is_none());
 
-        let cascading = effects.cascading_outcomes();
-        assert!(cascading.is_empty());
+        let triggered = effects.triggered_orders();
+        assert!(triggered.is_empty());
 
         assert!(book.price_conditional.orders.contains_key(&OrderId(2)));
         assert!(!book.limit.orders.contains_key(&OrderId(2)));
