@@ -1258,7 +1258,8 @@ mod tests_amend_price_conditional_order {
             1,
             0,
             OrderId(999),
-            PriceConditionalOrderPatch::new().with_trigger_price(Price(100)),
+            PriceConditionalOrderPatch::new()
+                .with_price_condition(PriceCondition::new(Price(100), TriggerDirection::AtOrAbove)),
         );
 
         match outcome {
@@ -1334,8 +1335,7 @@ mod tests_amend_price_conditional_order {
             0,
             OrderId(0),
             PriceConditionalOrderPatch::new()
-                .with_trigger_price(Price(100))
-                .with_direction(TriggerDirection::AtOrAbove),
+                .with_price_condition(PriceCondition::new(Price(100), TriggerDirection::AtOrAbove)),
         ));
         assert_eq!(effects.target_order().order_id(), OrderId(0));
 
@@ -1374,7 +1374,8 @@ mod tests_amend_price_conditional_order {
             1,
             0,
             OrderId(0),
-            PriceConditionalOrderPatch::new().with_trigger_price(Price(120)),
+            PriceConditionalOrderPatch::new()
+                .with_price_condition(PriceCondition::new(Price(120), TriggerDirection::AtOrAbove)),
         ));
         assert_eq!(effects.target_order().order_id(), OrderId(0));
 
@@ -1426,7 +1427,8 @@ mod tests_amend_price_conditional_order {
             1,
             0,
             OrderId(0),
-            PriceConditionalOrderPatch::new().with_direction(TriggerDirection::AtOrBelow),
+            PriceConditionalOrderPatch::new()
+                .with_price_condition(PriceCondition::new(Price(100), TriggerDirection::AtOrBelow)),
         ));
         assert_eq!(effects.target_order().order_id(), OrderId(0));
 
