@@ -74,7 +74,7 @@ impl OrderBook {
             order.update_time_priority(sequence_number);
 
             let level_id = order.level_id();
-            let order = order.clone().into_order();
+            let order = order.inner().clone();
 
             self.apply_limit_order_removal(
                 sequence_number,
@@ -244,7 +244,7 @@ impl OrderBook {
         {
             order.update_time_priority(sequence_number);
 
-            let order = order.clone().into_order();
+            let order = order.inner().clone();
 
             self.pegged
                 .apply_order_removal(old_peg_reference, old_quantity, order.side());
@@ -400,7 +400,7 @@ impl OrderBook {
         {
             self.price_conditional
                 .ready_orders
-                .push_back((id, order.order().clone()));
+                .push_back((id, order.inner().clone()));
 
             self.price_conditional
                 .apply_order_removal(old_level_id, old_trigger_price);

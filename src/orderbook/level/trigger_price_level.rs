@@ -58,7 +58,7 @@ impl TriggerPriceLevel {
                 continue; // stale entry
             }
 
-            orders_vec.push((order_id, order.into_order()));
+            orders_vec.push((order_id, order.into_inner()));
             self.decrement_order_count();
         }
 
@@ -105,7 +105,7 @@ impl TriggerPriceLevel {
             };
 
             let order = orders.remove(&order_id).unwrap();
-            triggered_orders.push((order_id, order.into_order()));
+            triggered_orders.push((order_id, order.into_inner()));
         }
 
         triggered_orders
@@ -214,7 +214,7 @@ mod tests {
         let drained = level.drain_orders(&mut orders);
         assert_eq!(
             drained,
-            vec![(OrderId(0), o0.into_order()), (OrderId(1), o1.into_order())]
+            vec![(OrderId(0), o0.into_inner()), (OrderId(1), o1.into_inner())]
         );
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(level.order_count(), 1);
 
         let drained = level.drain_orders(&mut orders);
-        assert_eq!(drained, vec![(OrderId(1), o1.into_order())]);
+        assert_eq!(drained, vec![(OrderId(1), o1.into_inner())]);
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
         assert!(level.queue().is_empty());
@@ -276,7 +276,7 @@ mod tests {
         let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(101));
         assert_eq!(
             triggered,
-            vec![(OrderId(0), o0.into_order()), (OrderId(1), o1.into_order())]
+            vec![(OrderId(0), o0.into_inner()), (OrderId(1), o1.into_inner())]
         );
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
@@ -300,7 +300,7 @@ mod tests {
         let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(99));
         assert_eq!(
             triggered,
-            vec![(OrderId(0), o0.into_order()), (OrderId(1), o1.into_order())]
+            vec![(OrderId(0), o0.into_inner()), (OrderId(1), o1.into_inner())]
         );
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
@@ -322,7 +322,7 @@ mod tests {
         assert_eq!(level.order_count(), 1);
 
         let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(100));
-        assert_eq!(triggered, vec![(OrderId(1), o1.into_order())]);
+        assert_eq!(triggered, vec![(OrderId(1), o1.into_inner())]);
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
         assert!(level.queue().is_empty());
@@ -348,7 +348,7 @@ mod tests {
         level.mark_order_removed();
 
         let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(100));
-        assert_eq!(triggered, vec![(OrderId(1), o1.into_order())]);
+        assert_eq!(triggered, vec![(OrderId(1), o1.into_inner())]);
         assert!(orders.contains_key(&OrderId(0)));
         assert!(!orders.contains_key(&OrderId(1)));
         assert!(level.queue().is_empty());

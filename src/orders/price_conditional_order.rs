@@ -12,7 +12,7 @@ pub struct RestingPriceConditionalOrder {
     /// The ID of the level the order is resting at
     level_id: LevelId,
     /// The price-conditional order
-    order: PriceConditionalOrder,
+    inner: PriceConditionalOrder,
 }
 
 impl RestingPriceConditionalOrder {
@@ -20,12 +20,12 @@ impl RestingPriceConditionalOrder {
     pub fn new(
         time_priority: SequenceNumber,
         level_id: LevelId,
-        order: PriceConditionalOrder,
+        inner: PriceConditionalOrder,
     ) -> Self {
         Self {
             time_priority,
             level_id,
-            order,
+            inner,
         }
     }
 
@@ -52,13 +52,13 @@ impl RestingPriceConditionalOrder {
     }
 
     /// Get the price-conditional order
-    pub fn order(&self) -> &PriceConditionalOrder {
-        &self.order
+    pub fn inner(&self) -> &PriceConditionalOrder {
+        &self.inner
     }
 
     /// Convert the resting price-conditional order into a price-conditional order
-    pub fn into_order(self) -> PriceConditionalOrder {
-        self.order
+    pub fn into_inner(self) -> PriceConditionalOrder {
+        self.inner
     }
 }
 
@@ -66,12 +66,12 @@ impl Deref for RestingPriceConditionalOrder {
     type Target = PriceConditionalOrder;
 
     fn deref(&self) -> &Self::Target {
-        &self.order
+        &self.inner
     }
 }
 impl DerefMut for RestingPriceConditionalOrder {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.order
+        &mut self.inner
     }
 }
 

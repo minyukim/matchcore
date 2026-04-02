@@ -13,15 +13,15 @@ pub struct RestingPeggedOrder {
     /// The time priority of the order
     time_priority: SequenceNumber,
     /// The pegged order
-    order: PeggedOrder,
+    inner: PeggedOrder,
 }
 
 impl RestingPeggedOrder {
     /// Create a new resting pegged order
-    pub fn new(time_priority: SequenceNumber, order: PeggedOrder) -> Self {
+    pub fn new(time_priority: SequenceNumber, inner: PeggedOrder) -> Self {
         Self {
             time_priority,
-            order,
+            inner,
         }
     }
 
@@ -36,13 +36,13 @@ impl RestingPeggedOrder {
     }
 
     /// Get the pegged order
-    pub fn order(&self) -> &PeggedOrder {
-        &self.order
+    pub fn inner(&self) -> &PeggedOrder {
+        &self.inner
     }
 
     /// Convert the resting pegged order into a pegged order
-    pub fn into_order(self) -> PeggedOrder {
-        self.order
+    pub fn into_inner(self) -> PeggedOrder {
+        self.inner
     }
 }
 
@@ -50,12 +50,12 @@ impl Deref for RestingPeggedOrder {
     type Target = PeggedOrder;
 
     fn deref(&self) -> &Self::Target {
-        &self.order
+        &self.inner
     }
 }
 impl DerefMut for RestingPeggedOrder {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.order
+        &mut self.inner
     }
 }
 
