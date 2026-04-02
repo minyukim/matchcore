@@ -14,6 +14,7 @@ impl OrderBook {
         let result = match &cmd.patch {
             AmendPatch::Limit(patch) => self.amend_limit_order(meta, cmd.order_id, patch),
             AmendPatch::Pegged(patch) => self.amend_pegged_order(meta, cmd.order_id, patch),
+            AmendPatch::PriceConditional(_) => todo!(),
         };
         let target = match result {
             Ok(outcome) => outcome,
