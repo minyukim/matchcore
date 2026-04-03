@@ -11,6 +11,7 @@ impl OrderBook {
         let result = match &cmd.order_kind {
             OrderKind::Limit => self.cancel_limit_order(sequence_number, cmd.order_id),
             OrderKind::Pegged => self.cancel_pegged_order(cmd.order_id),
+            OrderKind::PriceConditional => self.cancel_price_conditional_order(cmd.order_id),
         };
 
         match result {
@@ -38,16 +39,20 @@ impl OrderBook {
 
         Ok(())
     }
+
+    /// Cancel a price-conditional order
+    fn cancel_price_conditional_order(&mut self, id: OrderId) -> Result<(), CommandFailure> {
+        self.remove_price_conditional_order(id)
+            .ok_or(CommandFailure::OrderNotFound)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        CancelCmd, CommandFailure, CommandOutcome, LimitOrder, OrderFlags, OrderId, OrderKind,
-        PegReference, PeggedOrder, Price, Quantity, QuantityPolicy, SequenceNumber, Side,
-        TimeInForce,
-    };
+    use crate::*;
 
     fn cancel(
         book: &mut OrderBook,
@@ -137,6 +142,49 @@ mod tests {
             SequenceNumber(1000),
             OrderId(999),
             OrderKind::Pegged,
+        );
+
+        match outcome {
+            CommandOutcome::Rejected(CommandFailure::OrderNotFound) => {}
+            other => panic!("expected order not found, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cancel_price_conditional_order_success() {
+        let mut book = OrderBook::new("TEST");
+        book.add_price_conditional_order(
+            SequenceNumber(0),
+            OrderId(0),
+            PriceConditionalOrder::new(
+                PriceCondition::new(Price(100), TriggerDirection::AtOrAbove),
+                TriggerOrder::Market(MarketOrder::new(Quantity(10), Side::Buy, false)),
+            ),
+        );
+
+        let outcome = cancel(
+            &mut book,
+            SequenceNumber(1),
+            OrderId(0),
+            OrderKind::PriceConditional,
+        );
+
+        match outcome {
+            CommandOutcome::Applied(CommandReport::Cancel) => {}
+            other => panic!("expected applied cancel, got: {other:?}"),
+        }
+        assert!(!book.price_conditional.orders.contains_key(&OrderId(0)));
+    }
+
+    #[test]
+    fn cancel_price_conditional_order_not_found() {
+        let mut book = OrderBook::new("TEST");
+
+        let outcome = cancel(
+            &mut book,
+            SequenceNumber(1000),
+            OrderId(999),
+            OrderKind::PriceConditional,
         );
 
         match outcome {

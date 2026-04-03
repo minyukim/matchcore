@@ -8,6 +8,8 @@ pub enum OrderKind {
     Limit,
     /// Pegged order
     Pegged,
+    /// Price-conditional order
+    PriceConditional,
 }
 
 impl fmt::Display for OrderKind {
@@ -15,6 +17,7 @@ impl fmt::Display for OrderKind {
         match self {
             OrderKind::Limit => write!(f, "Limit"),
             OrderKind::Pegged => write!(f, "Pegged"),
+            OrderKind::PriceConditional => write!(f, "PriceConditional"),
         }
     }
 }
@@ -27,5 +30,6 @@ mod tests {
     fn test_display() {
         assert_eq!(OrderKind::Limit.to_string(), "Limit");
         assert_eq!(OrderKind::Pegged.to_string(), "Pegged");
+        assert_eq!(OrderKind::PriceConditional.to_string(), "PriceConditional");
     }
 }
