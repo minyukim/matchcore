@@ -1,54 +1,20 @@
-//! Example: retrieve level 1 and level 2 market data on a populated order book
+//! Example: Level 1 and Level 2 market data views from a populated book
 //!
-//! Run: cargo run --example market_data
+//! Flow:
+//! 1. Populate a book with standard buy and sell orders.
+//! 2. Construct `Level1` and `Level2` snapshots and query various metrics.
+//!
+//! Run: `cargo run --example market_data`
 
 mod helpers;
 
 use matchcore::*;
 
 fn main() {
-    let mut book = OrderBook::new("ETH/USD");
-
-    // Submit standard buy orders from the best price to the worst price
-    for i in 0..10 {
-        book.execute(&Command {
-            meta: CommandMeta {
-                sequence_number: helpers::sequence_number(),
-                timestamp: helpers::now(),
-            },
-            kind: CommandKind::Submit(SubmitCmd {
-                order: NewOrder::Limit(LimitOrder::new(
-                    Price(100 - i),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(100),
-                    },
-                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-                )),
-            }),
-        });
-    }
-
-    // Submit standard sell orders from the best price to the worst price
-    for i in 0..10 {
-        book.execute(&Command {
-            meta: CommandMeta {
-                sequence_number: helpers::sequence_number(),
-                timestamp: helpers::now(),
-            },
-            kind: CommandKind::Submit(SubmitCmd {
-                order: NewOrder::Limit(LimitOrder::new(
-                    Price(110 + i),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(100),
-                    },
-                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
-                )),
-            }),
-        });
-    }
+    let book = helpers::populate_book();
 
     let l1 = Level1::from(&book);
-    println!("#################### Level 1 ####################");
+    println!("=== Level 1 ===\n");
     println!("{}", l1);
 
     println!("Spread: {}", l1.spread().unwrap());
@@ -58,7 +24,7 @@ fn main() {
     println!();
 
     let l2: Level2 = Level2::from(&book);
-    println!("#################### Level 2 ####################");
+    println!("=== Level 2 ===\n");
     println!("{}", l2);
 
     println!("Spread: {}", l2.spread().unwrap());

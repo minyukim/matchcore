@@ -1,51 +1,19 @@
 //! Example: run analytics on a populated order book
 //!
-//! Run: cargo run --example analytics
+//! Flow:
+//! 1. Populate a book with standard buy and sell orders.
+//! 2. Run various analytics queries.
+//!
+//! Run: `cargo run --example analytics`
 
 mod helpers;
 
 use matchcore::*;
 
 fn main() {
-    let mut book = OrderBook::new("ETH/USD");
+    let book = helpers::populate_book();
 
-    // Submit standard buy orders from the best price to the worst price
-    for i in 0..10 {
-        book.execute(&Command {
-            meta: CommandMeta {
-                sequence_number: helpers::sequence_number(),
-                timestamp: helpers::now(),
-            },
-            kind: CommandKind::Submit(SubmitCmd {
-                order: NewOrder::Limit(LimitOrder::new(
-                    Price(100 - i),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(100),
-                    },
-                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
-                )),
-            }),
-        });
-    }
-
-    // Submit standard sell orders from the best price to the worst price
-    for i in 0..10 {
-        book.execute(&Command {
-            meta: CommandMeta {
-                sequence_number: helpers::sequence_number(),
-                timestamp: helpers::now(),
-            },
-            kind: CommandKind::Submit(SubmitCmd {
-                order: NewOrder::Limit(LimitOrder::new(
-                    Price(110 + i),
-                    QuantityPolicy::Standard {
-                        quantity: Quantity(100),
-                    },
-                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
-                )),
-            }),
-        });
-    }
+    println!("=== Run analytics ===\n");
 
     let best_bid = book.best_bid().unwrap();
     println!("Best bid: {} x {}", best_bid.0, best_bid.1);
