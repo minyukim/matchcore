@@ -1,10 +1,17 @@
-//! Helper functions for the examples
+//! Shared helpers for `examples/*.rs`
+//!
+//! - [`now`]: wall-clock timestamp (production code should use the event record’s time).
+//! - [`sequence_number`]: monotonic sequence (production code should use stream offset / row id).
+//! - [`target_order_id`]: extracts the affected order id from a successful submit or amend outcome.
+//! - [`populate_book`]: populates a book with standard bids (100 down) and asks (110 up).
+//!
+//! Each example’s module comment describes its scenario; run with `cargo run --example <name>`.
 
 #![allow(dead_code)]
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use matchcore::{CommandOutcome, CommandReport, OrderId, SequenceNumber, Timestamp};
+use matchcore::*;
 
 /// Helper function to get the current timestamp
 /// In real-world scenarios, the timestamp should be in the input event record.
@@ -38,6 +45,51 @@ pub fn target_order_id(outcome: &CommandOutcome) -> Option<OrderId> {
         }
         _ => None,
     }
+}
+
+/// Helper function to populate a book with standard bids (100 down) and asks (110 up)
+pub fn populate_book() -> OrderBook {
+    let mut book = OrderBook::new("ETH/USD");
+
+    // Submit standard buy orders from the best price to the worst price
+    for i in 0..10 {
+        book.execute(&Command {
+            meta: CommandMeta {
+                sequence_number: sequence_number(),
+                timestamp: now(),
+            },
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Limit(LimitOrder::new(
+                    Price(100 - i),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(100),
+                    },
+                    OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                )),
+            }),
+        });
+    }
+
+    // Submit standard sell orders from the best price to the worst price
+    for i in 0..10 {
+        book.execute(&Command {
+            meta: CommandMeta {
+                sequence_number: sequence_number(),
+                timestamp: now(),
+            },
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Limit(LimitOrder::new(
+                    Price(110 + i),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(100),
+                    },
+                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                )),
+            }),
+        });
+    }
+
+    book
 }
 
 fn main() {}

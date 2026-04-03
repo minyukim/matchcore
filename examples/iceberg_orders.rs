@@ -1,6 +1,13 @@
-//! Example: submit/amend/cancel iceberg orders
+//! Example: submit, amend, cancel, and match iceberg orders
 //!
-//! Run: cargo run --example iceberg_orders
+//! Flow:
+//! 1. Submit an iceberg bid (visible + hidden + replenish size).
+//! 2. Amend price, visible size, and hidden size.
+//! 3. Cross with an aggressive iceberg sell at the new touch.
+//! 4. Cancel the remaining bid.
+//! 5. Populate both sides with iceberg ladders, then submit aggressive iceberg limits that trade through the book.
+//!
+//! Run: `cargo run --example iceberg_orders`
 
 mod helpers;
 
@@ -9,7 +16,7 @@ use matchcore::*;
 fn main() {
     let mut book = OrderBook::new("ETH/USD");
 
-    // Submit an iceberg buy order
+    println!("=== Submit a resting bid @ 100 (visible 10, hidden 90, replenish 10) ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -31,7 +38,9 @@ fn main() {
 
     let target_order_id = helpers::target_order_id(&outcome).unwrap();
 
-    // Amend the buy order
+    println!(
+        "=== Amend the bid price 100 -> 101, visible 10 -> 20, hidden 90 -> 180, replenish 10 -> 20 ==="
+    );
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -52,7 +61,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit an iceberg marketable sell order
+    println!("=== Submit a marketable ask @ 101 (total 100) ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -72,7 +81,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Cancel the remaining buy order
+    println!("=== Cancel the remaining bid ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -85,7 +94,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit iceberg buy orders
+    println!("=== Submit bids @ 100 (visible 10, hidden 90, replenish 10) ===");
     for _ in 0..10 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
@@ -107,7 +116,7 @@ fn main() {
         println!("{}", outcome);
     }
 
-    // Submit iceberg sell orders
+    println!("=== Submit asks @ 110 (visible 10, hidden 90, replenish 10) ===");
     for _ in 0..10 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
@@ -129,7 +138,7 @@ fn main() {
         println!("{}", outcome);
     }
 
-    // Submit iceberg marketable buy orders
+    println!("=== Submit marketable bids @ 110 (total 200) ===");
     for _ in 0..5 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
@@ -151,7 +160,7 @@ fn main() {
         println!("{}", outcome);
     }
 
-    // Submit iceberg marketable sell orders
+    println!("=== Submit marketable asks @ 100 (total 200) ===");
     for _ in 0..5 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {

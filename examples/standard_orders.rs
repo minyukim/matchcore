@@ -1,6 +1,13 @@
-//! Example: submit/amend/cancel standard orders
+//! Example: submit, amend, cancel, and match standard orders
 //!
-//! Run: cargo run --example standard_orders
+//! Flow:
+//! 1. Submit a resting bid, then amend price and size.
+//! 2. Cross it partially with an aggressive limit sell.
+//! 3. Cancel what remains of the original bid.
+//! 4. Build a two-sided ladder (bids stepping down from 100, asks stepping up from 110).
+//! 5. Fire aggressive limit buys and sells that walk the book (marketable limits).
+//!
+//! Run: `cargo run --example standard_orders`
 
 mod helpers;
 
@@ -9,7 +16,7 @@ use matchcore::*;
 fn main() {
     let mut book = OrderBook::new("ETH/USD");
 
-    // Submit a standard buy order
+    println!("=== Submit a resting bid @ 100 ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -26,10 +33,9 @@ fn main() {
         }),
     });
     println!("{}", outcome);
-
     let target_order_id = helpers::target_order_id(&outcome).unwrap();
 
-    // Amend the buy order
+    println!("=== Amend the bid price 100 -> 101 and size 10 -> 20 ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -48,7 +54,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a standard marketable sell order
+    println!("=== Submit a marketable ask @ 101 ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -66,7 +72,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Cancel the remaining buy order
+    println!("=== Cancel the remaining bid ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -79,7 +85,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit standard buy orders from the best price to the worst price
+    println!("=== Submit bids stepping down from 100 ===");
     for i in 0..10 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
@@ -99,7 +105,7 @@ fn main() {
         println!("{}", outcome);
     }
 
-    // Submit standard sell orders from the best price to the worst price
+    println!("=== Submit asks stepping up from 110 ===");
     for i in 0..10 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
@@ -119,7 +125,7 @@ fn main() {
         println!("{}", outcome);
     }
 
-    // Submit standard marketable buy orders
+    println!("=== Submit marketable bids @ 120 ===");
     for _ in 0..5 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
@@ -139,7 +145,7 @@ fn main() {
         println!("{}", outcome);
     }
 
-    // Submit standard marketable sell orders
+    println!("=== Submit marketable asks @ 90 ===");
     for _ in 0..5 {
         let outcome = book.execute(&Command {
             meta: CommandMeta {
