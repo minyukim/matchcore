@@ -1,5 +1,5 @@
 use super::{LimitOrder, MarketOrder};
-use crate::{LevelId, Price, SequenceNumber, Timestamp};
+use crate::{LevelId, Price, SequenceNumber, Side, Timestamp};
 
 use std::ops::{Deref, DerefMut};
 
@@ -93,6 +93,40 @@ pub struct PriceConditionalOrder {
     price_condition: PriceCondition,
     /// The target order to execute when the condition is met
     target_order: TriggerOrder,
+}
+
+impl PriceConditionalOrder {
+    /// Create a new stop market order
+    pub fn stop_market(trigger_price: Price, order: MarketOrder) -> Self {
+        Self::new(
+            PriceCondition::new(trigger_price, TriggerDirection::stop(order.side())),
+            TriggerOrder::Market(order),
+        )
+    }
+
+    /// Create a new stop limit order
+    pub fn stop_limit(trigger_price: Price, order: LimitOrder) -> Self {
+        Self::new(
+            PriceCondition::new(trigger_price, TriggerDirection::stop(order.side())),
+            TriggerOrder::Limit(order),
+        )
+    }
+
+    /// Create a new take profit market order
+    pub fn take_profit_market(trigger_price: Price, order: MarketOrder) -> Self {
+        Self::new(
+            PriceCondition::new(trigger_price, TriggerDirection::take_profit(order.side())),
+            TriggerOrder::Market(order),
+        )
+    }
+
+    /// Create a new take profit limit order
+    pub fn take_profit_limit(trigger_price: Price, order: LimitOrder) -> Self {
+        Self::new(
+            PriceCondition::new(trigger_price, TriggerDirection::take_profit(order.side())),
+            TriggerOrder::Limit(order),
+        )
+    }
 }
 
 impl PriceConditionalOrder {
@@ -201,6 +235,24 @@ pub enum TriggerDirection {
     AtOrAbove,
     /// Trigger when the observed price <= trigger_price
     AtOrBelow,
+}
+
+impl TriggerDirection {
+    /// Create a new stop trigger direction
+    pub fn stop(side: Side) -> Self {
+        match side {
+            Side::Buy => Self::AtOrAbove,
+            Side::Sell => Self::AtOrBelow,
+        }
+    }
+
+    /// Create a new take profit trigger direction
+    pub fn take_profit(side: Side) -> Self {
+        match side {
+            Side::Buy => Self::AtOrBelow,
+            Side::Sell => Self::AtOrAbove,
+        }
+    }
 }
 
 /// Represents the order to execute when the condition is met
