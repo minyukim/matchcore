@@ -165,7 +165,6 @@ impl OrderBook {
     }
 
     /// Remove a price-conditional order from the order book
-    #[allow(dead_code)]
     pub(crate) fn remove_price_conditional_order(
         &mut self,
         id: OrderId,
