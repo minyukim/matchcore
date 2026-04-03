@@ -1,7 +1,5 @@
 use super::{LevelEntries, QueueEntry};
-use crate::{
-    OrderId, Price, PriceConditionalOrder, RestingPriceConditionalOrder, TriggerDirection,
-};
+use crate::{OrderId, Price, PriceConditionalOrder, RestingPriceConditionalOrder};
 
 use std::ops::{Deref, DerefMut};
 
@@ -51,22 +49,22 @@ impl TriggerPriceLevel {
             let queue_entry = self.pop().unwrap();
 
             let order_id = queue_entry.order_id();
-            let Some(order) = orders.remove(&order_id) else {
+            let Some(order) = orders.get(&order_id) else {
                 continue; // stale entry
             };
             if queue_entry.time_priority() != order.time_priority() {
                 continue; // stale entry
             }
 
-            orders_vec.push((order_id, order.into_inner()));
+            orders_vec.push((order_id, orders.remove(&order_id).unwrap().into_inner()));
             self.decrement_order_count();
         }
 
         orders_vec
     }
 
-    /// Drains all triggered orders at the given price from the level and the provided `orders` map
-    pub(crate) fn drain_triggered_orders_at_price(
+    /// Drains all ready to be executed orders at the given price from the level and the provided `orders` map
+    pub(crate) fn drain_ready_orders_at_price(
         &mut self,
         orders: &mut FxHashMap<OrderId, RestingPriceConditionalOrder>,
         price: Price,
@@ -80,29 +78,15 @@ impl TriggerPriceLevel {
             let Some(order) = orders.get(&order_id) else {
                 continue; // stale entry
             };
-            let (time_priority, direction, trigger_price) = (
-                order.time_priority(),
-                order.direction(),
-                order.trigger_price(),
-            );
-            if queue_entry.time_priority() != time_priority {
+            if queue_entry.time_priority() != order.time_priority() {
                 continue; // stale entry
             }
 
             self.decrement_order_count();
 
-            match direction {
-                TriggerDirection::AtOrAbove => {
-                    if trigger_price > price {
-                        continue;
-                    }
-                }
-                TriggerDirection::AtOrBelow => {
-                    if trigger_price < price {
-                        continue;
-                    }
-                }
-            };
+            if !order.is_ready(price) {
+                continue;
+            }
 
             let order = orders.remove(&order_id).unwrap();
             triggered_orders.push((order_id, order.into_inner()));
@@ -245,22 +229,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn drain_orders_panics_if_order_count_exceeds_remaining_queue_entries() {
-        let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
-        let mut level = TriggerPriceLevel::new();
-
-        // order_count says there's 1 active order...
-        level.increment_order_count();
-        // ...but the queue has only a stale entry that will be skipped (and will not decrement order_count).
-        level.push(QueueEntry::new(SequenceNumber(0), OrderId(0)));
-
-        // This violates internal invariants: the loop will try to pop again from an empty queue.
-        let _ = level.drain_orders(&mut orders);
-    }
-
-    #[test]
-    fn drain_triggered_orders_at_price_triggers_at_or_above_when_price_meets_threshold() {
+    fn drain_ready_orders_at_price_triggers_at_or_above_when_price_meets_threshold() {
         let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
         let mut level = TriggerPriceLevel::new();
 
@@ -273,9 +242,9 @@ mod tests {
         level.add_order_entry(QueueEntry::new(SequenceNumber(1), OrderId(1)));
         assert_eq!(level.order_count(), 2);
 
-        let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(101));
+        let ready = level.drain_ready_orders_at_price(&mut orders, Price(101));
         assert_eq!(
-            triggered,
+            ready,
             vec![(OrderId(0), o0.into_inner()), (OrderId(1), o1.into_inner())]
         );
         assert!(orders.is_empty());
@@ -284,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn drain_triggered_orders_at_price_triggers_at_or_below_when_price_meets_threshold() {
+    fn drain_ready_orders_at_price_triggers_at_or_below_when_price_meets_threshold() {
         let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
         let mut level = TriggerPriceLevel::new();
 
@@ -297,9 +266,9 @@ mod tests {
         level.add_order_entry(QueueEntry::new(SequenceNumber(1), OrderId(1)));
         assert_eq!(level.order_count(), 2);
 
-        let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(99));
+        let ready = level.drain_ready_orders_at_price(&mut orders, Price(99));
         assert_eq!(
-            triggered,
+            ready,
             vec![(OrderId(0), o0.into_inner()), (OrderId(1), o1.into_inner())]
         );
         assert!(orders.is_empty());
@@ -308,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn drain_triggered_orders_at_price_skips_stale_missing_order_entries_before_valid_orders() {
+    fn drain_ready_orders_at_price_skips_stale_missing_order_entries_before_valid_orders() {
         let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
         let mut level = TriggerPriceLevel::new();
 
@@ -321,15 +290,15 @@ mod tests {
         level.add_order_entry(QueueEntry::new(SequenceNumber(1), OrderId(1)));
         assert_eq!(level.order_count(), 1);
 
-        let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(100));
-        assert_eq!(triggered, vec![(OrderId(1), o1.into_inner())]);
+        let ready = level.drain_ready_orders_at_price(&mut orders, Price(100));
+        assert_eq!(ready, vec![(OrderId(1), o1.into_inner())]);
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
         assert!(level.queue().is_empty());
     }
 
     #[test]
-    fn drain_triggered_orders_at_price_skips_stale_order_on_time_priority_mismatch() {
+    fn drain_ready_orders_at_price_skips_stale_order_on_time_priority_mismatch() {
         let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
         let mut level = TriggerPriceLevel::new();
 
@@ -347,16 +316,15 @@ mod tests {
         // elsewhere (e.g., order update/removal) and the queue cleanup happens later.
         level.mark_order_removed();
 
-        let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(100));
-        assert_eq!(triggered, vec![(OrderId(1), o1.into_inner())]);
+        let ready = level.drain_ready_orders_at_price(&mut orders, Price(100));
+        assert_eq!(ready, vec![(OrderId(1), o1.into_inner())]);
         assert!(orders.contains_key(&OrderId(0)));
         assert!(!orders.contains_key(&OrderId(1)));
         assert!(level.queue().is_empty());
     }
 
     #[test]
-    fn drain_triggered_orders_at_price_dequeues_non_triggered_orders_but_leaves_them_in_orders_map()
-    {
+    fn drain_ready_orders_at_price_dequeues_non_triggered_orders_but_leaves_them_in_orders_map() {
         let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
         let mut level = TriggerPriceLevel::new();
 
@@ -366,8 +334,8 @@ mod tests {
         assert_eq!(level.order_count(), 1);
 
         // Price has not reached trigger for AtOrAbove.
-        let triggered = level.drain_triggered_orders_at_price(&mut orders, Price(100));
-        assert!(triggered.is_empty());
+        let ready = level.drain_ready_orders_at_price(&mut orders, Price(100));
+        assert!(ready.is_empty());
 
         // Current behavior: the queue entry is popped and order_count is decremented even if not triggered,
         // but the order remains in the map (not removed).

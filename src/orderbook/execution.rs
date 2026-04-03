@@ -141,10 +141,7 @@ impl OrderBook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        LimitOrder, MarketOrder, OrderFlags, OrderId, OrderKind, PegReference, PeggedOrder, Price,
-        Quantity, QuantityPolicy, Side, TimeInForce, Timestamp,
-    };
+    use crate::*;
 
     #[test]
     fn test_handle_command_meta() {
@@ -1280,7 +1277,7 @@ mod tests {
 
     #[test]
     fn test_pegged_order_execution() {
-        let mut book = OrderBook::new("ETH/USD");
+        let mut book = OrderBook::new("TEST");
         let mut ctx = TestContext::new();
 
         // Submit a primary pegged buy order
@@ -1512,5 +1509,207 @@ mod tests {
             Vec::new(),
         )));
         assert_eq!(outcome, expected_outcome);
+    }
+
+    /// Helper function to seed the last trade price
+    fn seed_last_trade_price(book: &mut OrderBook, ctx: &mut TestContext, trade_price: Price) {
+        let _ = book.execute(&Command {
+            meta: ctx.meta(),
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Limit(LimitOrder::new(
+                    trade_price,
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(1),
+                    },
+                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                )),
+            }),
+        });
+
+        let _ = book.execute(&Command {
+            meta: ctx.meta(),
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Market(MarketOrder::new(Quantity(1), Side::Buy, false)),
+            }),
+        });
+
+        assert_eq!(
+            book.last_trade_price(),
+            Some(trade_price),
+            "seed trade should set last_trade_price"
+        );
+    }
+
+    #[test]
+    fn test_price_conditional_order_execution() {
+        let mut book = OrderBook::new("TEST");
+        let mut ctx = TestContext::new();
+
+        // Seed last trade at 100
+        seed_last_trade_price(&mut book, &mut ctx, Price(100));
+
+        // Submit stop-limit buy: trigger >= 105, activated limit @ 112
+        let meta = ctx.meta();
+        let outcome = book.execute(&Command {
+            meta,
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::PriceConditional(PriceConditionalOrder::stop_limit(
+                    Price(105),
+                    LimitOrder::new(
+                        Price(112),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(10),
+                        },
+                        OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                    ),
+                )),
+            }),
+        });
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
+        )));
+        assert_eq!(outcome, expected_outcome);
+
+        let stop_limit_id = target_order_id(&outcome).expect("submit should return order id");
+
+        let outcome = book.execute(&Command {
+            meta: ctx.meta(),
+            kind: CommandKind::Amend(AmendCmd {
+                order_id: stop_limit_id,
+                patch: AmendPatch::PriceConditional(
+                    PriceConditionalOrderPatch::new().with_target_order(TriggerOrder::Limit(
+                        LimitOrder::new(
+                            Price(111),
+                            QuantityPolicy::Standard {
+                                quantity: Quantity(10),
+                            },
+                            OrderFlags::new(Side::Buy, false, TimeInForce::Gtc),
+                        ),
+                    )),
+                ),
+            }),
+        });
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Amend(CommandEffects::new(
+            OrderOutcome::new(stop_limit_id),
+            Vec::new(),
+        )));
+        assert_eq!(outcome, expected_outcome);
+
+        // Submit & cancel a separate price-conditional order (never triggers)
+        let meta = ctx.meta();
+        let outcome = book.execute(&Command {
+            meta,
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::PriceConditional(PriceConditionalOrder::new(
+                    PriceCondition::new(Price(500), TriggerDirection::AtOrAbove),
+                    TriggerOrder::Market(MarketOrder::new(Quantity(1), Side::Buy, false)),
+                )),
+            }),
+        });
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
+        )));
+        assert_eq!(outcome, expected_outcome);
+
+        let disposable_id = target_order_id(&outcome).expect("submit should return order id");
+
+        let meta = ctx.meta();
+        let outcome = book.execute(&Command {
+            meta,
+            kind: CommandKind::Cancel(CancelCmd {
+                order_id: disposable_id,
+                order_kind: OrderKind::PriceConditional,
+            }),
+        });
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Cancel);
+        assert_eq!(outcome, expected_outcome);
+
+        // Stack asks: walk 101..=105 (1 lot each), then liquidity at 111 for the activated limit
+        for price in 101..=105 {
+            let meta = ctx.meta();
+            let outcome = book.execute(&Command {
+                meta,
+                kind: CommandKind::Submit(SubmitCmd {
+                    order: NewOrder::Limit(LimitOrder::new(
+                        Price(price),
+                        QuantityPolicy::Standard {
+                            quantity: Quantity(1),
+                        },
+                        OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                    )),
+                }),
+            });
+            let expected_outcome =
+                CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+                    OrderOutcome::new(OrderId::from(meta.sequence_number)),
+                    Vec::new(),
+                )));
+            assert_eq!(outcome, expected_outcome);
+        }
+
+        let meta = ctx.meta();
+        let outcome = book.execute(&Command {
+            meta,
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Limit(LimitOrder::new(
+                    Price(111),
+                    QuantityPolicy::Standard {
+                        quantity: Quantity(10),
+                    },
+                    OrderFlags::new(Side::Sell, false, TimeInForce::Gtc),
+                )),
+            }),
+        });
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            OrderOutcome::new(OrderId::from(meta.sequence_number)),
+            Vec::new(),
+        )));
+        assert_eq!(outcome, expected_outcome);
+
+        // Market buy 5: last trade 100 -> 105, triggers stop-limit; activated buy @ 111 matches
+        let meta = ctx.meta();
+        let outcome = book.execute(&Command {
+            meta,
+            kind: CommandKind::Submit(SubmitCmd {
+                order: NewOrder::Market(MarketOrder::new(Quantity(5), Side::Buy, false)),
+            }),
+        });
+
+        let mut expected_match_result = MatchResult::new(Side::Buy);
+        expected_match_result.add_trade(Trade::new(OrderId(6), Price(101), Quantity(1)));
+        expected_match_result.add_trade(Trade::new(OrderId(7), Price(102), Quantity(1)));
+        expected_match_result.add_trade(Trade::new(OrderId(8), Price(103), Quantity(1)));
+        expected_match_result.add_trade(Trade::new(OrderId(9), Price(104), Quantity(1)));
+        expected_match_result.add_trade(Trade::new(OrderId(10), Price(105), Quantity(1)));
+
+        let mut expected_order_outcome = OrderOutcome::new(OrderId::from(meta.sequence_number));
+        expected_order_outcome.set_match_result(expected_match_result);
+
+        let mut expected_triggered_match_result = MatchResult::new(Side::Buy);
+        expected_triggered_match_result.add_trade(Trade::new(
+            OrderId(11),
+            Price(111),
+            Quantity(10),
+        ));
+
+        let mut expected_triggered_order_outcome = OrderOutcome::new(stop_limit_id);
+        expected_triggered_order_outcome.set_match_result(expected_triggered_match_result);
+
+        let expected_outcome = CommandOutcome::Applied(CommandReport::Submit(CommandEffects::new(
+            expected_order_outcome,
+            vec![expected_triggered_order_outcome],
+        )));
+        assert_eq!(outcome, expected_outcome);
+
+        assert_eq!(book.last_trade_price(), Some(Price(111)));
+        assert!(
+            !book
+                .price_conditional()
+                .orders()
+                .contains_key(&stop_limit_id)
+        );
+        assert!(!book.limit().orders().contains_key(&stop_limit_id));
     }
 }
