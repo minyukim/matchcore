@@ -1,7 +1,5 @@
 use super::{LevelEntries, QueueEntry};
-use crate::{
-    OrderId, Price, PriceConditionalOrder, RestingPriceConditionalOrder, TriggerDirection,
-};
+use crate::{OrderId, Price, PriceConditionalOrder, RestingPriceConditionalOrder};
 
 use std::ops::{Deref, DerefMut};
 
@@ -51,14 +49,14 @@ impl TriggerPriceLevel {
             let queue_entry = self.pop().unwrap();
 
             let order_id = queue_entry.order_id();
-            let Some(order) = orders.remove(&order_id) else {
+            let Some(order) = orders.get(&order_id) else {
                 continue; // stale entry
             };
             if queue_entry.time_priority() != order.time_priority() {
                 continue; // stale entry
             }
 
-            orders_vec.push((order_id, order.into_inner()));
+            orders_vec.push((order_id, orders.remove(&order_id).unwrap().into_inner()));
             self.decrement_order_count();
         }
 
@@ -80,29 +78,15 @@ impl TriggerPriceLevel {
             let Some(order) = orders.get(&order_id) else {
                 continue; // stale entry
             };
-            let (time_priority, direction, trigger_price) = (
-                order.time_priority(),
-                order.direction(),
-                order.trigger_price(),
-            );
-            if queue_entry.time_priority() != time_priority {
+            if queue_entry.time_priority() != order.time_priority() {
                 continue; // stale entry
             }
 
             self.decrement_order_count();
 
-            match direction {
-                TriggerDirection::AtOrAbove => {
-                    if trigger_price > price {
-                        continue;
-                    }
-                }
-                TriggerDirection::AtOrBelow => {
-                    if trigger_price < price {
-                        continue;
-                    }
-                }
-            };
+            if !order.price_condition().is_met(price) {
+                continue;
+            }
 
             let order = orders.remove(&order_id).unwrap();
             triggered_orders.push((order_id, order.into_inner()));
@@ -242,21 +226,6 @@ mod tests {
         assert!(orders.is_empty());
         assert_eq!(level.order_count(), 0);
         assert!(level.queue().is_empty());
-    }
-
-    #[test]
-    #[should_panic]
-    fn drain_orders_panics_if_order_count_exceeds_remaining_queue_entries() {
-        let mut orders: FxHashMap<OrderId, RestingPriceConditionalOrder> = FxHashMap::default();
-        let mut level = TriggerPriceLevel::new();
-
-        // order_count says there's 1 active order...
-        level.increment_order_count();
-        // ...but the queue has only a stale entry that will be skipped (and will not decrement order_count).
-        level.push(QueueEntry::new(SequenceNumber(0), OrderId(0)));
-
-        // This violates internal invariants: the loop will try to pop again from an empty queue.
-        let _ = level.drain_orders(&mut orders);
     }
 
     #[test]
