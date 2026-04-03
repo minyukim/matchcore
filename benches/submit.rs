@@ -125,6 +125,26 @@ pub fn benches_submit(c: &mut Criterion) {
         })
     });
 
+    let command = Command {
+        meta: CommandMeta {
+            sequence_number: SequenceNumber(0),
+            timestamp: Timestamp(0),
+        },
+        kind: CommandKind::Submit(SubmitCmd {
+            order: NewOrder::PriceConditional(PriceConditionalOrder::stop_market(
+                Price(100),
+                MarketOrder::new(Quantity(100), Side::Buy, false),
+            )),
+        }),
+    };
+    group.bench_function("single_price_conditional_order_fresh_book", |b| {
+        b.iter(|| {
+            let mut book: OrderBook = OrderBook::new("TEST");
+            let outcome = book.execute(black_box(&command));
+            black_box(outcome);
+        })
+    });
+
     let commands: Vec<Command> = (0..10_000)
         .map(|i| {
             let side = if i % 2 == 0 { Side::Buy } else { Side::Sell };
@@ -302,6 +322,50 @@ pub fn benches_submit(c: &mut Criterion) {
         })
         .collect();
     group.bench_function("10k_pegged_orders_fresh_book", |b| {
+        b.iter(|| {
+            let mut book = OrderBook::new("TEST");
+            for command in &commands {
+                let outcome = book.execute(black_box(command));
+                black_box(outcome);
+            }
+            black_box(book);
+        })
+    });
+
+    let commands: Vec<Command> = (0..10_000)
+        .map(|i| {
+            let order = match i % 4 {
+                0 => PriceConditionalOrder::stop_market(
+                    Price(100),
+                    MarketOrder::new(Quantity(100), Side::Buy, false),
+                ),
+                1 => PriceConditionalOrder::stop_market(
+                    Price(100),
+                    MarketOrder::new(Quantity(100), Side::Sell, false),
+                ),
+                2 => PriceConditionalOrder::take_profit_market(
+                    Price(100),
+                    MarketOrder::new(Quantity(100), Side::Buy, false),
+                ),
+                3 => PriceConditionalOrder::take_profit_market(
+                    Price(100),
+                    MarketOrder::new(Quantity(100), Side::Sell, false),
+                ),
+                _ => unreachable!(),
+            };
+
+            Command {
+                meta: CommandMeta {
+                    sequence_number: SequenceNumber(i),
+                    timestamp: Timestamp(i),
+                },
+                kind: CommandKind::Submit(SubmitCmd {
+                    order: NewOrder::PriceConditional(order),
+                }),
+            }
+        })
+        .collect();
+    group.bench_function("10k_price_conditional_orders_fresh_book", |b| {
         b.iter(|| {
             let mut book = OrderBook::new("TEST");
             for command in &commands {
