@@ -174,6 +174,21 @@ fn render_markdown(results: &[BenchResult]) -> String {
         "Single pegged order into a fresh book",
         map.get("submit/single_pegged_order_fresh_book"),
     );
+    push_row(
+        &mut out,
+        "Single price-conditional order into a fresh book",
+        map.get("submit/single_price_conditional_order_fresh_book"),
+    );
+    push_row(
+        &mut out,
+        "Single inactive price-conditional stop-limit order",
+        map.get("submit/single_inactive_price_conditional_stop_limit_order"),
+    );
+    push_row(
+        &mut out,
+        "Single active price-conditional stop-limit order",
+        map.get("submit/single_active_price_conditional_stop_limit_order"),
+    );
     out.push('\n');
 
     out.push_str("### 10k orders submit\n\n");
@@ -203,6 +218,21 @@ fn render_markdown(results: &[BenchResult]) -> String {
         &mut out,
         "10k pegged orders into a fresh book",
         map.get("submit/10k_pegged_orders_fresh_book"),
+    );
+    push_row(
+        &mut out,
+        "10k price-conditional orders into a fresh book",
+        map.get("submit/10k_price_conditional_orders_fresh_book"),
+    );
+    push_row(
+        &mut out,
+        "10k inactive price-conditional stop-limit orders",
+        map.get("submit/10k_inactive_price_conditional_stop_limit_orders"),
+    );
+    push_row(
+        &mut out,
+        "10k active price-conditional stop-limit orders",
+        map.get("submit/10k_active_price_conditional_stop_limit_orders"),
     );
     out.push('\n');
 
