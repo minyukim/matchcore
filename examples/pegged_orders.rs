@@ -1,6 +1,12 @@
-//! Example: submit/amend/cancel pegged orders
+//! Example: submit, amend, cancel, and match pegged orders (primary, market, mid-price)
 //!
-//! Run: cargo run --example pegged_orders
+//! Flow:
+//! 1. Submit a primary pegged buy, then amend it to a market peg with larger quantity.
+//! 2. Add a resting sell so the market peg can trade; cancel any remaining peg.
+//! 3. Exercise mid-price and primary pegs with resting limits, then show market peg behavior when the
+//!    spread is wide (mid-price inactive) vs tight (mid-price active).
+//!
+//! Run: `cargo run --example pegged_orders`
 
 mod helpers;
 
@@ -9,7 +15,7 @@ use matchcore::*;
 fn main() {
     let mut book = OrderBook::new("ETH/USD");
 
-    // Submit a primary pegged buy order
+    println!("=== Submit a primary pegged bid ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -27,8 +33,7 @@ fn main() {
 
     let target_order_id = helpers::target_order_id(&outcome).unwrap();
 
-    // Amend the buy order to a market pegged buy order
-    // The market pegged order will reside at the primary peg level waiting for the new sell order
+    println!("=== Amend the bid to become a market pegged bid (waiting for new sell order) ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -45,8 +50,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a standard sell order
-    // The submission command will trigger the market pegged order to be matched with the new sell order
+    println!("=== Submit a standard ask @ 110 (triggers the market pegged bid) ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -64,7 +68,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Cancel the remaining the market pegged buy order
+    println!("=== Cancel the remaining pegged bid ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -77,7 +81,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a mid price pegged buy order
+    println!("=== Submit a mid price pegged bid ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -93,7 +97,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a primary pegged buy order
+    println!("=== Submit a primary pegged bid ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -109,7 +113,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a standard buy order
+    println!("=== Submit a standard bid @ 100 ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -127,7 +131,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a standard sell order
+    println!("=== Submit a standard ask @ 110 ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -145,7 +149,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a market pegged sell order - mid price inactive (spread > 1)
+    println!("=== Submit a market pegged ask (spread > 1 -> mid price inactive) ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -161,7 +165,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a standard buy order
+    println!("=== Submit a standard bid @ 109 ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
@@ -179,7 +183,7 @@ fn main() {
     });
     println!("{}", outcome);
 
-    // Submit a market pegged sell order - mid price active (spread <= 1)
+    println!("=== Submit a market pegged ask (spread <= 1 -> mid price active) ===");
     let outcome = book.execute(&Command {
         meta: CommandMeta {
             sequence_number: helpers::sequence_number(),
