@@ -201,6 +201,7 @@ Matchcore supports the following order types and execution options.
 - **Market Order**: executes immediately against the best available liquidity; optionally supports market-to-limit behavior if not fully filled
 - **Limit Order**: executes at the specified price or better
 - **Pegged Order**: dynamically reprices based on a reference price (e.g., best bid/ask)
+- **Price-Conditional Order**: becomes active when the market price satisfies a specified condition (e.g., at or above a trigger price); a generic category that includes stop-loss and take-profit orders
 
 ### Flags
 
