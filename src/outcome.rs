@@ -52,7 +52,7 @@ mod tests {
             OrderOutcome::new(OrderId(1)),
             Vec::new(),
         )));
-        println!("{}", outcome);
+        println!("{outcome}");
         assert_eq!(
             outcome.to_string(),
             "order submitted: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
@@ -62,19 +62,19 @@ mod tests {
             OrderOutcome::new(OrderId(1)),
             Vec::new(),
         )));
-        println!("{}", outcome);
+        println!("{outcome}");
         assert_eq!(
             outcome.to_string(),
             "order amended: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
         );
 
         let outcome = CommandOutcome::Applied(CommandReport::Cancel);
-        println!("{}", outcome);
+        println!("{outcome}");
         assert_eq!(outcome.to_string(), "order cancelled\n");
 
         let outcome =
             CommandOutcome::Rejected(CommandFailure::InvalidCommand(CommandError::ZeroPrice));
-        println!("{}", outcome);
+        println!("{outcome}");
         assert_eq!(
             outcome.to_string(),
             "command rejected: invalid command: price is zero\n"
@@ -90,7 +90,7 @@ mod tests {
         let command_effects =
             CommandEffects::new(order_outcome1, vec![order_outcome2, order_outcome3]);
         let outcome = CommandOutcome::Applied(CommandReport::Submit(command_effects));
-        println!("{}", outcome);
+        println!("{outcome}");
         assert_eq!(
             outcome.to_string(),
             "order submitted: effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"

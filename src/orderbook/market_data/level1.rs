@@ -304,14 +304,14 @@ mod tests {
     #[test]
     fn test_display() {
         let l1 = empty_level1();
-        println!("{}", l1);
+        println!("{l1}");
         assert_eq!(
             l1.to_string(),
             "Last Trade Price: None\nBest Ask: None\nBest Bid: None\n"
         );
 
         let l1 = populated_level1();
-        println!("{}", l1);
+        println!("{l1}");
         assert_eq!(
             l1.to_string(),
             "Last Trade Price: 150\nBest Ask: 200 x 300\nBest Bid: 100 x 500\n"

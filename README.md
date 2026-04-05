@@ -231,7 +231,7 @@ let outcome = book.execute(&Command {
     }),
 });
 
-println!("{}", outcome);
+println!("{outcome}");
 ```
 
 More examples can be found in the [examples](examples) directory.

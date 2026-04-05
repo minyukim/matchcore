@@ -117,14 +117,14 @@ mod tests_order_outcome {
     #[test]
     fn test_display() {
         let mut order_outcome = create_order_outcome();
-        println!("{}", order_outcome);
+        println!("{order_outcome}");
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  not matched\n  not cancelled\n"
         );
 
         order_outcome.set_match_result(MatchResult::new(Side::Buy));
-        println!("{}", order_outcome);
+        println!("{order_outcome}");
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n  not cancelled\n"
@@ -134,7 +134,7 @@ mod tests_order_outcome {
         match_result.add_trade(Trade::new(OrderId(2), Price(99), Quantity(20)));
         match_result.add_trade(Trade::new(OrderId(3), Price(100), Quantity(30)));
         order_outcome.set_match_result(match_result);
-        println!("{}", order_outcome);
+        println!("{order_outcome}");
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  matched: taker_side=BUY executed_quantity=50 executed_value=4980 trades=2\n    maker(2): 20@99\n    maker(3): 30@100\n  not cancelled\n"
@@ -145,7 +145,7 @@ mod tests_order_outcome {
             requested: Quantity(100),
             available: Quantity(50),
         });
-        println!("{}", order_outcome);
+        println!("{order_outcome}");
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  not matched\n  cancelled: insufficient liquidity: requested 100, available 50\n"
@@ -157,7 +157,7 @@ mod tests_order_outcome {
             requested: Quantity(100),
             available: Quantity(50),
         });
-        println!("{}", order_outcome);
+        println!("{order_outcome}");
         assert_eq!(
             order_outcome.to_string(),
             "order(1):\n  matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n  cancelled: insufficient liquidity: requested 100, available 50\n"

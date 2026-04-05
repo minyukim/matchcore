@@ -29,7 +29,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     let target_order_id = helpers::target_order_id(&outcome).unwrap();
 
@@ -48,7 +48,7 @@ fn main() {
             ),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a standard ask @ 110 (triggers the market pegged bid) ===");
     let outcome = book.execute(&Command {
@@ -66,7 +66,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Cancel the remaining pegged bid ===");
     let outcome = book.execute(&Command {
@@ -79,7 +79,7 @@ fn main() {
             order_kind: OrderKind::Pegged,
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a mid price pegged bid ===");
     let outcome = book.execute(&Command {
@@ -95,7 +95,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a primary pegged bid ===");
     let outcome = book.execute(&Command {
@@ -111,7 +111,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a standard bid @ 100 ===");
     let outcome = book.execute(&Command {
@@ -129,7 +129,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a standard ask @ 110 ===");
     let outcome = book.execute(&Command {
@@ -147,7 +147,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a market pegged ask (spread > 1 -> mid price inactive) ===");
     let outcome = book.execute(&Command {
@@ -163,7 +163,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a standard bid @ 109 ===");
     let outcome = book.execute(&Command {
@@ -181,7 +181,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a market pegged ask (spread <= 1 -> mid price active) ===");
     let outcome = book.execute(&Command {
@@ -197,5 +197,5 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 }

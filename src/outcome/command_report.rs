@@ -36,7 +36,7 @@ mod tests {
             OrderOutcome::new(OrderId(1)),
             Vec::new(),
         ));
-        println!("{}", report);
+        println!("{report}");
         assert_eq!(
             report.to_string(),
             "order submitted: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
@@ -46,14 +46,14 @@ mod tests {
             OrderOutcome::new(OrderId(1)),
             Vec::new(),
         ));
-        println!("{}", report);
+        println!("{report}");
         assert_eq!(
             report.to_string(),
             "order amended: effects:\n  target order(1):\n    not matched\n    not cancelled\n"
         );
 
         let report = CommandReport::Cancel;
-        println!("{}", report);
+        println!("{report}");
         assert_eq!(report.to_string(), "order cancelled\n");
 
         let mut order_outcome1 = OrderOutcome::new(OrderId(1));
@@ -66,7 +66,7 @@ mod tests {
         let command_effects =
             CommandEffects::new(order_outcome1, vec![order_outcome2, order_outcome3]);
         let report = CommandReport::Submit(command_effects);
-        println!("{}", report);
+        println!("{report}");
         assert_eq!(
             report.to_string(),
             "order submitted: effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"
