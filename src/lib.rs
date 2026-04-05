@@ -14,22 +14,66 @@
 //! - Designed for integration with event-driven trading systems
 //! - Clear command → outcome model for reproducible execution
 //!
-//! # What’s New in v0.3
+//! # What’s New in v0.4
 //!
-//! This release focuses on performance optimizations.
+//! This release introduces **price-conditional orders** and a revamped **cascading execution model**, enabling richer order semantics and a scalable foundation for complex order interactions.
 //!
-//! - **In-place level updates** [#132](https://github.com/minyukim/matchcore/pull/132)
+//! ## Price-Conditional Orders
 //!
-//!   Orders are now updated in place instead of being removed and reinserted into the HashMap.
-//!   This reduces overhead and improves price amendment performance by **~40%**.
+//! Adds a new order type that remains inactive until a price condition is satisfied.
 //!
-//! - **Switch to FxHashMap** [#135](https://github.com/minyukim/matchcore/pull/135)
+//! - Activated when the market price reaches a specified threshold:
+//!   - **At or above** a trigger price  
+//!   - **At or below** a trigger price  
+//! - On activation, submits a **new order** (market or limit) to the book  
+//! - The activated order is treated as a **fresh submission with new time priority**
 //!
-//!   Replaces the standard HashMap (SipHash) with [FxHashMap](https://docs.rs/rustc-hash/latest/rustc_hash/type.FxHashMap.html), a fast non-cryptographic hasher optimized for integer-heavy workloads.
-//!   This significantly improves overall performance, especially:
+//! This abstraction supports:
 //!
-//!   - Cancellation throughput: **~40-52% faster**
-//!   - Large-volume matching: **~35-60% faster**
+//! - Stop-loss orders  
+//! - Take-profit orders  
+//!
+//! ### Execution Model
+//!
+//! - Orders are stored in a **price-conditional sub-book**
+//! - Once triggered, they are moved into a **ready queue**
+//! - Execution is integrated with the matching engine via cascading
+//!
+//! ### Activation Strategy
+//!
+//! Activation depends on whether a last-trade price exists:
+//!
+//! #### With last-trade price
+//!
+//! - Conditions are evaluated immediately on **submit/amend**
+//! - Orders that already satisfy the condition:
+//!   - Bypass the book
+//!   - Go directly into the **ready queue**
+//! - Remaining orders are organized by trigger price levels and activated via range scans (`drain_levels`)
+//!
+//! #### Without last-trade price
+//!
+//! - Conditions cannot be evaluated at submission time  
+//! - All orders are placed into a single **pre-trade level**
+//! - On the first trade:
+//!   - Orders are evaluated **in time priority order**
+//!   - Triggered orders are drained via `drain_pre_trade_level_at_price`
+//!
+//! ## Cascading Execution Model
+//!
+//! Introduces a deterministic mechanism to process dependent order activations.
+//!
+//! After a primary order execution:
+//!
+//! 1. Execute all **ready price-conditional orders** triggered by the last-trade price change  
+//! 2. Execute an eligible **pegged taker order**  
+//! 3. Repeat until no further orders can be executed  
+//!
+//! This ensures:
+//!
+//! - Deterministic and reproducible behavior  
+//! - Correct ordering of dependent executions  
+//! - Proper handling of chained activations (conditional → pegged → conditional)
 //!
 //! # Architecture
 //!
