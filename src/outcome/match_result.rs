@@ -143,7 +143,7 @@ mod tests_match_result {
     #[test]
     fn test_display() {
         let mut match_result = create_match_result();
-        println!("{}", match_result);
+        println!("{match_result}");
         assert_eq!(
             match_result.to_string(),
             "taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n"
@@ -151,7 +151,7 @@ mod tests_match_result {
 
         match_result.add_trade(Trade::new(OrderId(2), Price(99), Quantity(20)));
         match_result.add_trade(Trade::new(OrderId(3), Price(100), Quantity(30)));
-        println!("{}", match_result);
+        println!("{match_result}");
         assert_eq!(
             match_result.to_string(),
             "taker_side=BUY executed_quantity=50 executed_value=4980 trades=2\n  maker(2): 20@99\n  maker(3): 30@100\n"

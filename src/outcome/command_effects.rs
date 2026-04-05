@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_display() {
         let command_effects = CommandEffects::new(OrderOutcome::new(OrderId(1)), Vec::new());
-        println!("{}", command_effects);
+        println!("{command_effects}");
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    not matched\n    not cancelled\n"
@@ -67,7 +67,7 @@ mod tests {
             OrderOutcome::new(OrderId(1)),
             vec![OrderOutcome::new(OrderId(2))],
         );
-        println!("{}", command_effects);
+        println!("{command_effects}");
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    not matched\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n"
@@ -77,7 +77,7 @@ mod tests {
             OrderOutcome::new(OrderId(1)),
             vec![OrderOutcome::new(OrderId(2)), OrderOutcome::new(OrderId(3))],
         );
-        println!("{}", command_effects);
+        println!("{command_effects}");
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    not matched\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n  triggered order(3):\n    not matched\n    not cancelled\n"
@@ -90,7 +90,7 @@ mod tests {
             order_outcome,
             vec![OrderOutcome::new(OrderId(2)), OrderOutcome::new(OrderId(3))],
         );
-        println!("{}", command_effects);
+        println!("{command_effects}");
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    not matched\n    not cancelled\n  triggered order(3):\n    not matched\n    not cancelled\n"
@@ -106,7 +106,7 @@ mod tests {
 
         let command_effects =
             CommandEffects::new(order_outcome, vec![order_outcome2, order_outcome3]);
-        println!("{}", command_effects);
+        println!("{command_effects}");
         assert_eq!(
             command_effects.to_string(),
             "effects:\n  target order(1):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(2):\n    matched: taker_side=BUY executed_quantity=0 executed_value=0 trades=0\n    not cancelled\n  triggered order(3):\n    not matched\n    cancelled: post-only order would remove liquidity\n"

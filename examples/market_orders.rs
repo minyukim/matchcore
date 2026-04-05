@@ -24,7 +24,7 @@ fn main() {
             order: NewOrder::Market(MarketOrder::new(Quantity(200), Side::Buy, false)),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a market ask @ 200 (no liquidity -> cancelled) ===");
     let outcome = book.execute(&Command {
@@ -36,7 +36,7 @@ fn main() {
             order: NewOrder::Market(MarketOrder::new(Quantity(200), Side::Sell, false)),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit bids stepping down from 100 ===");
     for i in 0..10 {
@@ -55,7 +55,7 @@ fn main() {
                 )),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 
     println!("=== Submit asks stepping up from 110 ===");
@@ -75,7 +75,7 @@ fn main() {
                 )),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 
     println!("=== Submit market bids  ===");
@@ -89,7 +89,7 @@ fn main() {
                 order: NewOrder::Market(MarketOrder::new(Quantity(210), Side::Buy, false)),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 
     println!("=== Submit market asks ===");
@@ -103,6 +103,6 @@ fn main() {
                 order: NewOrder::Market(MarketOrder::new(Quantity(210), Side::Sell, false)),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 }

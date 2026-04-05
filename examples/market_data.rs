@@ -15,7 +15,7 @@ fn main() {
 
     let l1 = Level1::from(&book);
     println!("=== Level 1 ===\n");
-    println!("{}", l1);
+    println!("{l1}");
 
     println!("Spread: {}", l1.spread().unwrap());
     println!("Mid price: {}", l1.mid_price().unwrap());
@@ -25,7 +25,7 @@ fn main() {
 
     let l2: Level2 = Level2::from(&book);
     println!("=== Level 2 ===\n");
-    println!("{}", l2);
+    println!("{l2}");
 
     println!("Spread: {}", l2.spread().unwrap());
     println!("Mid price: {}", l2.mid_price().unwrap());

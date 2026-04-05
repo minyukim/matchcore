@@ -34,7 +34,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     let target_order_id = helpers::target_order_id(&outcome).unwrap();
 
@@ -59,7 +59,7 @@ fn main() {
             ),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit a marketable ask @ 101 (total 100) ===");
     let outcome = book.execute(&Command {
@@ -79,7 +79,7 @@ fn main() {
             )),
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Cancel the remaining bid ===");
     let outcome = book.execute(&Command {
@@ -92,7 +92,7 @@ fn main() {
             order_kind: OrderKind::Limit,
         }),
     });
-    println!("{}", outcome);
+    println!("{outcome}");
 
     println!("=== Submit bids @ 100 (visible 10, hidden 90, replenish 10) ===");
     for _ in 0..10 {
@@ -113,7 +113,7 @@ fn main() {
                 )),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 
     println!("=== Submit asks @ 110 (visible 10, hidden 90, replenish 10) ===");
@@ -135,7 +135,7 @@ fn main() {
                 )),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 
     println!("=== Submit marketable bids @ 110 (total 200) ===");
@@ -157,7 +157,7 @@ fn main() {
                 )),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 
     println!("=== Submit marketable asks @ 100 (total 200) ===");
@@ -179,6 +179,6 @@ fn main() {
                 )),
             }),
         });
-        println!("{}", outcome);
+        println!("{outcome}");
     }
 }

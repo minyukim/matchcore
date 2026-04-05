@@ -792,14 +792,14 @@ mod tests {
     #[test]
     fn display_empty() {
         let l2 = empty_l2();
-        println!("{}", l2);
+        println!("{l2}");
         assert_eq!(l2.to_string(), "");
     }
 
     #[test]
     fn display_populated() {
         let l2 = basic_l2();
-        println!("{}", l2);
+        println!("{l2}");
         assert_eq!(
             l2.to_string(),
             "Ask: 102 x 60\nAsk: 101 x 40\nBid: 100 x 50\nBid: 99 x 30\n"
