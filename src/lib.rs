@@ -255,8 +255,8 @@
 //!
 //! ## Additional Order Features
 //!
-//! - Stop orders
 //! - Last-trade peg reference
+//! - Trailing price-conditional orders
 //!
 //! ## Potential Performance Improvements
 //!
